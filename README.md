@@ -18,6 +18,10 @@ pip install git+https://github.com/SCP-JP/ukwhatn_wikidot.py
 
 # 使い方
 
+```python
+import wikidot
+```
+
 **全ての関数は、キーワード引数のみを受け付けます。**
 
 ### [**wikidot.page.getdata()**](wikidot.page)
@@ -73,7 +77,7 @@ pip install git+https://github.com/SCP-JP/ukwhatn_wikidot.py
 {
     "scp-001-jp": {
         "fullname": "scp-001-jp",
-        "title": "SCP-001-JP,
+        "title": "SCP-001-JP",
         ......
     },
     ......
