@@ -14,7 +14,7 @@ license:
 
 """
 
-from . import base, decorator, variables
+from . import base, decorator
 
 
 @decorator.execute
@@ -25,18 +25,3 @@ async def login(*, user, password) -> bool:
 @decorator.execute
 async def logout() -> bool:
     return await base.user_logout()
-
-
-def status() -> bool:
-    """Return login status
-
-    Usage
-    -----
-    >>> wikidot.user.status()
-
-    Returns
-    -------
-    bool : if you logged-in to wikidot(T/F)
-
-    """
-    return variables.logged_in

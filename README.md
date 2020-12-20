@@ -24,12 +24,39 @@ import wikidot
 
 **全ての関数は、キーワード引数のみを受け付けます。**
 
-### [**wikidot.page.getdata()**](wikidot.page)
+### [**wikidot.user.login()**](wikidot.user.py)
+- Wikidotにログインリクエストを行い、セッションを作成します。
+- セッション作成後、`dashboard/settings/DSAccountModule`にリクエストを行い、セッションが正常に作成されたかを判定します。
+- **このパッケージを使ったコードを共有する際、この関数の引数、特にpasswordはマスクしてください。**
+- **引数:**
+  - **user: str**
+    - WikidotのユーザーIDを指定します。
+  - **password: str**
+    - Wikidotのアカウントパスワードを指定します。
+
+- **返り値**
+  - **bool**
+    - ログインに成功したらTrueが返されます。
+
+---
+
+### [**wikidot.user.logout()**](wikidot.user.py)
+- Wikidotからログアウトし、セッションを削除します。
+- **引数:**
+  - なし
+
+- **返り値**
+  - **bool**
+    - ログインに成功したらTrue、失敗したらFalseを返します。
+    - 主にコードの最後で使用される関数であるため、例外をraiseしません。
+
+---
+
+### [**wikidot.page.getdata()**](wikidot.page.py)
 
 - ListPages モジュールからデータを取得し、辞書にして返します。
 - リストが複数ページに渡る場合、全てのページを自動的に取得します。
 - **引数:**
-
   - **limit: int**
     - by default: `10`
     - 複数ページに渡る際の非同期実行の上限(`asyncio.Semaphore()`)を設定します。10 くらいがベストっぽいです。
@@ -53,8 +80,7 @@ import wikidot
     - 例:
       - `wikidot.page.getdata(url="scp-jp.wikidot.com", category="_default", created_by="ukwhatn")`
 
-- **raise される例外**
-
+- **例外:**
   - **wikidot.exceptions.ArgumentsError(msg, reason)**
     - 主に main_key の値が module_body にない場合に raise されます
   - **wikidot.exceptions.StatusIsNotOKError(msg, wd_status_code)**
@@ -86,7 +112,7 @@ import wikidot
 
 ---
 
-### [**wikidot.page.getid()**](wikidot.page)
+### [**wikidot.page.getid()**](wikidot.page.py)
 
 - 対象のページに noredirect,norender でアクセスし、ヘッダーに含まれる PageID を取得します。
 - **引数:**
@@ -99,6 +125,10 @@ import wikidot
   - **targets: list[str]**
     - 対象ページの fullname をリストにして渡してください。
     - eg: `targets=["scp-001-jp"]`, `targets=["scp-001-jp", "scp-002-jp", "component:theme"]`
+- **例外:**
+  - **wikidot.exceptions.UnexpectedError(msg, reason)**
+    - HTTPリクエスト中に予期していない例外が発生した場合にraiseされます。
+    - 第２引数には"undefined"が入ります。
 - **返り値:**
   - **list**
     - `[(fullname, pageid), .....]`
@@ -106,7 +136,7 @@ import wikidot
 
 ---
 
-### [**wikidot.page.getsource()**](wikidot.page)
+### [**wikidot.page.getsource()**](wikidot.page.py)
 
 - 対象のページのソースを取得します。
 - **引数:**
@@ -119,6 +149,13 @@ import wikidot
   - **targets: list[int]**
     - 対象ページの**PageID**をリストにして渡してください。
     - eg: `targets=[123456]`, `targets=[123456, 123457, 123458]`
+- **例外:**
+  - **wikidot.exceptions.StatusIsNotOKError(msg, status)**
+    - Wikidot からの Response データに含まれる status が"ok"でなかった場合に raise されます。その際の status は e.args[1]で取得できます。
+    - **"no_page"(対象のページが存在しない)や"no_permission"(対象のページソースを閲覧できない)が返ってきた場合はraiseされず、sourceにNoneが入ります。**
+  - **wikidot.exceptions.UnexpectedError(msg, reason)**
+    - HTTPリクエスト中に予期していない例外が発生した場合にraiseされます。
+    - 第２引数には"undefined"が入ります。
 - **返り値:**
   - **list**
     - `[(pageid, source), .....]`
@@ -126,7 +163,7 @@ import wikidot
 
 ---
 
-### [**wikidot.page.gethistory()**](wikidot.page)
+### [**wikidot.page.gethistory()**](wikidot.page.py)
 
 - 対象のページの全てのリビジョンデータを取得します。
 - **引数:**
@@ -142,7 +179,6 @@ import wikidot
 - **返り値:**
   - **list**
     - "flags"は、"new", "source", "title", "rename", "tag", "meta", "file", "undefined"のうち、該当するもののリストです。
-
 ```python
 [
     (
@@ -166,4 +202,223 @@ import wikidot
 ]
 ```
 
-### のこりはあとでかきます
+---
+
+### [**wikidot.page.edit()**](wikidot.page.py) | **SESSION REQUIRED**
+
+- 対象のページを編集、あるいは新規作成します。
+- ページを新規作成したいときはpageid引数をNoneにしてください。pageidがNoneだった場合自動でpageidの取得を試み、対象ページが存在するか否かを判断します。
+- 非同期に実行するとtry_againステータスが返ってきやすいので、あえてしていません。
+- **引数:**
+  - **url: str**
+    - リクエストを行うサイトの URL を指定します。`http://[HERE]/ajax-module-connector.php`にそのまま代入されます。
+    - eg: `"scp-jp.wikidot.com"`, `"www.scpwiki.com"`
+  - **fullname: str**
+    - 対象ページの**fullname**を指定します。
+  - **pageid: Optional[int]**
+    - by default: None
+    - 対象のページの**PageID**を指定します。不明・新規ページである場合はNoneにすると、関数内で自動取得します。
+  - **title: str**
+    - by default: ""
+    - 対象のページのページタイトルを指定します。
+  - **content: str**
+    - by default: ""
+    - 対象のページの内容部分をWikidot構文で指定します。
+  - **comment: str**
+    - by default: ""
+    - "編集の概要"部分を指定します。
+  - **forceedit: bool**
+    - by default: False
+    - 対象のページの編集がロックされていた場合に強制解除を試みるかどうかを指定します。
+    - この値がFalse、かつ対象のページが編集中だった場合、`wikidot.exceptions.StatusIsNotOKError`がraiseされます。
+- **返り値:**
+  - なし
+
+----
+
+### [**wikidot.page.rename()**](wikidot.page.py) | **SESSION REQUIRED**
+- ページを一括リネームします。
+- **引数:**
+  - **limit: int**
+    - by default: `10`
+    - 複数ページを取得する際の非同期実行の上限(`asyncio.Semaphore()`)を設定します。10 くらいがベストっぽいです。
+  - **url: str**
+    - リクエストを行うサイトの URL を指定します。`http://[HERE]/ajax-module-connector.php`にそのまま代入されます。
+    - eg: `"scp-jp.wikidot.com"`, `"www.scpwiki.com"`
+  - **targets: list[list[pageid, str]]**
+    - 対象ページの**PageID**とリネーム後の**fullname**のタプルをリストにして渡してください。
+    - eg: `targets=[(123456, page1)]`, `targets=[(123456, page1), (1234567, page11)]`
+- **返り値**
+  - なし
+
+----
+
+### [**wikidot.page.setparent()**](wikidot.page.py) | **SESSION REQUIRED**
+- 親ページを一括設定します。
+- **引数:**
+  - **limit: int**
+    - by default: `10`
+    - 複数ページを取得する際の非同期実行の上限(`asyncio.Semaphore()`)を設定します。10 くらいがベストっぽいです。
+  - **url: str**
+    - リクエストを行うサイトの URL を指定します。`http://[HERE]/ajax-module-connector.php`にそのまま代入されます。
+    - eg: `"scp-jp.wikidot.com"`, `"www.scpwiki.com"`
+  - **targets: list[list[pageid, str]]**
+    - 対象ページの**PageID**と親ページの**fullname**のタプルをリストにして渡してください。
+    - eg: `targets=[(123456, page1)]`, `targets=[(123456, page1), (1234567, page11)]`
+- **返り値**
+  - なし
+
+----
+
+### [**wikidot.page.setparent()**](wikidot.forum.py)
+- フォーラムのカテゴリ名とカテゴリIDを全て取得します。
+- **引数:**
+  - **url: str**
+    - リクエストを行うサイトのURLを指定します。`http://[HERE]/ajax-module-connector.php`にそのまま代入されます。
+    - eg: `"scp-jp.wikidot.com"`, `"www.scpwiki.com"`
+  - **includehidden: bool**
+    - by default: True
+    - 隠しカテゴリを含むかを指定します。
+- **返り値**
+  - **list**
+    - カテゴリIDとカテゴリ名のタプルのリストです。
+    - `[(cat_id, cat_name), .....]`
+
+----
+
+### [**wikidot.page.getthreadspercategory()**](wikidot.forum.py)
+- **引数:**
+  - **limit: int**
+    - by default: `10`
+    - 複数ページを取得する際の非同期実行の上限(`asyncio.Semaphore()`)を設定します。10 くらいがベストっぽいです。
+  - **url: str**
+    - リクエストを行うサイトの URL を指定します。`http://[HERE]/ajax-module-connector.php`にそのまま代入されます。
+    - eg: `"scp-jp.wikidot.com"`, `"www.scpwiki.com"`
+  - **categoryid: int**
+    - 対象のカテゴリIDを指定します。
+- **返り値**
+  - **dict**
+    - ユーザーの扱い
+      - 削除済: name:"account deleted", unix:"account_deleted", id: ユーザーID
+      - ゲスト: name,unix:表示に準ずる, id:None
+      - Wikidot作成スレッド: name:"Wikidot", unix:"wikidot", id:None
+```
+{
+  threadid: {
+    "title": スレッド名(str),
+    "author": {
+      "author_id": スレッド作成ユーザーのID(int),
+      "author_unix": スレッド作成ユーザーのunix名(str),
+      "author_name": スレッド作成ユーザー名(str)
+    },
+    "posts": number-of-posts(int),
+    "start": datetime-thread-started(datetime)
+  },
+  ....
+}
+```
+
+----
+
+### [**wikidot.page.getthreads()**](wikidot.forum.py)
+- サイト上の全てのスレッドを取得します。
+- **引数:**
+  - **limit: int**
+    - by default: `10`
+    - 複数ページを取得する際の非同期実行の上限(`asyncio.Semaphore()`)を設定します。10 くらいがベストっぽいです。
+  - **url: str**
+    - リクエストを行うサイトの URL を指定します。`http://[HERE]/ajax-module-connector.php`にそのまま代入されます。
+    - eg: `"scp-jp.wikidot.com"`, `"www.scpwiki.com"`
+  - **includehidden: bool**
+    - by default: True
+    - 隠しカテゴリを含むかを指定します。
+- **返り値**
+  - **list**
+```
+[
+  {
+    "category_id": カテゴリID(int),
+    "category_title": カテゴリ名(str),
+    "category_threads": getthreadspercategory()の返り値
+  },
+  ......
+]
+```
+
+----
+
+### [**wikidot.page.getposts()**](wikidot.forum.py)
+- スレッド内の全てのポストを取得します。
+
+----
+
+### [**wikidot.page.getparentpage()**](wikidot.forum.py)
+- perPageDiscussionの親ページのfullnameとpageidを取得します。
+
+----
+
+### [**wikidot.page.getpagediscussion()**](wikidot.forum.py)
+- ページのperpagediscussionのスレッドIDを取得します。
+
+----
+
+### [**wikidot.page.post()**](wikidot.forum.py)
+- ディスカッションにポストを行います
+
+----
+
+### [**wikidot.page.edit()**](wikidot.forum.py)
+- ディスカッションポストを編集します。
+
+----
+
+### [**wikidot.page.rss()**](wikidot.forum.py)
+- RSSフィードを取得・パースします
+
+----
+
+### [**wikidot.tag.set_with_pageid()**](wikidot.tag.py)
+### [**wikidot.tag.set_with_fullname()**](wikidot.tag.py)
+- 対象ページのタグを設定します。
+
+----
+
+### [**wikidot.tag.replace()**](wikidot.tag.py)
+- タグを置き換えます。
+
+----
+
+### [**wikidot.tag.reset()**](wikidot.tag.py)
+- 対象ページ群のタグを一括設定します。
+
+----
+
+### [**wikidot.vote.getvoter()**](wikidot.vote.py)
+- 対象ページへのVoterとUV/DVを取得します。
+
+----
+
+### [**wikidot.vote.postvote()**](wikidot.vote.py)
+- 対象ページにVoteを行います。
+
+----
+
+### [**wikidot.vote.cancelvote()**](wikidot.vote.py)
+- 対象ページへのVoteをキャンセルします。
+
+----
+
+### [**wikidot.site.getmembers()**](wikidot.site.py)
+- 対象サイトのメンバーを全件取得します。
+
+----
+
+### [**wikidot.site.gethistory()**](wikidot.site.py)
+- 対象サイトの全リビジョン、あるいはlimitpage引数の値*1000個のリビジョンを取得します。
+
+----
+
+### [**wikidot.file.getlist()**](wikidot.file.py)
+- 対象ページにアップロードされているファイルを全て取得します。
+
+----

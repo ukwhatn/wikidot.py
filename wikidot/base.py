@@ -44,6 +44,10 @@ def author_parser(printuserelement):
         author_name = printuserelement.get_text()
         author_unix = author_name.replace("-", "_").replace(" ", "_").lower()
         author_id = None
+    elif printuserelement.get_text() == "Wikidot":
+        author_name = "Wikidot"
+        author_unix = "wikidot"
+        author_id = None
     else:
         _author = printuserelement.find_all("a")[1]
         author_name = _author.get_text()
@@ -147,10 +151,6 @@ async def user_login(*, user: str, password: str) -> bool:
         if e[1] == "no_permission":
             logger.error(
                 "Login | Session is not available."
-            )
-            logger.debug(
-                "Login | Traceback",
-                exc_info=True
             )
             raise exceptions.SessionCreateError(
                 "Error occured while checking session", "check_error"
@@ -574,9 +574,6 @@ async def page_getdata_mass(*, limit: int = 10, url: str, main_key: str = "fulln
 
     total, _r = await _getfirstpage(url=url)
 
-    logger.debug("totalpages: " + str(total))
-    logger.debug("result: " + str(_r))
-
     if _r is not None:
         _rs = await _getlastpage(url=url, limit=limit, total=total)
 
@@ -622,19 +619,22 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
     """
     async def _innerfunc(*, url, fullname):
         async with httpx.AsyncClient() as client:
-            logger.debug(
-                f"Get pageid: http://{url}/{fullname}"
-            )
+
             _source = await client.get(
                 f"http://{url}/{fullname}/noredirect/true/norender/true",
                 timeout=10)
 
             # 404
             if _source.status_code == 404:
-                logger.info(
-                    f"PageID: http://{url}/{fullname} - Not Found"
+                logger.warning(
+                    f"GetID | http://{url}/{fullname} - Not Found"
                 )
                 return None
+            elif _source.status_code != "200":
+                logger.error(
+                    f"GetID | http://{url}/{fullname} - Status code is {_source.status_code}"
+                )
+                raise
 
             _contents = bs4(_source.text, 'lxml')
             _contents = _contents.find("head")
@@ -648,7 +648,7 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
                     pageid = re.search(r"\d+", pageid).group()
 
                     logger.info(
-                        f"PageID: http://{url}/{fullname} - {pageid}"
+                        f"GetID | http://{url}/{fullname} - {pageid}"
                     )
 
                     return int(pageid)
@@ -826,6 +826,225 @@ async def page_getsource_mass(*, limit: int = 10, url: str, targets: Union[list,
 
 
 # --------------------
+# Page History
+# --------------------
+
+
+async def page_gethistory(*, url: str, pageid: int):
+    async def _get(*, url: str, pageid: int, page: int):
+        _r = await connector.connect(
+            url=url,
+            body={
+                "moduleName": "history/PageRevisionListModule",
+                "perpage": "10000",
+                "page": page,
+                "options": "{'all':true}",
+                "page_id": pageid
+            }
+        )
+
+        _r_body = bs4(_r["body"], "lxml")
+
+        # pager
+        pager = _r_body.find("div", class_="pager")
+        if pager is not None:
+            total = int(pager.find_all("span", class_="target")[-2].string)
+        else:
+            total = 1
+
+        # parse
+        table = _r_body.find("table", class_="page-history")
+
+        r = []
+
+        for tr in table.find_all("tr"):
+            if "id" in tr.attrs and "revision-row-" in str(tr["id"]):
+                rev_id = int(str(tr["id"]).replace("revision-row-", ""))
+                td = tr.find_all("td")
+                rev_no = int(str(td[0].get_text()).strip().removesuffix("."))
+                flags = []
+                _flags = td[2].find_all("span")
+                for _flag in _flags:
+                    _flag = _flag.get_text()
+                    if _flag == "N":
+                        _flag = "new"
+                    elif _flag == "S":
+                        _flag = "source"
+                    elif _flag == "T":
+                        _flag = "title"
+                    elif _flag == "R":
+                        _flag = "rename"
+                    elif _flag == "A":
+                        _flag = "tag"
+                    elif _flag == "M":
+                        _flag = "meta"
+                    elif _flag == "F":
+                        _flag = "file"
+                    else:
+                        _flag = "undefined"
+                    flags.append(_flag)
+                author_name, author_unix, author_id = author_parser(td[4].find("span", class_="printuser", recursive=False))
+                time = odate_parser(td[5].find("span", class_="odate"))
+                comment = td[6].get_text()
+                if comment == "":
+                    comment = None
+
+                r.append({
+                    "rev_id": rev_id,
+                    "rev_no": rev_no,
+                    "author": {
+                        "name": author_name,
+                        "unix": author_unix,
+                        "id": author_id
+                    },
+                    "time": time,
+                    "flags": flags,
+                    "comment": comment
+                })
+
+        return total, r
+
+    total, r = await _get(url=url, pageid=pageid, page=1)
+
+    if total != 1:
+        page = 2
+        while page <= total:
+            total, _r = await _get(url=url, pageid=pageid, page=page)
+            r.extend(_r)
+            page += 1
+
+    return r
+
+
+async def page_gethistory_mass(*, limit: int = 10, url: str, targets: list[int]):
+    sema = asyncio.Semaphore(limit)
+
+    async def _innerfunc(**kwargs):
+        async with sema:
+            history = await page_gethistory(**kwargs)
+            return (kwargs["pageid"], history)
+
+    stmt = []
+    for t in targets:
+        stmt.append(_innerfunc(**{"url": url, "pageid": t}))
+
+    _r = await asyncio.gather(*stmt)
+    r = []
+    for _r_id, _r_list in _r:
+        r.append((_r_id, tuple(_r_list)))
+    return r
+
+
+# --------------------
+# PageEdit
+# --------------------
+
+
+@decorator.require_session
+async def page_edit(*, url: str, fullname: str, pageid: Optional[int] = None, title: str = "", content: str = "", comment: str = "", forceedit: bool = False) -> bool:
+    """|AMC| |Coroutine| |SessionRequired| Edit specific page
+
+    Arguments:
+        url: str
+            target site url
+            eg: "scp-jp.wikidot.com", "scpwiki.com"
+        fullname: str
+            target page fullname
+        pageid: Optional[int], by default None
+            target page's id
+            if None, get automatically.
+            if you want to create new page, plase set this argument None.
+        title: str, by default ""
+            page title
+        content: str, by default ""
+            page content
+        comment: str, by default ""
+            edit desctiption
+        forceedit: bool, by default False
+            Whether to automatically unlock when the page is locked
+
+    Raises:
+        wikidot.exceptions.StatusIsNotOKError(msg, status_code)
+            The status returned by Wikidot was not OK
+        wikidot.exceptions.RequestFailedError(msg, html_response_code)
+            Function tried the request several times but it failed.
+
+    Returns:
+        bool
+            return True when action successful.
+
+    """
+    _f_newpage = False
+
+    # fullnameしか与えられなかったら自動でpageidを取りに行く
+    if fullname is not None and pageid is None:
+        pageid = await page_getid(url=url, fullname=fullname)
+        # 該当ページがなかったら新規作成フラグを立てる
+        if pageid is None:
+            _f_newpage = True
+            logger.info(
+                f"New Page: http://{url}/{fullname}"
+            )
+
+    # Lockを強制解除するか否か
+    if forceedit is True:
+        _body = {
+            "mode": "page",
+            "moduleName": "edit/PageEditModule",
+            "page_id": pageid,
+            "force_lock": "yes"
+        }
+    else:
+        _body = {
+            "mode": "page",
+            "moduleName": "edit/PageEditModule",
+            "page_id": pageid
+        }
+
+    # Editorを起動 lockidとrevidを取る
+    if _f_newpage is False:
+        logger.info(
+            f"OpenEditor | url: {url}, page: {fullname}({pageid})"
+        )
+        _editor = await connector.connect(
+            url=url,
+            body=_body
+        )
+        if "locked" in _editor or "other_locks" in _editor:
+            raise exceptions.StatusIsNotOKError("Target page is locked.", "page_locked")
+
+    else:
+        pageid = ""
+        _editor = {
+            "lock_id": "",
+            "lock_secret": "",
+            "page_revision_id": ""
+        }
+
+    # Save
+    logger.info(
+        f"Edit | page: {fullname}({pageid}), title: {title}"
+    )
+    await connector.connect(
+        url=url,
+        body={
+            "action": "WikiPageAction",
+            "event": "savePage",
+            "moduleName": "Empty",
+            "mode": "page",
+            "lock_id": _editor["lock_id"],
+            "lock_secret": _editor["lock_secret"],
+            "page_revision_id": _editor["page_revision_id"],
+            "wiki_page": fullname,
+            "page_id": pageid,
+            "title": title,
+            "source": content,
+            "comments": comment
+        }
+    )
+
+
+# --------------------
 # ParentPage
 # --------------------
 
@@ -911,118 +1130,59 @@ async def page_setparent_mass(*, limit: int = 10, url: str, targets: Union[list,
     for t, parentpage in targets:
         stmt.append(_innerfunc(url=url, parentpage=parentpage, pageid=t))
 
-    return await asyncio.gather(*stmt)
+    await asyncio.gather(*stmt)
 
 
 # --------------------
-# PageEdit
+# RenamePage
 # --------------------
 
 
 @decorator.require_session
-async def page_edit(*, url: str, fullname: str, pageid: Optional[int] = None, title: str = "", content: str = "", comment: str = "", forceedit: bool = False) -> bool:
-    """|AMC| |Coroutine| |SessionRequired| Edit specific page
-
-    Arguments:
-        url: str
-            target site url
-            eg: "scp-jp.wikidot.com", "scpwiki.com"
-        fullname: str
-            target page fullname
-        pageid: Optional[int], by default None
-            target page's id
-            if None, get automatically.
-            if you want to create new page, plase set this argument None.
-        title: str, by default ""
-            page title
-        content: str, by default ""
-            page content
-        comment: str, by default ""
-            edit desctiption
-        forceedit: bool, by default False
-            Whether to automatically unlock when the page is locked
-
-    Raises:
-        wikidot.exceptions.StatusIsNotOKError(msg, status_code)
-            The status returned by Wikidot was not OK
-        wikidot.exceptions.RequestFailedError(msg, html_response_code)
-            Function tried the request several times but it failed.
-
-    Returns:
-        bool
-            return True when action successful.
-
-    """
-    _f_newpage = False
-
-    # fullnameしか与えられなかったら自動でpageidを取りに行く
-    if fullname is not None and pageid is None:
-        pageid = await page_getid(url=url, fullname=fullname)
-        # 該当ページがなかったら新規作成フラグを立てる
-        if pageid is None:
-            _f_newpage = True
-            logger.info(
-                f"New Page: http://{url}/{fullname}"
-            )
-
-    # Lockを強制解除するか否か
-    if forceedit is True:
-        _body = {
-            "mode": "page",
-            "moduleName": "edit/PageEditModule",
-            "page_id": pageid,
-            "force_lock": "yes"
-        }
-    else:
-        _body = {
-            "mode": "page",
-            "moduleName": "edit/PageEditModule",
-            "page_id": pageid
-        }
-
-    # Editorを起動 lockidとrevidを取る
-    if _f_newpage is False:
-        logger.info(
-            f"OpenEditor | url: {url}, page: {fullname}({pageid})"
-        )
-        _editor = await connector.connect(
+async def page_rename(*, url: str, pageid: int, fullname: str):
+    try:
+        await connector.connect(
             url=url,
-            body=_body
+            body={
+                "action": "WikiPageAction",
+                "event": "renamePage",
+                "moduleName": "Empty",
+                "page_id": pageid,
+                "new_name": fullname
+            }
         )
-        if "locked" in _editor or "other_locks" in _editor:
-            raise exceptions.PageLockConflictError("Target page is locked.")
+        return True
+    except exceptions.StatusIsNotOKError as e:
+        if e.args[1] == "page_exists":
+            logger.error(
+                f"Rename | The renamed page already exists. | {pageid}, {fullname}"
+            )
+        raise
 
-    else:
-        pageid = ""
-        _editor = {
-            "lock_id": "",
-            "lock_secret": "",
-            "page_revision_id": ""
-        }
 
-    # Save
-    logger.info(
-        f"Edit | page: {fullname}({pageid}), title: {title}"
-    )
-    await connector.connect(
-        url=url,
-        body={
-            "action": "WikiPageAction",
-            "event": "savePage",
-            "moduleName": "Empty",
-            "mode": "page",
-            "lock_id": _editor["lock_id"],
-            "lock_secret": _editor["lock_secret"],
-            "page_revision_id": _editor["page_revision_id"],
-            "wiki_page": fullname,
-            "page_id": pageid,
-            "title": title,
-            "source": content,
-            "comments": comment
-        }
-    )
+@decorator.require_session
+async def page_rename_mass(*, limit: int = 10, url: str, targets: list):
+    sema = asyncio.Semaphore(limit)
 
-    return True
+    async def _innerfunc(**kwargs):
+        async with sema:
+            try:
+                status = await page_rename(**kwargs)
+            except Exception:
+                status = False
+            return (kwargs["pageid"], kwargs["fullname"], status)
+
+    stmt = []
+    for t in targets:
+        stmt.append(
+            _innerfunc(**{
+                "url": url,
+                "pageid": t[0],
+                "fullname": t[1]
+            })
+        )
+
+    await asyncio.gather(*stmt)
 
 
 # --------------------
@@ -1282,30 +1442,16 @@ async def forum_getthreads_percategory(*, limit: int = 10, url: str, categoryid:
             startedelem = thread.find("td", class_="started")
             startdate = odate_parser(startedelem.find("span", class_="odate"))
             author = startedelem.find("span", class_="printuser")
-            if author.find("a"):
-                author_data = author.find("a")
-                try:
-                    author_unix = author_data["href"].replace(
-                        "http://www.wikidot.com/user:info/", "")
-                    author_id = author_data["onclick"].replace(
-                        "WIKIDOT.page.listeners.userInfo(", "")
-                    author_id = author_id.replace("); return false;", "")
-                    author_id = int(author_id)
-                except Exception:
-                    author_unix = "guest"
-                    author_id = None
-            elif author.string == "Wikidot":
-                author_unix = "wikidot"
-                author_id = None
-            else:
-                author_unix = "unknown"
-                author_id = None
+            author_name, author_unix, author_id = author_parser(author)
             posts = int(thread.find("td", class_="posts").string)
             result.update({
                 threadid: {
                     "title": str(threadtitle),
-                    "author_id": int(author_id) if author_id is not None else author_id,
-                    "author_unix": str(author_unix),
+                    "author": {
+                        "author_id": int(author_id) if author_id is not None else author_id,
+                        "author_unix": str(author_unix),
+                        "author_name": str(author_name)
+                    },
                     "posts": int(posts),
                     "start": startdate
                 }
@@ -1526,8 +1672,6 @@ async def forum_post(*, url: str, threadid: int, parentid: Optional[int] = None,
         }
     )
 
-    return True
-
 
 @decorator.require_session
 async def forum_edit(*, url: str, threadid: int, postid: int, title: str = "", content: str):
@@ -1628,7 +1772,7 @@ async def rss_get(*, url: str, code: str):
 # --------------------
 
 
-async def user_getmembers(*, url: str, page: int):
+async def site_getmembers(*, url: str, page: int):
 
     _r = await connector.connect(
         url=url,
@@ -1665,15 +1809,15 @@ async def user_getmembers(*, url: str, page: int):
     return total, r
 
 
-async def user_getmembers_mass(*, limit: int = 10, url: str):
-    total, r = await user_getmembers(url=url, page=1)
+async def site_getmembers_mass(*, limit: int = 10, url: str):
+    total, r = await site_getmembers(url=url, page=1)
 
     async def _getallpage():
         sema = asyncio.Semaphore(limit)
 
         async def __innerfunc(page):
             async with sema:
-                _r = await user_getmembers(url=url, page=page)
+                _r = await site_getmembers(url=url, page=page)
                 return _r[1]
 
         stmt = []
@@ -1787,116 +1931,6 @@ async def vote_cancelvote(*, url: str, pageid: int):
 
 
 # --------------------
-# Page History
-# --------------------
-
-
-async def page_gethistory(*, url: str, pageid: int):
-    async def _get(*, url: str, pageid: int, page: int):
-        _r = await connector.connect(
-            url=url,
-            body={
-                "moduleName": "history/PageRevisionListModule",
-                "perpage": "10000",
-                "page": page,
-                "options": "{'all':true}",
-                "page_id": pageid
-            }
-        )
-
-        _r_body = bs4(_r["body"], "lxml")
-
-        # pager
-        pager = _r_body.find("div", class_="pager")
-        if pager is not None:
-            total = int(pager.find_all("span", class_="target")[-2].string)
-        else:
-            total = 1
-
-        # parse
-        table = _r_body.find("table", class_="page-history")
-
-        r = []
-
-        for tr in table.find_all("tr"):
-            if "id" in tr.attrs and "revision-row-" in str(tr["id"]):
-                rev_id = int(str(tr["id"]).replace("revision-row-", ""))
-                td = tr.find_all("td")
-                rev_no = int(str(td[0].get_text()).strip().removesuffix("."))
-                flags = []
-                _flags = td[2].find_all("span")
-                for _flag in _flags:
-                    _flag = _flag.get_text()
-                    if _flag == "N":
-                        _flag = "new"
-                    elif _flag == "S":
-                        _flag = "source"
-                    elif _flag == "T":
-                        _flag = "title"
-                    elif _flag == "R":
-                        _flag = "rename"
-                    elif _flag == "A":
-                        _flag = "tag"
-                    elif _flag == "M":
-                        _flag = "meta"
-                    elif _flag == "F":
-                        _flag = "file"
-                    else:
-                        _flag = "undefined"
-                    flags.append(_flag)
-                author_name, author_unix, author_id = author_parser(td[4].find("span", class_="printuser", recursive=False))
-                time = odate_parser(td[5].find("span", class_="odate"))
-                comment = td[6].get_text()
-                if comment == "":
-                    comment = None
-
-                r.append({
-                    "rev_id": rev_id,
-                    "rev_no": rev_no,
-                    "author": {
-                        "name": author_name,
-                        "unix": author_unix,
-                        "id": author_id
-                    },
-                    "time": time,
-                    "flags": flags,
-                    "comment": comment
-                })
-
-        return total, r
-
-    total, r = await _get(url=url, pageid=pageid, page=1)
-
-    if total != 1:
-        page = 2
-        while page <= total:
-            total, _r = await _get(url=url, pageid=pageid, page=page)
-            r.extend(_r)
-            page += 1
-
-    return r
-
-
-async def page_gethistory_mass(*, limit: int = 10, url: str, targets: list[int]):
-    sema = asyncio.Semaphore(limit)
-
-    async def _innerfunc(**kwargs):
-        async with sema:
-            history = await page_gethistory(**kwargs)
-            return (kwargs["pageid"], history)
-
-    stmt = []
-    for t in targets:
-        stmt.append(_innerfunc(**{"url": url, "pageid": t}))
-
-    _r = await asyncio.gather(*stmt)
-    r = []
-    for _r_id, _r_list in _r:
-        r.append((_r_id, tuple(_r_list)))
-    return r
-
-
-# --------------------
 # File
 # --------------------
 
@@ -1911,31 +1945,35 @@ async def file_getlist(*, url: str, pageid: int):
         }
     )
 
-    r = []
-
     _r = bs4(_r["body"], "lxml")
 
-    _files = _r.find("table", class_="page-files").find("tbody").find_all("tr")
+    _files = _r.find("table", class_="page-files")
 
-    for _file in _files:
-        if "id" in _file.attrs and "file-row" in str(_file["id"]):
-            fileid = int(str(_file["id"]).replace("file-row-", ""))
-            _td = _file.find_all("td")
-            _filelink = _td[0].find("a")
-            filename = _filelink.get_text()
-            link = f"http://{url}{_filelink['href']}"
-            mime = _td[1].find("span")["title"]
-            size = _td[2].get_text().strip()
-            if "Bytes" in size:
-                size = float(size.replace("Bytes", "").strip())
-            elif "kB" in size:
-                size = float(size.replace("kB", "").strip()) * 1000
-            elif "MB" in size:
-                size = float(size.replace("MB", "").strip()) * 1000000
+    if _files is not None:
+        r = []
+        _files = _files.find("tbody").find_all("tr")
+        for _file in _files:
+            if "id" in _file.attrs and "file-row" in str(_file["id"]):
+                fileid = int(str(_file["id"]).replace("file-row-", ""))
+                _td = _file.find_all("td")
+                _filelink = _td[0].find("a")
+                filename = _filelink.get_text()
+                link = f"http://{url}{_filelink['href']}"
+                mime = _td[1].find("span")["title"]
+                size = _td[2].get_text().strip()
+                if "Bytes" in size:
+                    size = float(size.replace("Bytes", "").strip())
+                elif "kB" in size:
+                    size = float(size.replace("kB", "").strip()) * 1000
+                elif "MB" in size:
+                    size = float(size.replace("MB", "").strip()) * 1000000
 
-            size = int(size)
+                size = int(size)
 
-            r.append((fileid, filename, link, mime, size))
+                r.append((fileid, filename, link, mime, size))
+
+    else:
+        r = None
 
     return pageid, r
 
@@ -1968,61 +2006,11 @@ async def file_getlist_mass(*, limit: int = 10, url: str, targets: list[int]):
 
 
 # --------------------
-# RenamePage
-# --------------------
-
-
-@decorator.require_session
-async def page_rename(*, url: str, pageid: int, fullname: str):
-    try:
-        await connector.connect(
-            url=url,
-            body={
-                "action": "WikiPageAction",
-                "event": "renamePage",
-                "moduleName": "Empty",
-                "page_id": pageid,
-                "new_name": fullname
-            }
-        )
-        return True
-    except exceptions.StatusIsNotOKError as e:
-        if e.args[1] == "page_exists":
-            logger.error("Rename | The renamed page already exists.")
-        raise
-
-
-@decorator.require_session
-async def page_rename_mass(*, limit: int = 10, url: str, targets: list):
-    sema = asyncio.Semaphore(limit)
-
-    async def _innerfunc(**kwargs):
-        async with sema:
-            try:
-                status = await page_rename(**kwargs)
-            except Exception:
-                status = False
-            return (kwargs["pageid"], kwargs["fullname"], status)
-
-    stmt = []
-    for t in targets:
-        stmt.append(
-            _innerfunc(**{
-                "url": url,
-                "pageid": t[0],
-                "fullname": t[1]
-            })
-        )
-
-    return await asyncio.gather(*stmt)
-
-
-# --------------------
 # SiteHistory
 # --------------------
 
 
-async def site_gethistory(*, url: str, limit: Optional[int] = None):
+async def site_gethistory(*, url: str, limitpage: Optional[int] = None):
     async def _get(*, url: str, page: int):
         _r = await connector.connect(
             url=url,
@@ -2090,12 +2078,12 @@ async def site_gethistory(*, url: str, limit: Optional[int] = None):
 
         return r
 
-    if limit is None:
+    if limitpage is None:
         pages = await page_getdata_mass(url=url, module_body=["fullname", "revisions"])
         cnt = 0
         for page in pages.values():
             cnt += page["revisions"]
-        limit = math.ceil(cnt / 1000)
+        limitpage = math.ceil(cnt / 1000)
 
     sema = asyncio.Semaphore(10)
 
@@ -2104,7 +2092,7 @@ async def site_gethistory(*, url: str, limit: Optional[int] = None):
             return await _get(url=url, page=page)
 
     stmt = []
-    for i in range(1, limit + 1):
+    for i in range(1, limitpage + 1):
         stmt.append(
             _innerfunc(i)
         )

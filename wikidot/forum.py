@@ -44,11 +44,6 @@ async def getparentpage(*, url: str, threadid: int, forumcategoryname: str = "fo
 
 
 @decorator.execute
-async def getparentpage_onlyfullname(*, url: str, threadid: int, forumcategoryname: str = "forum"):
-    return await base.forum_getparentpagefullname(url=url, threadid=threadid, forumcategoryname=forumcategoryname)
-
-
-@decorator.execute
 async def getpagediscussion(*, url: str, pageid: int):
     return await base.forum_getpagediscussion(url=url, pageid=pageid)
 
@@ -61,3 +56,8 @@ async def post(*, url: str, threadid: int, parentid: Optional[int] = None, title
 @decorator.execute
 async def edit(*, url: str, threadid: int, postid: int, title: str = "", content: str):
     return await base.forum_edit(url=url, threadid=threadid, postid=postid, title=title, content=content)
+
+
+@decorator.execute
+async def rss(*, url: str, code: str):
+    return await base.rss_get(url=url, code=code)

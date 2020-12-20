@@ -82,6 +82,5 @@ async def rename(*, limit: int = 10, url: str, targets: list):
 
 
 @decorator.execute
-async def setparent(*, url: str, targets: Union[list[int], tuple[int]], parentpage: str):
-    return await base.page_setparent_mass(url=url, targets=targets, parentpage=parentpage)
-
+async def setparent(*, limit: int = 10, url: str, targets: Union[list, tuple]):
+    return await base.page_setparent_mass(limit=limit, url=url, targets=targets)
