@@ -24,4 +24,4 @@ license:
     MIT License
 """
 
-from . import base, connector, decorator, exceptions, forum, page, tag, user, variables  # noqa: F401
+from . import base, connector, decorator, exceptions, file, forum, logger, page, site, tag, user, variables, vote  # noqa: F401
