@@ -630,7 +630,7 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
                     f"GetID | http://{url}/{fullname} - Not Found"
                 )
                 return None
-            elif _source.status_code != "200":
+            elif _source.status_code != 200:
                 logger.error(
                     f"GetID | http://{url}/{fullname} - Status code is {_source.status_code}"
                 )
