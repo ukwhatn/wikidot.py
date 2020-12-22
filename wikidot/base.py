@@ -40,6 +40,10 @@ def author_parser(printuserelement):
         author_name = "account deleted"
         author_unix = "account_deleted"
         author_id = int(printuserelement["data-id"])
+    elif "class" in printuserelement.attrs and "anonymous" in printuserelement["class"]:
+        author_name = "Anonymous"
+        author_unix = printuserelement.find("span", class_="ip").get_text().replace("(", "").replace(")", "").strip()
+        author_id = None
     elif len(printuserelement.find_all("a", recursive=False)) == 1:
         author_name = printuserelement.get_text()
         author_unix = author_name.replace("-", "_").replace(" ", "_").lower()
@@ -400,6 +404,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
     for page in pages:
 
         # FIXME: マシにする
+        # FIXME: 5つ星レーティング対応
 
         # temp-dict to result
         _tmpdic_res = {}
@@ -414,7 +419,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
 
             # for odate values
             if value.find("span") is None:
-                value = value.string
+                value = value.get_text()
                 if value is not None:
                     value = value.strip()
                     if value == "":
@@ -431,6 +436,8 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
 
             # int(not Optional)
             elif name in {"comments", "size", "rating_votes", "rating", "revisions"}:
+                if type(value) is not str:
+                    value = value.get_text().strip()
                 if value is not None:
                     _tmpdic_res[name] = int(value)
                 else:
@@ -452,7 +459,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
 
             # str
             else:
-                _tmpdic_res[name] = str(value)
+                _tmpdic_res[name] = value
 
         # merge
         _dic_res["contents"].update({_tmpdic_res[main_key]: _tmpdic_res})
@@ -619,7 +626,6 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
     """
     async def _innerfunc(*, url, fullname):
         async with httpx.AsyncClient() as client:
-
             _source = await client.get(
                 f"http://{url}/{fullname}/noredirect/true/norender/true",
                 timeout=10)
@@ -654,12 +660,19 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
                     return int(pageid)
 
     # Request
-    try:
-        return await _innerfunc(url=url, fullname=fullname)
-    except Exception:
-        raise exceptions.UnexpectedError(
-            "HTTP Request Error occurred while acquiring pageid.", "undefined"
-        )
+    cnt = 1
+    end = False
+    while end is False:
+        try:
+            return await _innerfunc(url=url, fullname=fullname)
+        except Exception:
+            if cnt < 5:
+                cnt += 1
+                pass
+            else:
+                raise exceptions.UnexpectedError(
+                    "HTTP Request Error occurred while acquiring pageid.", "undefined"
+                )
 
 
 async def page_getid_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> list[tuple[str, Optional[int]]]:
