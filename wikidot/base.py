@@ -417,13 +417,14 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
             name = opt.find("n").string.strip()
             value = opt.find("v")
 
-            # for odate values
+            # odateではない
             if value.find("span") is None:
                 value = value.get_text()
                 if value is not None:
                     value = value.strip()
                     if value == "":
                         value = None
+            # odate
             else:
                 value = value.find("span")
 
@@ -439,7 +440,10 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
                 if type(value) is not str:
                     value = value.get_text().strip()
                 if value is not None:
-                    _tmpdic_res[name] = int(value)
+                    try:
+                        _tmpdic_res[name] = int(value)
+                    except ValueError:
+                        _tmpdic_res[name] = int(float(value))
                 else:
                     _tmpdic_res[name] = 0
 
@@ -1533,21 +1537,7 @@ async def forum_getposts(*, url: str, threadid: int, page: int):
         title = title.strip()
         _info = _head.find("div", class_="info")
         _authorelem = _info.find("span", class_="printuser")
-        if "deleted" in _authorelem["class"]:
-            author_name = "account deleted"
-            author_unix = "account_deleted"
-            author_id = int(_authorelem["data-id"])
-        elif len(_authorelem.find_all("a", recursive=False)) == 1:
-            author_name = _authorelem.get_text()
-            author_unix = author_name.replace("-", "_").replace(" ", "_").lower()
-            author_id = None
-        else:
-            _author = _authorelem.find_all("a")[1]
-            author_name = _author.get_text()
-            author_unix = str(_author["href"]).replace("http://www.wikidot.com/user:info/", "")
-            author_id = int(
-                str(_author["onclick"]).replace("WIKIDOT.page.listeners.userInfo(", "").replace("); return false;", "")
-            )
+        author_name, author_unix, author_id = author_parser(_authorelem)
         postdate = odate_parser(_info.find("span", class_="odate"))
         content = _wrapper.find("div", class_="content").get_text()
 
@@ -1578,7 +1568,7 @@ async def forum_getposts(*, url: str, threadid: int, page: int):
 
     # pager
     pager = _r_body.find("div", class_="pager")
-    if multi is False and pager is not None:
+    if pager is not None:
         total = int(pager.find_all("span", class_="target")[-2].string)
     else:
         total = 1
@@ -1635,9 +1625,6 @@ async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryn
 
         # 404
         if _source.status_code != 200:
-            logger.info(
-                f"PageID: http://{url}/{fullname} - Failed to get."
-            )
             raise exceptions.RequestFailedError(
                 "Unexpected status code returns",
                 _source.status_code
@@ -1875,7 +1862,7 @@ async def vote_getvoter(*, url: str, pageid: int):
         elif res == "-":
             res = -1
         else:
-            res = 0
+            res = int(res)
         r.append((user_name, user_unix, user_id, res))
 
     return r
