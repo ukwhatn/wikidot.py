@@ -21,7 +21,7 @@ import html
 from . import variables, exceptions, logger
 
 
-async def connect(*, url: str, body: dict, unescape: bool = True, attempt_count: int = 5) -> dict:
+async def connect(*, url: str, body: dict, unescape: bool = True, attempt_count: int = 10) -> dict:
     """|Coroutine| AMC Request function
 
     Arguments:
@@ -107,7 +107,7 @@ async def connect(*, url: str, body: dict, unescape: bool = True, attempt_count:
                     f"AMC | Failed, try again after 5sec... | {e.args[1]}"
                 )
                 _cnt += 1
-                await asyncio.sleep(5.0)
+                await asyncio.sleep(60.0)
                 pass
             else:
                 logger.logger.error(

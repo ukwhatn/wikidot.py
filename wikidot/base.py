@@ -463,7 +463,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
 
             # str
             else:
-                _tmpdic_res[name] = value
+                _tmpdic_res[name] = str(value)
 
         # merge
         _dic_res["contents"].update({_tmpdic_res[main_key]: _tmpdic_res})
@@ -1725,7 +1725,7 @@ async def rss_get(*, url: str, code: str):
     for entry in reversed(entries):
         if mode == "t":
             link = entry.id
-            thread_id = int(link.split("t-")[1])
+            thread_id = int(link.split("/t-")[1])
             title = entry.title
             summary = entry.summary
             pubdate = datetime.fromtimestamp(mktime(entry.published_parsed))
@@ -1744,7 +1744,7 @@ async def rss_get(*, url: str, code: str):
             })
         elif mode == "p":
             link = entry.id
-            ids = link.split("t-")[1].split("#post-")[0]
+            ids = link.split("/t-")[1].split("#post-")
             entryid = int(ids[0])
             threadid = int(ids[1])
             title = entry.title
@@ -2036,6 +2036,8 @@ async def site_gethistory(*, url: str, limitpage: Optional[int] = None):
             # table
             titleelem = item.find("td", class_="title").find("a")
             title = titleelem.get_text().strip()
+            if "\t" in title:
+                title = str(title.split("\t")[-1])
             fullname = str(titleelem["href"]).replace("/", "").strip()
             date = odate_parser(item.find("td", class_="mod-date").find("span", class_="odate"))
             rev_no = item.find("td", class_="revision-no").get_text().strip()
