@@ -419,7 +419,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
 
             # odateではない
             if value.find("span") is None:
-                value = value.get_text()
+                value = str(value.get_text())
                 if value is not None:
                     value = value.strip()
                     if value == "":
@@ -427,6 +427,8 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
             # odate
             else:
                 value = value.find("span")
+                if "_at" not in name:
+                    value = str(value.get_text()).strip()
 
             # datetime
             if "_at" in name:
@@ -463,7 +465,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
 
             # str
             else:
-                _tmpdic_res[name] = str(value)
+                _tmpdic_res[name] = str(value) if value is not None else value
 
         # merge
         _dic_res["contents"].update({_tmpdic_res[main_key]: _tmpdic_res})
@@ -632,7 +634,9 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
         async with httpx.AsyncClient() as client:
             _source = await client.get(
                 f"http://{url}/{fullname}/noredirect/true/norender/true",
-                timeout=10)
+                headers=variables.request_header,
+                timeout=10
+            )
 
             # 404
             if _source.status_code == 404:
@@ -652,7 +656,9 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
                 "script", attrs={"type": "text/javascript"})
             for _c in _contents:
                 _c = _c.string
-                if "WIKIREQUEST.info.pageId" in str(_c):
+                if "_public" in str(_c):
+                    return None
+                elif "WIKIREQUEST.info.pageId" in str(_c):
                     pageid = re.search(
                         r"WIKIREQUEST\.info\.pageId = \d+;", _c).group()
                     pageid = re.search(r"\d+", pageid).group()
@@ -849,16 +855,20 @@ async def page_getsource_mass(*, limit: int = 10, url: str, targets: Union[list,
 
 async def page_gethistory(*, url: str, pageid: int):
     async def _get(*, url: str, pageid: int, page: int):
-        _r = await connector.connect(
-            url=url,
-            body={
-                "moduleName": "history/PageRevisionListModule",
-                "perpage": "10000",
-                "page": page,
-                "options": "{'all':true}",
-                "page_id": pageid
-            }
-        )
+        try:
+            _r = await connector.connect(
+                url=url,
+                body={
+                    "moduleName": "history/PageRevisionListModule",
+                    "perpage": "10000",
+                    "page": page,
+                    "options": "{'all':true}",
+                    "page_id": pageid
+                }
+            )
+        except exceptions.StatusIsNotOKError as e:
+            logger.error(f"Status is not OK, {e.args[1]}, {pageid}")
+            return 1, []
 
         _r_body = bs4(_r["body"], "lxml")
 
@@ -1840,13 +1850,17 @@ async def site_getmembers_mass(*, limit: int = 10, url: str):
 
 
 async def vote_getvoter(*, url: str, pageid: int):
-    _r = await connector.connect(
-        url=url,
-        body={
-            "moduleName": "pagerate/WhoRatedPageModule",
-            "pageId": pageid
-        }
-    )
+    try:
+        _r = await connector.connect(
+            url=url,
+            body={
+                "moduleName": "pagerate/WhoRatedPageModule",
+                "pageId": pageid
+            }
+        )
+    except exceptions.StatusIsNotOKError as e:
+        logger.error(f"Status is not OK, {e.args[1]}, {pageid}")
+        return []
 
     _r = bs4(_r["body"], "lxml")
 
