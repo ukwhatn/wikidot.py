@@ -246,10 +246,10 @@ async def user_getid(user: str) -> int:
             raise
 
         _contents = bs4(_source.text, 'lxml')
-        if _contents.select("#page-content .error-block") is not None:
+        if len(_contents.select("#page-content .error-block")) != 0:
             return None
         else:
-            return int(_contents.select(".profile-title img")["src"].replace("http://www.wikidot.com/avatar.php?userid=", "").split("&")[0])
+            return int(_contents.select(".profile-title img")[0]["src"].replace("http://www.wikidot.com/avatar.php?userid=", "").split("&")[0])
 
 
 # --------------------
