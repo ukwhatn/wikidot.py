@@ -235,6 +235,23 @@ async def user_logout() -> bool:
         return False
 
 
+async def user_getid(user: str) -> int:
+    user = user.replace(" ", "-")
+    async with httpx.AsyncClient() as client:
+        _source = await client.get(
+            f"http://www.wikidot.com/user:info/{user}",
+            timeout=10
+        )
+        if _source.status_code != 200:
+            raise
+
+        _contents = bs4(_source.text, 'lxml')
+        if _contents.select("#page-content .error-block") is not None:
+            return None
+        else:
+            return int(_contents.select(".profile-title img")["src"].replace("http://www.wikidot.com/avatar.php?userid=", "").split("&")[0])
+
+
 # --------------------
 # LISTPAGES
 # --------------------

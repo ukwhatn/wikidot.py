@@ -25,3 +25,8 @@ async def login(*, user, password) -> bool:
 @decorator.execute
 async def logout() -> bool:
     return await base.user_logout()
+
+
+@decorator.execute
+async def getid(*, user) -> bool:
+    return await base.user_getid(user=user)
