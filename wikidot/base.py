@@ -235,8 +235,8 @@ async def user_logout() -> bool:
         return False
 
 
-async def user_getid(user: str) -> int:
-    user = user.replace(" ", "-")
+async def user_getid(*, user: str) -> int:
+    user = user.replace(" ", "-").lstrip("_")
     async with httpx.AsyncClient() as client:
         _source = await client.get(
             f"http://www.wikidot.com/user:info/{user}",
