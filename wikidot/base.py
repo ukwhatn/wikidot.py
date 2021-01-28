@@ -152,7 +152,7 @@ async def user_login(*, user: str, password: str) -> bool:
         )
 
     except exceptions.StatusIsNotOKError as e:
-        if e[1] == "no_permission":
+        if e.args[1] == "no_permission":
             logger.error(
                 "Login | Session is not available."
             )
@@ -161,7 +161,7 @@ async def user_login(*, user: str, password: str) -> bool:
             )
         else:
             raise exceptions.UnexpectedError(
-                "Unexpected values is returned by Wikidot while checking session.", e[1]
+                "Unexpected values is returned by Wikidot while checking session.", e.args[1]
             )
 
     except Exception:
