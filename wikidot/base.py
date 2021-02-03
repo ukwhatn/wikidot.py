@@ -476,7 +476,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
             # tuple(tags)
             elif name in {"tags", "_tags"}:
                 if value is not None:
-                    _tmpdic_res[name] = value.split(" ")
+                    _tmpdic_res[name] = value.split()
                 else:
                     _tmpdic_res[name] = []
 
