@@ -1301,6 +1301,8 @@ async def tag_replace(*, limit: int = 10, url: str, before: str, after: str, sel
     """
 
     if selector is None or "tags" not in selector:
+        if selector is None:
+            selector = []
         selector["tags"] = "+" + before
 
     _r = await page_getdata_mass(limit=limit, url=url, module_body=["fullname", "tags", "_tags"], **selector)
