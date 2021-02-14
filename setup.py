@@ -2,7 +2,7 @@ import setuptools
 
 setuptools.setup(
     name='wikidot',
-    version='0.1.55',
+    version='0.1.56',
     description='Wikidot AMC utility',
     author='ukwhatn',
     author_email='ukwhatn@gmail.com',
