@@ -14,11 +14,12 @@ license:
 
 """
 
+from typing import List
 from . import base, decorator
 
 
 @decorator.execute
-async def getvoter(*, limit: int = 10, url: str, targets: list[int]):
+async def getvoter(*, limit: int = 10, url: str, targets: List[int]):
     return await base.vote_getvoter_mass(limit=limit, url=url, targets=targets)
 
 

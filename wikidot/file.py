@@ -14,9 +14,10 @@ license:
 
 """
 
+from typing import List
 from . import base, decorator
 
 
 @decorator.execute
-async def getlist(*, limit: int = 10, url: str, targets: list[int]):
+async def getlist(*, limit: int = 10, url: str, targets: List[int]):
     return await base.file_getlist_mass(limit=limit, url=url, targets=targets)

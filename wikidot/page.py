@@ -15,7 +15,8 @@ license:
 """
 
 from . import base, decorator
-from typing import Union, Optional
+from typing import Union, Optional, List, Tuple
+
 
 # --------------------
 # ListPages
@@ -23,7 +24,7 @@ from typing import Union, Optional
 
 
 @decorator.execute
-async def getdata(*, limit: int = 10, url: str, main_key: str = "fullname", module_body: Optional[list[str]] = None, **kwargs):
+async def getdata(*, limit: int = 10, url: str, main_key: str = "fullname", module_body: Optional[List[str]] = None, **kwargs):
     return await base.page_getdata_mass(limit=limit, url=url, main_key=main_key, module_body=module_body, **kwargs)
 
 
@@ -43,7 +44,7 @@ async def getid(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> li
 
 
 @decorator.execute
-async def getsource(*, url: str, targets: Union[list[int], tuple[int]]) -> list:
+async def getsource(*, url: str, targets: Union[List[int], Tuple[int]]) -> list:
     return await base.page_getsource_mass(url=url, targets=targets)
 
 
@@ -53,7 +54,7 @@ async def getsource(*, url: str, targets: Union[list[int], tuple[int]]) -> list:
 
 
 @decorator.execute
-async def gethistory(*, limit: int = 10, url: str, targets: list[int]):
+async def gethistory(*, limit: int = 10, url: str, targets: List[int]):
     return await base.page_gethistory_mass(limit=limit, url=url, targets=targets)
 
 

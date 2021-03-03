@@ -22,7 +22,7 @@ import httpx
 import feedparser
 
 import math
-from typing import Union, Optional
+from typing import Union, Optional, Tuple, List
 from datetime import datetime
 from time import mktime
 import re
@@ -257,7 +257,7 @@ async def user_getid(*, user: str) -> int:
 # --------------------
 
 
-async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Optional[list[str]] = None, **kwargs) -> Optional[dict]:
+async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Optional[List[str]] = None, **kwargs) -> Optional[dict]:
     """|AMC| |Coroutine| Get pagedata from ListPages module.
 
     Arguments:
@@ -490,7 +490,7 @@ async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Opt
     return _dic_res
 
 
-async def page_getdata_mass(*, limit: int = 10, url: str, main_key: str = "fullname", module_body: Optional[list[str]] = None, **kwargs) -> Optional[dict]:
+async def page_getdata_mass(*, limit: int = 10, url: str, main_key: str = "fullname", module_body: Optional[List[str]] = None, **kwargs) -> Optional[dict]:
     """|AMC| |Coroutine| Get all pages' data with base.page_getdata function
 
     Arguments:
@@ -702,7 +702,7 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
                 )
 
 
-async def page_getid_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> list[tuple[str, Optional[int]]]:
+async def page_getid_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> List[Tuple[str, Optional[int]]]:
     """|Coroutine| Get PageIDs of multiple pages
 
     Arguments:
@@ -822,7 +822,7 @@ async def page_getsource(*, url: str, pageid: int) -> Optional[str]:
             "Unexpected Error occurred.", "undefined")
 
 
-async def page_getsource_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> list[tuple[int, Optional[str]]]:
+async def page_getsource_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> List[Tuple[int, Optional[str]]]:
     """|AMC| |Coroutine| Get source of specific pages
 
     Arguments:
@@ -960,7 +960,7 @@ async def page_gethistory(*, url: str, pageid: int):
     return r
 
 
-async def page_gethistory_mass(*, limit: int = 10, url: str, targets: list[int]):
+async def page_gethistory_mass(*, limit: int = 10, url: str, targets: List[int]):
     sema = asyncio.Semaphore(limit)
 
     async def _innerfunc(**kwargs):
@@ -1135,7 +1135,7 @@ async def page_setparent(*, url: str, pageid: int, parentpage: str) -> bool:
 
 
 @decorator.require_session
-async def page_setparent_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> list[bool]:
+async def page_setparent_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> List[bool]:
     """|AMC| |Coroutine| |SessionRequired| set parent page
 
     Arguments:
@@ -1277,7 +1277,7 @@ async def tag_set(*, url: str, pageid: int, tags: Union[list, tuple]) -> bool:
 
 
 @decorator.require_session
-async def tag_replace(*, limit: int = 10, url: str, before: str, after: str, selector: Optional[dict] = None) -> list[bool]:
+async def tag_replace(*, limit: int = 10, url: str, before: str, after: str, selector: Optional[dict] = None) -> List[bool]:
     """|AMC| |Coroutine| Replaces the tag on the page that matches the selector
 
     Arguments:
@@ -1342,7 +1342,7 @@ async def tag_replace(*, limit: int = 10, url: str, before: str, after: str, sel
 
 
 @decorator.require_session
-async def tag_reset(*, limit: int = 10, url: str, tagset: Union[list, tuple], selector: dict) -> list[bool]:
+async def tag_reset(*, limit: int = 10, url: str, tagset: Union[list, tuple], selector: dict) -> List[bool]:
     """|AMC| |Coroutine| Replaces the tag on the page that matches the selector
 
     Arguments:
@@ -1395,7 +1395,7 @@ async def tag_reset(*, limit: int = 10, url: str, tagset: Union[list, tuple], se
 # --------------------
 
 
-async def forum_getcategories(*, url: str, includehidden: bool = True) -> list[tuple[int, str]]:
+async def forum_getcategories(*, url: str, includehidden: bool = True) -> List[Tuple[int, str]]:
     """|Coroutine| Get forum categories.
 
     Arguments:
@@ -1531,7 +1531,7 @@ async def forum_getthreads_percategory(*, limit: int = 10, url: str, categoryid:
     return _r
 
 
-async def forum_getthreads_mass(*, limit: int = 10, url: str, includehidden: bool = True) -> list[dict]:
+async def forum_getthreads_mass(*, limit: int = 10, url: str, includehidden: bool = True) -> List[dict]:
 
     _cats = await forum_getcategories(url=url, includehidden=includehidden)
 
@@ -1901,7 +1901,7 @@ async def vote_getvoter(*, url: str, pageid: int):
     return r
 
 
-async def vote_getvoter_mass(*, limit: int = 10, url: str, targets: list[int]):
+async def vote_getvoter_mass(*, limit: int = 10, url: str, targets: List[int]):
     sema = asyncio.Semaphore(limit)
 
     async def _innerfunc(**kwargs):
@@ -2011,7 +2011,7 @@ async def file_getlist(*, url: str, pageid: int):
     return pageid, r
 
 
-async def file_getlist_mass(*, limit: int = 10, url: str, targets: list[int]):
+async def file_getlist_mass(*, limit: int = 10, url: str, targets: List[int]):
     sema = asyncio.Semaphore(limit)
 
     async def _innerfunc(**kwargs):
