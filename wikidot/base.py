@@ -2020,7 +2020,7 @@ async def file_getlist_mass(*, limit: int = 10, url: str, targets: List[int]):
                 list = await file_getlist(**kwargs)
                 return kwargs["pageid"], list if list is not None else ()
             except exceptions.StatusIsNotOKError as e:
-                if e[1] == "no_page":
+                if e.args[1] == "no_page":
                     return kwargs["pageid"], None
                 else:
                     raise
