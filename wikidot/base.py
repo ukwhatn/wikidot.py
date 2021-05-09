@@ -652,7 +652,7 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
             _source = await client.get(
                 f"http://{url}/{fullname}/noredirect/true/norender/true",
                 headers=variables.request_header,
-                timeout=10
+                timeout=60
             )
 
             # 404
