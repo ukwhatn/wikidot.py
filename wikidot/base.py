@@ -2016,8 +2016,15 @@ async def file_getlist_mass(*, limit: int = 10, url: str, targets: List[int]):
 
     async def _innerfunc(**kwargs):
         async with sema:
-            history = await file_getlist(**kwargs)
-            return (kwargs["pageid"], history)
+            try:
+                list = await file_getlist(**kwargs)
+                return kwargs["pageid"], list if list is not None else ()
+            except exceptions.StatusIsNotOKError as e:
+                if e[1] == "no_page":
+                    return kwargs["pageid"], None
+                else:
+                    raise
+
 
     stmt = []
     for t in targets:
