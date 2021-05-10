@@ -647,6 +647,8 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
             -> ソースコード内の<script>を総当たりし、WIKIREQUEST.info.pageidがあったらint型でreturn
             -> アクセス時に404が返ってきたらNoneをreturn
     """
+    # TODO: タイムアウト時のエラーハンドリング
+
     async def _innerfunc(*, url, fullname):
         async with httpx.AsyncClient() as client:
             _source = await client.get(
@@ -2017,25 +2019,19 @@ async def file_getlist_mass(*, limit: int = 10, url: str, targets: List[int]):
     async def _innerfunc(**kwargs):
         async with sema:
             try:
-                list = await file_getlist(**kwargs)
-                return kwargs["pageid"], list if list is not None else ()
+                pageid, list = await file_getlist(**kwargs)
+                return pageid, list if list is not None else ()
             except exceptions.StatusIsNotOKError as e:
                 if e.args[1] == "no_page":
                     return kwargs["pageid"], None
                 else:
                     raise
 
-
     stmt = []
     for t in targets:
         stmt.append(_innerfunc(**{"url": url, "pageid": t}))
 
-    r = []
-
-    _r = await asyncio.gather(*stmt)
-
-    for _r_id, _r_list in _r:
-        r.append((_r_id, _r_list))
+    r = await asyncio.gather(*stmt)
 
     return r
 
