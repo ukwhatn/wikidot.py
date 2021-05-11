@@ -739,7 +739,7 @@ async def page_getid_mass(*, limit: int = 10, url: str, targets: Union[list, tup
         async with sema:
             try:
                 pageid = await page_getid(**kwargs)
-            except Exceptions:
+            except Exception:
                 pageid = None
             return (kwargs["fullname"], pageid)
 
