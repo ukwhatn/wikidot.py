@@ -697,6 +697,7 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
         except Exception:
             if cnt < 5:
                 cnt += 1
+                await asyncio.sleep(20.0)
                 pass
             else:
                 raise exceptions.UnexpectedError(
@@ -736,7 +737,10 @@ async def page_getid_mass(*, limit: int = 10, url: str, targets: Union[list, tup
 
     async def _innerfunc(**kwargs):
         async with sema:
-            pageid = await page_getid(**kwargs)
+            try:
+                pageid = await page_getid(**kwargs)
+            except Exceptions:
+                pageid = None
             return (kwargs["fullname"], pageid)
 
     stmt = []
