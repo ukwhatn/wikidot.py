@@ -104,10 +104,10 @@ async def connect(*, url: str, body: dict, unescape: bool = True, attempt_count:
         except Exception as e:
             if _cnt < attempt_count:
                 logger.logger.warning(
-                    f"AMC | Failed, try again after 5sec... | {e.args[1]}"
+                    f"AMC | Failed, try again after 10sec... | {e.args[1]}"
                 )
                 _cnt += 1
-                await asyncio.sleep(60.0)
+                await asyncio.sleep(10.0)
                 pass
             else:
                 logger.logger.error(
