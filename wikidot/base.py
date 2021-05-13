@@ -1602,11 +1602,14 @@ async def forum_getposts(*, url: str, threadid: int, page: int):
     _r_body = bs4(_r["body"], 'lxml')
 
     # pager
-    pager = _r_body.find("div", class_="pager")
-    if pager is not None:
-        total = int(pager.find_all("span", class_="target")[-2].string)
+    if page == 1:
+        pager = _r_body.find("div", class_="pager")
+        if pager is not None:
+            total = int(pager.find_all("span", class_="target")[-2].string)
+        else:
+            total = 1
     else:
-        total = 1
+        total = None
 
     posts = _r_body.find_all("div", class_="post", recursive=True)
 
