@@ -1500,9 +1500,9 @@ async def forum_getthreads_percategory(*, limit: int = 10, url: str, categoryid:
                 threadid: {
                     "title": str(threadtitle),
                     "author": {
-                        "id": int(author_id) if author_id is not None else author_id,
-                        "unix": str(author_unix),
-                        "name": str(author_name)
+                        "author_id": int(author_id) if author_id is not None else author_id,
+                        "author_unix": str(author_unix),
+                        "author_name": str(author_name)
                     },
                     "posts": int(posts),
                     "start": startdate
