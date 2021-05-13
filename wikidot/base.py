@@ -697,7 +697,6 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
         except Exception:
             if cnt < 5:
                 cnt += 1
-                await asyncio.sleep(20.0)
                 pass
             else:
                 raise exceptions.UnexpectedError(
@@ -737,10 +736,7 @@ async def page_getid_mass(*, limit: int = 10, url: str, targets: Union[list, tup
 
     async def _innerfunc(**kwargs):
         async with sema:
-            try:
-                pageid = await page_getid(**kwargs)
-            except Exception:
-                pageid = None
+            pageid = await page_getid(**kwargs)
             return (kwargs["fullname"], pageid)
 
     stmt = []
@@ -1435,7 +1431,7 @@ async def forum_getcategories(*, url: str, includehidden: bool = True) -> List[T
         catid = title["href"]
         catid = re.search(r'\d+', catid).group()
         catid = int(catid)
-        catname = title.string
+        catname = str(title.string)
         result.append((catid, catname))
 
     return result
