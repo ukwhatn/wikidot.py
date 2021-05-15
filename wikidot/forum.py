@@ -39,8 +39,8 @@ async def getposts(*, limit: int = 10, url: str, threadid: int):
 
 
 @decorator.execute
-async def getparentpage(*, url: str, threadid: int, forumcategoryname: str = "forum"):
-    return await base.forum_getparentpage(url=url, threadid=threadid, forumcategoryname=forumcategoryname)
+async def getparentpage(*, limit: int = 10, url: str, targets: list, forumcategoryname: str = "forum"):
+    return await base.forum_getparentpage_mass(limit= limit, url=url, targets=targets, forumcategoryname=forumcategoryname)
 
 
 @decorator.execute

@@ -1557,10 +1557,14 @@ async def forum_getposts(*, url: str, threadid: int, page: int):
 
     def _parser(post_element):
         parent = post_element.parent.parent
-        if parent.name != "body":
-            parentid = int(parent.find("div", class_="post", recursive=False)["id"].replace("post-", ""))
-        else:
+        try:
+            if parent.name != "body" and "post-container" in parent["class"]:
+                parentid = int(parent.find("div", class_="post", recursive=False)["id"].replace("post-", ""))
+            else:
+                parentid = None
+        except Exception:
             parentid = None
+            pass
         postid = int(str(post_element["id"]).replace("post-", ""))
         _wrapper = post_element.find("div", class_="long", recursive=False)
         _head = _wrapper.find("div", class_="head")
@@ -1591,7 +1595,8 @@ async def forum_getposts(*, url: str, threadid: int, page: int):
             "moduleName": "forum/ForumViewThreadPostsModule",
             "pageNo": str(page),
             "t": str(threadid)
-        }
+        },
+        unescape=False
     )
 
     # parse
@@ -1648,32 +1653,56 @@ async def forum_getposts_perthread(*, limit: int = 10, url: str, threadid: int):
 
 
 async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryname: str = "forum"):
-    async with httpx.AsyncClient() as client:
-        logger.debug(
-            f"Get parentpage: http://{url}/{forumcategoryname}/t-{threadid}"
-        )
-        _source = await client.get(
-            f"http://{url}/{forumcategoryname}/t-{threadid}",
-            timeout=10
-        )
-
-        # 404
-        if _source.status_code != 200:
-            raise exceptions.RequestFailedError(
-                "Unexpected status code returns",
-                _source.status_code
+    async def _process(url, threadid, forumcategoryname):
+        async with httpx.AsyncClient() as client:
+            logger.debug(
+                f"Get parentpage: http://{url}/{forumcategoryname}/t-{threadid}"
+            )
+            _source = await client.get(
+                f"http://{url}/{forumcategoryname}/t-{threadid}",
+                timeout=60
             )
 
-        contents = bs4(_source.text, 'lxml')
-        fullname = contents.find("div", id="page-title").find("a")["href"]
-        fullname = fullname.lstrip("/")
-        return fullname
+            # 404
+            if _source.status_code != 200:
+                raise exceptions.RequestFailedError(
+                    "Unexpected status code returns",
+                    _source.status_code
+                )
+
+            contents = bs4(_source.text, 'lxml')
+            fullname = contents.find("div", id="page-title").find("a")["href"]
+            fullname = fullname.lstrip("/")
+            return fullname
+
+    status = False
+    cnt = 1
+    while status is False:
+        return await _process(url, threadid, forumcategoryname)
+
 
 
 async def forum_getparentpage(*, url: str, threadid: int, forumcategoryname: str = "forum"):
     fullname = await forum_getparentpagefullname(url=url, threadid=threadid, forumcategoryname=forumcategoryname)
     pageid = await page_getid(url=url, fullname=fullname)
     return (fullname, pageid)
+
+
+async def forum_getparentpage_mass(*, limit: int = 10, url: str, targets: list, forumcategoryname: str = "forum"):
+    sema = asyncio.Semaphore(limit)
+
+    async def _innerfunc(url: str, threadid: int, forumcategoryname: str):
+        async with sema:
+            fullname, pageid = await forum_getparentpage(url=url, threadid=threadid, forumcategoryname=forumcategoryname)
+            return (threadid, fullname, pageid)
+
+    stmt = []
+    for t in targets:
+        stmt.append(
+            _innerfunc(url=url, threadid=t, forumcategoryname=forumcategoryname)
+        )
+
+    return await asyncio.gather(*stmt)
 
 
 async def forum_getpagediscussion(*, url: str, pageid: int):
