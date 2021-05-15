@@ -1660,7 +1660,7 @@ async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryn
             )
             _source = await client.get(
                 f"http://{url}/{forumcategoryname}/t-{threadid}",
-                timeout=60
+                timeout=30
             )
 
             # 404
@@ -1675,10 +1675,17 @@ async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryn
             fullname = fullname.lstrip("/")
             return fullname
 
-    status = False
     cnt = 1
-    while status is False:
-        return await _process(url, threadid, forumcategoryname)
+    while True:
+        try:
+            return _process(url, threadid, forumcategoryname)
+        except Exception:
+            if cnt < 5:
+                cnt += 1
+                pass
+            else:
+                raise
+
 
 
 
