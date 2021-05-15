@@ -1464,15 +1464,27 @@ async def forum_getthreads_percategory(*, limit: int = 10, url: str, categoryid:
 
     async def _getthreadsspecificpage(*, url: str, categoryid: int, page: int):
         # AMC Request
-        _r = await connector.connect(
-            url=url,
-            body={
-                "wikidot_token7": "123456",
-                "moduleName": "forum/ForumViewCategoryModule",
-                "c": categoryid,
-                "p": page
-            }
-        )
+        cnt = 1
+        while True:
+            try:
+                _r = await connector.connect(
+                    url=url,
+                    body={
+                        "wikidot_token7": "123456",
+                        "moduleName": "forum/ForumViewCategoryModule",
+                        "c": categoryid,
+                        "p": page
+                    }
+                )
+                break
+            except Exception:
+                if cnt > 5:
+                    cnt += 1
+                    asyncio.sleep(10)
+                    pass
+                else:
+                    raise
+
         # HTML Parse
         _r = bs4(_r["body"], 'lxml')
         # get numbers of threads and pages from statistics
