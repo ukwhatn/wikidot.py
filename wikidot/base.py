@@ -1693,7 +1693,7 @@ async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryn
         except Exception:
             if cnt < 5:
                 cnt += 1
-                asyncio.sleep(20)
+                await asyncio.sleep(20)
                 pass
             else:
                 raise
