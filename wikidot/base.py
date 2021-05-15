@@ -1689,7 +1689,7 @@ async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryn
     cnt = 1
     while True:
         try:
-            return _process(url, threadid, forumcategoryname)
+            return await _process(url, threadid, forumcategoryname)
         except Exception:
             if cnt < 5:
                 cnt += 1
