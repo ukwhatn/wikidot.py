@@ -27,8 +27,8 @@ from datetime import datetime
 from time import mktime
 import re
 
-logger = logger.logger
 
+logger = logger.logger
 
 # --------------------
 # BASE PARSERS
@@ -249,9 +249,7 @@ async def user_getid(*, user: str) -> int:
         if len(_contents.select("#page-content .error-block")) != 0:
             return None
         else:
-            return int(
-                _contents.select(".profile-title img")[0]["src"].replace("http://www.wikidot.com/avatar.php?userid=",
-                                                                         "").split("&")[0])
+            return int(_contents.select(".profile-title img")[0]["src"].replace("http://www.wikidot.com/avatar.php?userid=", "").split("&")[0])
 
 
 # --------------------
@@ -259,8 +257,7 @@ async def user_getid(*, user: str) -> int:
 # --------------------
 
 
-async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Optional[List[str]] = None, **kwargs) -> \
-Optional[dict]:
+async def page_getdata(*, url: str, main_key: str = "fullname", module_body: Optional[List[str]] = None, **kwargs) -> Optional[dict]:
     """|AMC| |Coroutine| Get pagedata from ListPages module.
 
     Arguments:
@@ -493,8 +490,7 @@ Optional[dict]:
     return _dic_res
 
 
-async def page_getdata_mass(*, limit: int = 10, url: str, main_key: str = "fullname",
-                            module_body: Optional[List[str]] = None, **kwargs) -> Optional[dict]:
+async def page_getdata_mass(*, limit: int = 10, url: str, main_key: str = "fullname", module_body: Optional[List[str]] = None, **kwargs) -> Optional[dict]:
     """|AMC| |Coroutine| Get all pages' data with base.page_getdata function
 
     Arguments:
@@ -651,7 +647,6 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
             -> ソースコード内の<script>を総当たりし、WIKIREQUEST.info.pageidがあったらint型でreturn
             -> アクセス時に404が返ってきたらNoneをreturn
     """
-
     # TODO: タイムアウト時のエラーハンドリング
 
     async def _innerfunc(*, url, fullname):
@@ -829,8 +824,7 @@ async def page_getsource(*, url: str, pageid: int) -> Optional[str]:
             "Unexpected Error occurred.", "undefined")
 
 
-async def page_getsource_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> List[
-    Tuple[int, Optional[str]]]:
+async def page_getsource_mass(*, limit: int = 10, url: str, targets: Union[list, tuple]) -> List[Tuple[int, Optional[str]]]:
     """|AMC| |Coroutine| Get source of specific pages
 
     Arguments:
@@ -935,8 +929,7 @@ async def page_gethistory(*, url: str, pageid: int):
                     else:
                         _flag = "undefined"
                     flags.append(_flag)
-                author_name, author_unix, author_id = author_parser(
-                    td[4].find("span", class_="printuser", recursive=False))
+                author_name, author_unix, author_id = author_parser(td[4].find("span", class_="printuser", recursive=False))
                 time = odate_parser(td[5].find("span", class_="odate"))
                 comment = td[6].get_text()
                 if comment == "":
@@ -994,8 +987,7 @@ async def page_gethistory_mass(*, limit: int = 10, url: str, targets: List[int])
 
 
 @decorator.require_session
-async def page_edit(*, url: str, fullname: str, pageid: Optional[int] = None, title: str = "", content: str = "",
-                    comment: str = "", forceedit: bool = False) -> bool:
+async def page_edit(*, url: str, fullname: str, pageid: Optional[int] = None, title: str = "", content: str = "", comment: str = "", forceedit: bool = False) -> bool:
     """|AMC| |Coroutine| |SessionRequired| Edit specific page
 
     Arguments:
@@ -1287,8 +1279,7 @@ async def tag_set(*, url: str, pageid: int, tags: Union[list, tuple]) -> bool:
 
 
 @decorator.require_session
-async def tag_replace(*, limit: int = 10, url: str, before: str, after: str, selector: Optional[dict] = None) -> List[
-    bool]:
+async def tag_replace(*, limit: int = 10, url: str, before: str, after: str, selector: Optional[dict] = None) -> List[bool]:
     """|AMC| |Coroutine| Replaces the tag on the page that matches the selector
 
     Arguments:
@@ -1482,7 +1473,6 @@ async def forum_getthreads_percategory(*, limit: int = 10, url: str, categoryid:
                 "p": page
             }
         )
-
         # HTML Parse
         _r = bs4(_r["body"], 'lxml')
         # get numbers of threads and pages from statistics
@@ -1555,6 +1545,7 @@ async def forum_getthreads_percategory(*, limit: int = 10, url: str, categoryid:
 
 
 async def forum_getthreads_mass(*, limit: int = 10, url: str, includehidden: bool = True) -> List[dict]:
+
     _cats = await forum_getcategories(url=url, includehidden=includehidden)
 
     _r = []
@@ -1574,6 +1565,7 @@ async def forum_getthreads_mass(*, limit: int = 10, url: str, includehidden: boo
 
 
 async def forum_getposts(*, url: str, threadid: int, page: int):
+
     def _parser(post_element):
         parent = post_element.parent.parent
         try:
@@ -1646,6 +1638,7 @@ async def forum_getposts(*, url: str, threadid: int, page: int):
 
 
 async def forum_getposts_perthread(*, limit: int = 10, url: str, threadid: int):
+
     total, r = await forum_getposts(url=url, threadid=threadid, page=1)
 
     async def _getallpage():
@@ -1678,7 +1671,7 @@ async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryn
             )
             _source = await client.get(
                 f"http://{url}/{forumcategoryname}/t-{threadid}",
-                timeout=30
+                timeout=60
             )
 
             # 404
@@ -1705,6 +1698,7 @@ async def forum_getparentpagefullname(*, url: str, threadid: int, forumcategoryn
                 raise
 
 
+
 async def forum_getparentpage(*, url: str, threadid: int, forumcategoryname: str = "forum"):
     fullname = await forum_getparentpagefullname(url=url, threadid=threadid, forumcategoryname=forumcategoryname)
     pageid = await page_getid(url=url, fullname=fullname)
@@ -1716,8 +1710,7 @@ async def forum_getparentpage_mass(*, limit: int = 10, url: str, targets: list, 
 
     async def _innerfunc(url: str, threadid: int, forumcategoryname: str):
         async with sema:
-            fullname, pageid = await forum_getparentpage(url=url, threadid=threadid,
-                                                         forumcategoryname=forumcategoryname)
+            fullname, pageid = await forum_getparentpage(url=url, threadid=threadid, forumcategoryname=forumcategoryname)
             return (threadid, fullname, pageid)
 
     stmt = []
@@ -1860,6 +1853,7 @@ async def rss_get(*, url: str, code: str):
 
 
 async def site_getmembers(*, url: str, page: int):
+
     _r = await connector.connect(
         url=url,
         body={
@@ -2026,6 +2020,7 @@ async def vote_cancelvote(*, url: str, pageid: int):
 
 
 async def file_getlist(*, url: str, pageid: int):
+
     _r = await connector.connect(
         url=url,
         body={
@@ -2140,8 +2135,7 @@ async def site_gethistory(*, url: str, limitpage: Optional[int] = None):
                 authorelem = item.find("span", class_="printuser").find("a")
                 author_name = authorelem.get_text()
                 author_unix = str(authorelem["href"]).replace("http://www.wikidot.com/user:info/", "").strip()
-                author_id = int(str(authorelem["onclick"]).replace("WIKIDOT.page.listeners.userInfo(", "").replace(
-                    "); return false;", "").strip())
+                author_id = int(str(authorelem["onclick"]).replace("WIKIDOT.page.listeners.userInfo(", "").replace("); return false;", "").strip())
             else:
                 author_name, author_unix, author_id = author_parser(item.find("span", class_="printuser"))
 
