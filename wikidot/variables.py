@@ -23,5 +23,5 @@ sessionid = ""  # type: str
 request_header = {
     "Cookie": "wikidot_token7=123456;",
     "Content-Type": ("application/x-www-form-urlencoded;charset=UTF-8"),
-    "Referrer": "http://www.wikidot.com"
+    "Referer": "http://www.wikidot.com"
 }  # type: dict
