@@ -10,9 +10,9 @@ setuptools.setup(
     packages=setuptools.find_packages(),
     python_requires='>=3.9',
     install_requires=[
-        "bs4==0.0.1",
-        "feedparser==6.0.8",
-        "httpx==0.19.1",
-        "lxml==4.6.3"
+        "bs4",
+        "feedparser",
+        "httpx",
+        "lxml"
     ]
 )
