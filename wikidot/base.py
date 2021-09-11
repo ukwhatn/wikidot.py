@@ -131,7 +131,7 @@ async def user_login(*, user: str, password: str) -> bool:
         variables.request_header = {
             "Cookie": f"wikidot_token7=123456;WIKIDOT_SESSION_ID={variables.sessionid};",
             "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
-            "Referrer": "http://www.wikidot.com"
+            "Referer": "http://www.wikidot.com"
         }
         logger.info(
             f"Login | user: {user}"
