@@ -16,11 +16,12 @@ license:
 
 # login_data
 logged_in = False  # type: bool
-username = ""      # type: str
-sessionid = ""     # type: str
+username = ""  # type: str
+sessionid = ""  # type: str
 
 # request_header
 request_header = {
     "Cookie": "wikidot_token7=123456;",
-    "Content-Type": ("application/x-www-form-urlencoded;charset=UTF-8")
+    "Content-Type": ("application/x-www-form-urlencoded;charset=UTF-8"),
+    "Referrer": "http://www.wikidot.com"
 }  # type: dict

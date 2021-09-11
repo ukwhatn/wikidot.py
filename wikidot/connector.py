@@ -46,12 +46,17 @@ async def connect(*, url: str, body: dict, unescape: bool = True, attempt_count:
         dict
             Dictionary converted from JSON returned by Wikidot
     """
+
     # Requester
     async def _innerfunc(url, data, headers):
+        # Support https connection
+        if "http://" not in url and "https://" not in url:
+            url = "http://" + url
+
         async with httpx.AsyncClient() as client:
             try:
                 _r = await client.post(
-                    f"http://{url}/ajax-module-connector.php/",
+                    f"{url}/ajax-module-connector.php",
                     data=_request_body,
                     headers=variables.request_header,
                     timeout=60.0

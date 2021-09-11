@@ -130,7 +130,8 @@ async def user_login(*, user: str, password: str) -> bool:
         variables.username = user
         variables.request_header = {
             "Cookie": f"wikidot_token7=123456;WIKIDOT_SESSION_ID={variables.sessionid};",
-            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8"
+            "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8",
+            "Referrer": "http://www.wikidot.com"
         }
         logger.info(
             f"Login | user: {user}"
@@ -650,9 +651,12 @@ async def page_getid(*, url: str, fullname: str) -> Optional[int]:
     # TODO: タイムアウト時のエラーハンドリング
 
     async def _innerfunc(*, url, fullname):
+        # Support https connection
+        if "http://" not in url and "https://" not in url:
+            url = "http://" + url
         async with httpx.AsyncClient() as client:
             _source = await client.get(
-                f"http://{url}/{fullname}/noredirect/true/norender/true",
+                f"{url}/{fullname}/noredirect/true/norender/true",
                 headers=variables.request_header,
                 timeout=60
             )
