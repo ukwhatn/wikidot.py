@@ -4,21 +4,22 @@
 wikidot.py - HTTP Request Library for wikidot
 
 version:
-    1.0.0
+    3.0.0
 
 release:
-    12 December 2020
+    # TODO: Add release date
 
 require:
     Python 3.9 or later
 
 package dependencies:
-    bs4     0.0.1
-    httpx   0.16.1
-    lxml    4.6.2
+    bs4             0.0.1
+    httpx           0.23.1
+    lxml            4.9.2
+    nest-asyncio    1.5.6
 
 copyright:
-    (c) 2020 by ukwhatn
+    (c) 2020-2022 by ukwhatn
 
 license:
     MIT License
