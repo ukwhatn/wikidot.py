@@ -24,4 +24,6 @@ license:
     MIT License
 """
 
-from . import base, connector, decorator, exceptions, file, forum, logger, page, site, tag, user, variables, vote  # noqa: F401
+import nest_asyncio
+
+nest_asyncio.apply()
