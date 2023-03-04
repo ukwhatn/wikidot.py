@@ -19,7 +19,7 @@ package dependencies:
     nest-asyncio    1.5.6
 
 copyright:
-    (c) 2020-2022 by ukwhatn
+    (c) 2020-2023 by ukwhatn
 
 license:
     MIT License
