@@ -1,13 +1,12 @@
 [project]
 name = "wikidot"
 version = "3.0.0a1"
-authors = [{ name="ukwhatn", email="ukwhatn@gmail.com" }]
+authors = [{ name = "ukwhatn", email = "ukwhatn@gmail.com" }]
 description = "Wikidot Request Library"
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 classifiers = [
     "Development Status :: 3 - Alpha",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
@@ -16,6 +15,8 @@ classifiers = [
 
 dependencies = [
     "httpx ~= 0.25.0",
+    "beautifulsoup4 ~= 4.12.2",
+    "lxml ~= 4.9.3",
 ]
 
 [project.optional-dependencies]
