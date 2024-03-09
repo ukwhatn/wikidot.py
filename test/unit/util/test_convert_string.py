@@ -1,5 +1,5 @@
 import unittest
-from wikidot.util import convert_string
+from wikidot.util import stringutil
 from wikidot.util.table import char_table
 
 

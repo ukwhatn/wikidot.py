@@ -1,31 +1,32 @@
 import re
+
 from .table import char_table
 
 
 def to_unix(target_str: str) -> str:
-    """Convert string to unix style.
+    """Unix形式に文字列を変換する
 
     Parameters
     ----------
     target_str: str
-        string to convert
+        変換対象の文字列
 
     Returns
     -------
     str
-        converted string
+        変換された文字列
     """
     # MEMO: legacy wikidotの実装に合わせている
 
-    # create translation table
+    # 特殊文字の変換辞書の作成
     table = str.maketrans(char_table.special_char_map)
-    # translate
+    # 変換実施
     target_str = target_str.translate(table)
 
-    # to lowercase
+    # lowercaseへの変換
     target_str = target_str.lower()
 
-    # convert to ascii
+    # ascii以外の文字を削除
     target_str = re.sub(r'[^a-z0-9\-:_]', '-', target_str)
     target_str = re.sub(r'^_', ':_', target_str)
     target_str = re.sub(r'(?<!:)_', '-', target_str)
@@ -38,7 +39,7 @@ def to_unix(target_str: str) -> str:
     target_str = target_str.replace('_-', '_')
     target_str = target_str.replace('-_', '_')
 
-    # remove colon at the beginning and end
+    # 先頭と末尾の:を削除
     target_str = re.sub(r'^:', '', target_str)
     target_str = re.sub(r':$', '', target_str)
 

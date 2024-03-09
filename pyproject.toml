@@ -2,7 +2,7 @@
 name = "wikidot"
 version = "3.0.0a1"
 authors = [{ name = "ukwhatn", email = "ukwhatn@gmail.com" }]
-description = "Wikidot Request Library"
+description = "Wikidot Utility Library"
 readme = "README.md"
 requires-python = ">=3.10"
 classifiers = [
