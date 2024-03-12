@@ -9,7 +9,7 @@ from wikidot.common import exceptions
 from wikidot.util.parser import odate as odate_parser, user as user_parser
 
 if TYPE_CHECKING:
-    from wikidot.module.user import AbstractUser
+    from wikidot.module.user import AbstractUser, User
     from wikidot.module.client import Client
 
 
@@ -245,3 +245,33 @@ class PrivateMessage:
             メッセージオブジェクト
         """
         return PrivateMessageCollection.from_ids(client, [message_id])[0]
+
+    @staticmethod
+    def send(
+            client: 'Client',
+            recipient: 'User',
+            subject: str,
+            body: str
+    ) -> None:
+        """メッセージを送信する
+
+        Parameters
+        ----------
+        client: Client
+            クライアント
+        recipient: User
+            受信者
+        subject: str
+            件名
+        body: str
+            本文
+        """
+        client.amc_client.request([{
+            'source': body,
+            'subject': subject,
+            'to_user_id': recipient.id,
+            'action': 'DashboardMessageAction',
+            'event': 'send',
+            'moduleName': 'Empty'
+        }])
+
