@@ -1,4 +1,82 @@
 from dataclasses import dataclass
+from typing import TYPE_CHECKING
+
+from bs4 import BeautifulSoup
+
+from wikidot.common.exceptions import NotFoundException
+from wikidot.util.requestutil import RequestUtil
+from wikidot.util.stringutil import StringUtil
+
+if TYPE_CHECKING:
+    from wikidot.module.client import Client
+
+
+class UserCollection(list):
+    """すべてのユーザーオブジェクトのリスト"""
+
+    @staticmethod
+    def from_names(
+            client: 'Client',
+            names: list[str],
+            raise_when_not_found: bool = False
+    ) -> 'UserCollection':
+        """ユーザー名のリストからユーザーオブジェクトのリストを取得する
+
+        Parameters
+        ----------
+        client: Client
+            クライアント
+        names: list[str]
+            ユーザー名のリスト
+        raise_when_not_found: bool
+            ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
+            デフォルトでは送出しない
+
+        Returns
+        -------
+        UserCollection
+            ユーザーオブジェクトのリスト
+        """
+        responses = RequestUtil.request(
+            client,
+            'GET',
+            [f'https://www.wikidot.com/user:info/{StringUtil.to_unix(name)}' for name in names]
+        )
+
+        users = []
+
+        for response in responses:
+            if isinstance(response, Exception):
+                raise response
+
+            html = BeautifulSoup(response.text, 'lxml')
+
+            # 存在チェック
+            if html.select_one('div.error-block'):
+                if raise_when_not_found:
+                    raise NotFoundException(f'User not found: {response.url}')
+                else:
+                    users.append(None)
+                    continue
+
+            # id取得
+            user_id = int(html.select_one('a.btn.btn-default.btn-xs')['href'].split('/')[-1])
+            print(user_id)
+
+            # name取得
+            name = html.select_one('h1.profile-title').get_text(strip=True)
+
+            # avatar_url取得
+            avatar_url = f'https://www.wikidot.com/avatar.php?userid={user_id}'
+
+            users.append(User(
+                id=user_id,
+                name=name,
+                unix_name=StringUtil.to_unix(name),
+                avatar_url=avatar_url
+            ))
+
+        return UserCollection(users)
 
 
 @dataclass
@@ -50,6 +128,31 @@ class User(AbstractUser):
     # unix_name: str | None
     # avatar_url: str | None
     ip: None = None
+
+    @staticmethod
+    def from_name(
+            client: 'Client',
+            name: str,
+            raise_when_not_found: bool = False
+    ) -> 'User':
+        """ユーザー名からユーザーオブジェクトを取得する
+
+        Parameters
+        ----------
+        client: Client
+            クライアント
+        name: str
+            ユーザー名
+        raise_when_not_found: bool
+            ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
+            デフォルトでは送出しない
+
+        Returns
+        -------
+        User
+            ユーザーオブジェクト
+        """
+        return UserCollection.from_names(client, [name], raise_when_not_found)[0]
 
 
 @dataclass
