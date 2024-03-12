@@ -1,5 +1,6 @@
 import bs4
-from wikidot.type import user
+
+from wikidot.module import user
 
 
 def user_parse(elem: bs4.Tag) -> user.AbstractUser:
@@ -28,16 +29,17 @@ def user_parse(elem: bs4.Tag) -> user.AbstractUser:
             ip=ip
         )
 
-    elif len(elem.find_all("a", recursive=False)) == 1:
-        return user.GuestUser(
-            name=elem.get_text().strip()
-        )
+    # TODO: [[user ukwhatn]]構文をパースできなくなる（aが1つしかない）ので、一度無効化 -> GuestUserの例を探して実装を戻す
+    # elif len(elem.find_all("a", recursive=False)) == 1:
+    #     return user.GuestUser(
+    #         name=elem.get_text().strip()
+    #     )
 
     elif elem.get_text() == "Wikidot":
         return user.WikidotUser()
 
     else:
-        _user = elem.find_all("a")[1]
+        _user = elem.find_all("a")[-1]
         user_name = _user.get_text()
         user_unix = str(_user["href"]).replace("http://www.wikidot.com/user:info/", "")
         user_id = int(

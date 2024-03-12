@@ -24,6 +24,9 @@ class AbstractUser:
     avatar_url: str | None = None
     ip: str | None = None
 
+    def __str__(self):
+        return f'{self.__class__.__name__}(id={self.id}, name={self.name}, unix_name={self.unix_name})'
+
 
 @dataclass
 class User(AbstractUser):
