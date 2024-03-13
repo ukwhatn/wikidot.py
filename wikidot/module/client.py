@@ -1,3 +1,4 @@
+from wikidot.common import wd_logger
 from wikidot.connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
 from wikidot.module.auth import HTTPAuthentication
 
@@ -10,8 +11,9 @@ class Client:
             username: str | None = None,
             password: str | None = None,
             amc_config: AjaxModuleConnectorConfig | None = None,
+            logging_level: str = "INFO"
     ):
-        """クライアントを初期化する
+        """Wikidot Client
 
         Parameters
         ----------
@@ -21,16 +23,23 @@ class Client:
             パスワード
         amc_config: dict | None
             AMCの設定
+        logging_level: str
+            ロギングレベル
         """
+        # 最初にロギングレベルを決定する
+        wd_logger.setLevel(logging_level)
 
+        # AMCClientを初期化
         self.amc_client = AjaxModuleConnectorClient(
             site_name=None,
             config=amc_config
         )
 
+        # セッション関連変数の初期化
         self.is_logged_in = False
         self.username = None
 
+        # usernameとpasswordが指定されていればログインする
         if username is not None and password is not None:
             HTTPAuthentication.login(self, username, password)
             self.is_logged_in = True
