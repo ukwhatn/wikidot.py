@@ -113,7 +113,7 @@ class AjaxModuleConnectorConfig:
     request_timeout: int = 20
     attempt_limit: int = 3
     retry_interval: int = 5
-    semaphore_limit: int = 20
+    semaphore_limit: int = 10
 
 
 class AjaxModuleConnectorClient:
