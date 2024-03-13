@@ -61,7 +61,6 @@ class UserCollection(list):
 
             # id取得
             user_id = int(html.select_one('a.btn.btn-default.btn-xs')['href'].split('/')[-1])
-            print(user_id)
 
             # name取得
             name = html.select_one('h1.profile-title').get_text(strip=True)

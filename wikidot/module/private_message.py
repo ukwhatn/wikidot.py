@@ -3,7 +3,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING
 
 import httpx
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag, ResultSet
 
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
@@ -19,6 +19,7 @@ class PrivateMessageCollection(list):
         return f'{self.__class__.__name__}({len(self)} messages)'
 
     @staticmethod
+    @login_required
     def from_ids(
             client: 'Client',
             message_ids: list[int]
@@ -65,8 +66,8 @@ class PrivateMessageCollection(list):
                 PrivateMessage(
                     client=client,
                     id=message_ids[index],
-                    sender=user_parser(sender),
-                    recipient=user_parser(recipient),
+                    sender=user_parser(client, sender),
+                    recipient=user_parser(client, recipient),
                     subject=html.select_one('div.pmessage div.header span.subject').get_text(),
                     body=html.select_one('div.pmessage div.body').get_text(),
                     created_at=odate_parser(html.select_one('div.header span.odate'))
@@ -76,6 +77,7 @@ class PrivateMessageCollection(list):
         return PrivateMessageCollection(messages)
 
     @staticmethod
+    @login_required
     def _acquire(client: 'Client', module_name: str):
         """受信・送信箱のメッセージを取得する
 
@@ -98,20 +100,23 @@ class PrivateMessageCollection(list):
 
         html = BeautifulSoup(response.json()['body'], 'lxml')
         # pagerの最後から2番目の要素を取得
-        max_page = html.select('div.pager span.target')[-2].get_text()
+        # pageが存在しない場合は1ページのみ
+        pager: ResultSet[Tag] = html.select('div.pager span.target')
+        max_page: int = int(pager[-2].get_text()) if len(pager) > 2 else 1
 
-        # メッセージ取得
-        bodies = [{
-            'page': page,
-            'moduleName': module_name
-        } for page in range(1, int(max_page) + 1)]
+        if max_page > 1:
+            # メッセージ取得
+            bodies = [{
+                'page': page,
+                'moduleName': module_name
+            } for page in range(1, max_page + 1)]
 
-        responses: [httpx.Response | Exception] = client.amc_client.request(bodies, return_exceptions=True)
+            responses: [httpx.Response | Exception] = client.amc_client.request(bodies, return_exceptions=False)
+        else:
+            responses = [response]
 
         message_ids = []
         for response in responses:
-            if isinstance(response, exceptions.WikidotStatusCodeException):
-                raise response
             html = BeautifulSoup(response.json()['body'], 'lxml')
             # tr.messageのdata-href末尾の数字を取得
             message_ids.extend([int(tr['data-href'].split('/')[-1]) for tr in html.select('tr.message')])
