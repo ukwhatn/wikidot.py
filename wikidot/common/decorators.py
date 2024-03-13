@@ -1,6 +1,5 @@
 from functools import wraps
 
-from wikidot.module.client import Client
 from .exceptions import LoginRequiredException
 
 
@@ -17,6 +16,7 @@ def login_required(func):
         if 'client' in kwargs:
             client = kwargs['client']
         else:
+            from wikidot.module.client import Client
             for arg in args:
                 if isinstance(arg, Client):
                     client = arg
