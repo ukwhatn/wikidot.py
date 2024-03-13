@@ -1,5 +1,6 @@
-import bs4
 from datetime import datetime
+
+import bs4
 
 
 def odate_parse(odate_element: bs4.Tag) -> datetime:
