@@ -11,7 +11,7 @@ class Client:
             username: str | None = None,
             password: str | None = None,
             amc_config: AjaxModuleConnectorConfig | None = None,
-            logging_level: str = "INFO"
+            logging_level: str = "WARNING"
     ):
         """Wikidot Client
 
