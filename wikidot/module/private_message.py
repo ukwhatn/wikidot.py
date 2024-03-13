@@ -6,6 +6,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from wikidot.common import exceptions
+from wikidot.common.decorators import login_required
 from wikidot.util.parser import odate as odate_parser, user as user_parser
 
 if TYPE_CHECKING:
@@ -62,6 +63,7 @@ class PrivateMessageCollection(list):
 
             messages.append(
                 PrivateMessage(
+                    client=client,
                     id=message_ids[index],
                     sender=user_parser(sender),
                     recipient=user_parser(recipient),
@@ -202,6 +204,8 @@ class PrivateMessage:
 
     Attributes
     ----------
+    client: Client
+        クライアントクラスのインスタンス
     id: int
         メッセージID
     sender: AbstractUser
@@ -215,6 +219,7 @@ class PrivateMessage:
     created_at: str
         作成日時
     """
+    client: 'Client'
     id: int
     sender: 'AbstractUser'
     recipient: 'AbstractUser'
@@ -247,6 +252,7 @@ class PrivateMessage:
         return PrivateMessageCollection.from_ids(client, [message_id])[0]
 
     @staticmethod
+    @login_required
     def send(
             client: 'Client',
             recipient: 'User',
@@ -274,4 +280,3 @@ class PrivateMessage:
             'event': 'send',
             'moduleName': 'Empty'
         }])
-

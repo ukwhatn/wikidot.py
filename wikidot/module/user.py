@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 class UserCollection(list):
-    """すべてのユーザーオブジェクトのリスト"""
+    """ユーザーオブジェクトのリスト"""
 
     @staticmethod
     def from_names(
@@ -70,6 +70,7 @@ class UserCollection(list):
             avatar_url = f'https://www.wikidot.com/avatar.php?userid={user_id}'
 
             users.append(User(
+                client=client,
                 id=user_id,
                 name=name,
                 unix_name=StringUtil.to_unix(name),
@@ -85,6 +86,8 @@ class AbstractUser:
 
     Attributes
     ----------
+    client: Client
+        クライアントクラスのインスタンス
     id: int | None
         ユーザーID
     name: str | None
@@ -96,6 +99,7 @@ class AbstractUser:
     ip: str | None
         ユーザーのIPアドレス
     """
+    client: 'Client'
     id: int | None = None
     name: str | None = None
     unix_name: str | None = None
@@ -112,6 +116,8 @@ class User(AbstractUser):
 
     Attributes
     ----------
+    client: Client
+        クライアントクラスのインスタンス
     id: int | None
         ユーザーID
     name: str | None
@@ -123,6 +129,7 @@ class User(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+    # client: 'Client'
     # id: int | None
     # name: str | None
     # unix_name: str | None
@@ -161,6 +168,8 @@ class DeletedUser(AbstractUser):
 
     Attributes
     ----------
+    client: Client
+        クライアントクラスのインスタンス
     id: int | None
         ユーザーID
     name: str
@@ -172,6 +181,7 @@ class DeletedUser(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+    # client: 'Client'
     # id: int | None
     name: str = "account deleted"
     unix_name: str = "account_deleted"
@@ -185,6 +195,8 @@ class AnonymousUser(AbstractUser):
 
     Attributes
     ----------
+    client: Client
+        クライアントクラスのインスタンス
     id: None
         ユーザーID（匿名ユーザーのためNone）
     name: str
@@ -196,6 +208,7 @@ class AnonymousUser(AbstractUser):
     ip: str
         ユーザーのIPアドレス
     """
+    # client: 'Client'
     id: None = None
     name: str = "Anonymous"
     unix_name: str = "anonymous"
@@ -209,6 +222,8 @@ class GuestUser(AbstractUser):
 
     Attributes
     ----------
+    client: Client
+        クライアントクラスのインスタンス
     id: None
         ユーザーID（ゲストユーザーのためNone）
     name: str
@@ -220,6 +235,7 @@ class GuestUser(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+    # client: 'Client'
     id: None = None
     # name: str | None
     unix_name: None = None
@@ -233,6 +249,8 @@ class WikidotUser(AbstractUser):
 
     Attributes
     ----------
+    client: Client
+        クライアントクラスのインスタンス
     id: None
         ユーザーID（WikidotシステムユーザーのためNone）
     name: str
@@ -244,6 +262,7 @@ class WikidotUser(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+    # client: 'Client'
     id: None = None
     name: str = "Wikidot"
     unix_name: str = "wikidot"
