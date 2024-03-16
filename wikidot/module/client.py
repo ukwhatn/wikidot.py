@@ -3,6 +3,7 @@ from wikidot.connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnecto
 from wikidot.module.auth import HTTPAuthentication
 from wikidot.module.private_message import PrivateMessage, PrivateMessageInbox, \
     PrivateMessageSentBox, PrivateMessageCollection
+from wikidot.module.site import Site
 from wikidot.module.user import User, UserCollection
 
 
@@ -130,6 +131,26 @@ class ClientPrivateMessageMethods:
         return PrivateMessage.from_id(self.client, message_id)
 
 
+class ClientSiteMethods:
+    def __init__(self, client: 'Client'):
+        self.client = client
+
+    def get(self, unix_name: str) -> 'Site':
+        """UNIX名からサイトオブジェクトを取得する
+
+        Parameters
+        ----------
+        unix_name: str
+            サイトのUNIX名
+
+        Returns
+        -------
+        Site
+            サイトオブジェクト
+        """
+        return Site.from_unix_name(self.client, unix_name)
+
+
 class Client:
     """基幹クライアント"""
 
@@ -178,6 +199,7 @@ class Client:
 
         self.user = ClientUserMethods(self)
         self.private_message = ClientPrivateMessageMethods(self)
+        self.site = ClientSiteMethods(self)
 
         # ------------
         # メソッド終わり
