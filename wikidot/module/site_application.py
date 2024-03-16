@@ -21,7 +21,7 @@ class SiteApplication:
         return f'SiteApplication(user={self.user}, site={self.site}, text={self.text})'
 
     @staticmethod
-    def acquire_applications(site: 'Site') -> list['SiteApplication']:
+    def acquire_all(site: 'Site') -> list['SiteApplication']:
         """サイトへの未処理の申請を取得する
 
         Parameters
@@ -63,3 +63,37 @@ class SiteApplication:
             applications.append(SiteApplication(site, user, text))
 
         return applications
+
+    def _process(self, action: str):
+        """申請を処理する
+
+        Parameters
+        ----------
+        action: str
+            処理の種類
+        """
+        if action not in ['accept', 'decline']:
+            raise ValueError(f'Invalid action: {action}')
+
+        try:
+            self.site.amc_request([{
+                'action': 'ManageSiteMembershipAction',
+                'event': f'acceptApplication',
+                'user_id': self.user.id,
+                'text': f'your application has been {action}ed',
+                'type': action,
+                'moduleName': 'Empty'
+            }])
+        except exceptions.WikidotStatusCodeException as e:
+            if e.status_code == 'no_application':
+                raise exceptions.NotFoundException(f'Application not found: {self.user}') from e
+            else:
+                raise e
+
+    def accept(self):
+        """申請を承認する"""
+        self._process('accept')
+
+    def decline(self):
+        """申請を拒否する"""
+        self._process('decline')

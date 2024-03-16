@@ -5,10 +5,11 @@ from typing import TYPE_CHECKING
 import httpx
 
 from wikidot.common import exceptions
-from wikidot.connector.ajax import AjaxModuleConnectorClient
+from wikidot.module.site_application import SiteApplication
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client
+    from wikidot.module.user import User
 
 
 @dataclass
@@ -117,6 +118,30 @@ class Site:
         )
 
     def amc_request(self, bodies: list[dict], return_exceptions: bool = False):
+        """このサイトに対してAMCリクエストを実行する"""
         return self.client.amc_client.request(bodies, return_exceptions, self.unix_name, self.ssl_supported)
 
+    def get_applications(self):
+        """サイトへの未処理の参加申請を取得する"""
+        return SiteApplication.acquire_all(self)
 
+    def invite_user(self, user: 'User', text: str):
+        """ユーザーをサイトに招待する
+        """
+        try:
+            self.amc_request([{
+                'action': 'ManageSiteMembershipAction',
+                'event': 'inviteMember',
+                'user_id': user.id,
+                'text': text,
+                'moduleName': 'Empty'
+            }])
+        except exceptions.WikidotStatusCodeException as e:
+            if e.status_code == 'already_invited':
+                raise exceptions.TargetErrorException(
+                    f'User is already invited to {self.unix_name}: {user.name}') from e
+            elif e.status_code == 'already_member':
+                raise exceptions.TargetErrorException(
+                    f'User is already a member of {self.unix_name}: {user.name}') from e
+            else:
+                raise e
