@@ -10,6 +10,17 @@ class WikidotException(Exception):
 
 
 # ---
+# ワイルドカード
+# ---
+
+class UnexpectedException(WikidotException):
+    """予期せぬ例外が発生したときの例外"""
+
+    def __init__(self, message):
+        super().__init__(message)
+
+
+# ---
 # セッション関連
 # ---
 

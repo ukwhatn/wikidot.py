@@ -161,7 +161,9 @@ class AjaxModuleConnectorClient:
     def request(
             self,
             bodies: list[dict[str, any]],
-            return_exceptions: bool = False
+            return_exceptions: bool = False,
+            site_name: str | None = None,
+            site_ssl_supported: bool | None = None
     ) -> list[httpx.Response | Exception]:
         """ajax-module-connector.phpへのリクエストを行う
 
@@ -172,6 +174,12 @@ class AjaxModuleConnectorClient:
         return_exceptions: bool
             例外を返すかどうか (True: 返す, False: 例外を送出)
             デフォルトでは例外を送出
+        site_name: str | None
+            サイト名
+            デフォルトでは初期化時に指定したサイト名
+        site_ssl_supported: bool | None
+            サイトがSSL対応しているかどうか
+            デフォルトでは初期化時にチェックした結果
 
         Returns
         -------
@@ -193,6 +201,9 @@ class AjaxModuleConnectorClient:
         """
         semaphore_instance = asyncio.Semaphore(self.config.semaphore_limit)
 
+        site_name = site_name if site_name is not None else self.site_name
+        site_ssl_supported = site_ssl_supported if site_ssl_supported is not None else self.ssl_supported
+
         async def _request(
                 _body: dict[str, any]
         ) -> httpx.Response:
@@ -205,8 +216,9 @@ class AjaxModuleConnectorClient:
                     # Semaphoreで同時実行数制御
                     async with semaphore_instance:
                         async with httpx.AsyncClient() as client:
-                            url = (f'http{"s" if self.ssl_supported else ""}://{self.site_name}.wikidot.com/'
-                                   f'ajax-module-connector.php')
+                            url = (
+                                f'http{"s" if site_ssl_supported else ""}://{site_name}.wikidot.com/'
+                                f'ajax-module-connector.php')
                             _body['wikidot_token7'] = 123456
                             wd_logger.debug(f'Ajax Request: {url} -> {_body}')
                             response = await client.post(
