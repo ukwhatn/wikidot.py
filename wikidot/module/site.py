@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from wikidot.common import exceptions
+from wikidot.common.decorators import login_required
 from wikidot.module.site_application import SiteApplication
 
 if TYPE_CHECKING:
@@ -125,6 +126,7 @@ class Site:
         """サイトへの未処理の参加申請を取得する"""
         return SiteApplication.acquire_all(self)
 
+    @login_required
     def invite_user(self, user: 'User', text: str):
         """ユーザーをサイトに招待する
         """

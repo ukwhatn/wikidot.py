@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING
 from bs4 import BeautifulSoup
 
 from wikidot.common import exceptions
+from wikidot.common.decorators import login_required
 from wikidot.util.parser import user as user_parser
 
 if TYPE_CHECKING:
@@ -21,6 +22,7 @@ class SiteApplication:
         return f'SiteApplication(user={self.user}, site={self.site}, text={self.text})'
 
     @staticmethod
+    @login_required
     def acquire_all(site: 'Site') -> list['SiteApplication']:
         """サイトへの未処理の申請を取得する
 
@@ -64,6 +66,7 @@ class SiteApplication:
 
         return applications
 
+    @login_required
     def _process(self, action: str):
         """申請を処理する
 
