@@ -1,4 +1,7 @@
-unittest:
-	python -m unittest discover test
+build:
+	python -m build
 
-PHONY: unittest
+release:
+	python -m twine upload dist/*
+
+PHONY: build release
