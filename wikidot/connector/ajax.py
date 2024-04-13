@@ -1,7 +1,7 @@
 import asyncio
 import json.decoder
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Tuple
 
 import httpx
 
@@ -172,7 +172,7 @@ class AjaxModuleConnectorClient:
             return_exceptions: bool = False,
             site_name: str | None = None,
             site_ssl_supported: bool | None = None
-    ) -> list[httpx.Response | Exception]:
+    ) -> tuple[BaseException | Any]:
         """ajax-module-connector.phpへのリクエストを行う
 
         Parameters
@@ -296,7 +296,7 @@ class AjaxModuleConnectorClient:
         # 処理を実行
         return asyncio.run(_execute_requests())
 
-    def get(self, datas: list[HTTPRequestData | dict[str, Any]]) -> list[httpx.Response]:
+    def get(self, datas: list[HTTPRequestData | dict[str, Any]]) -> tuple[Any]:
         semaphore_instance = asyncio.Semaphore(self.config.semaphore_limit)
 
         # datasの中身をHTTPRequestDataに変換
