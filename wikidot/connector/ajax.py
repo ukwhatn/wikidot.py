@@ -1,6 +1,7 @@
 import asyncio
 import json.decoder
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from typing import Any, Tuple
 
 import httpx
 
@@ -116,6 +117,13 @@ class AjaxModuleConnectorConfig:
     semaphore_limit: int = 10
 
 
+@dataclass
+class HTTPRequestData:
+    url: str
+    headers: dict[str, any] = field(default_factory=dict)
+    data: dict[str, any] = field(default_factory=dict)
+
+
 class AjaxModuleConnectorClient:
     """ajax-module-connector.phpへのリクエストを行うクライアント"""
 
@@ -164,7 +172,7 @@ class AjaxModuleConnectorClient:
             return_exceptions: bool = False,
             site_name: str | None = None,
             site_ssl_supported: bool | None = None
-    ) -> list[httpx.Response | Exception]:
+    ) -> tuple[BaseException | Any]:
         """ajax-module-connector.phpへのリクエストを行う
 
         Parameters
@@ -287,3 +295,46 @@ class AjaxModuleConnectorClient:
 
         # 処理を実行
         return asyncio.run(_execute_requests())
+
+    def get(self, datas: list[HTTPRequestData | dict[str, Any]]) -> tuple[Any]:
+        semaphore_instance = asyncio.Semaphore(self.config.semaphore_limit)
+
+        # datasの中身をHTTPRequestDataに変換
+        datas = [data if isinstance(data, HTTPRequestData) else HTTPRequestData(**data) for data in datas]
+
+        async def _get(_data: HTTPRequestData) -> httpx.Response:
+            retry_count = 0
+
+            while True:
+                try:
+                    async with semaphore_instance:
+                        async with httpx.AsyncClient() as client:
+                            wd_logger.debug(f'GET Request: {_data.url} -> {_data.data}')
+                            response = await client.get(
+                                _data.url,
+                                headers=_data.headers,
+                                params=_data.data,
+                                timeout=self.config.request_timeout
+                            )
+                            response.raise_for_status()
+                except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
+                    retry_count += 1
+
+                    if retry_count >= self.config.attempt_limit:
+                        wd_logger.error(f'HTTP GET is respond HTTP error code: {response.status_code} -> {_data.url}')
+                        raise AMCHttpStatusCodeException(
+                            f'HTTP GET is respond HTTP error code: {response.status_code}',
+                            response.status_code
+                        ) from e
+
+                    wd_logger.info(
+                        f'HTTP GET is respond status: {response.status_code} (retry: {retry_count}) -> {_data.url}')
+                    await asyncio.sleep(self.config.retry_interval)
+                    continue
+
+                return response
+
+        async def _execute_gets():
+            return await asyncio.gather(*[_get(data) for data in datas])
+
+        return asyncio.run(_execute_gets())

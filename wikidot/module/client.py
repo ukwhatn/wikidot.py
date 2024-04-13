@@ -1,4 +1,5 @@
 from wikidot.common import wd_logger
+from wikidot.common.exceptions import LoginRequiredException
 from wikidot.connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
 from wikidot.module.auth import HTTPAuthentication
 from wikidot.module.private_message import PrivateMessage, PrivateMessageInbox, \
@@ -222,3 +223,8 @@ class Client:
 
     def __str__(self):
         return f"Client(username={self.username}, is_logged_in={self.is_logged_in})"
+
+    def login_check(self) -> None:
+        if not self.is_logged_in:
+            raise LoginRequiredException('Login is required to execute this function')
+        return

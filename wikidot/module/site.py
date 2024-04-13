@@ -1,16 +1,79 @@
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import httpx
 
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
+from wikidot.module.page import SearchPagesQuery, PageCollection
 from wikidot.module.site_application import SiteApplication
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client
     from wikidot.module.user import User
+    from wikidot.module.page import Page
+
+
+class SitePagesMethods:
+    def __init__(self, site: 'Site'):
+        self.site = site
+
+    def search(
+            self,
+            **kwargs
+    ) -> 'PageCollection':
+        """ページを検索する
+
+        Parameters
+        ----------
+        site: Site
+            サイト
+        query: SearchPagesQuery
+            検索クエリ
+
+        Returns
+        -------
+        PageCollection
+            ページのコレクション
+        """
+
+        query = SearchPagesQuery(**kwargs)
+        return PageCollection.search_pages(self.site, query)
+
+
+class SitePageMethods:
+    def __init__(self, site: 'Site'):
+        self.site = site
+
+    def get(
+            self,
+            fullname: str,
+            raise_when_not_found: bool = True
+    ) -> Optional['Page']:
+        """フルネームからページを取得する
+
+        Parameters
+        ----------
+        fullname: str
+            ページのフルネーム
+        raise_when_not_found: bool
+            ページが見つからなかった場合に例外を発生させるかどうか させない場合はNoneを返す
+
+        Returns
+        -------
+        Page
+            ページオブジェクト
+        """
+        res = PageCollection.search_pages(
+            self.site,
+            SearchPagesQuery(fullname=fullname)
+        )
+        if len(res) == 0:
+            if raise_when_not_found:
+                raise exceptions.NotFoundException(f'Page is not found: {fullname}')
+            return None
+        return res[0]
 
 
 @dataclass
@@ -44,6 +107,10 @@ class Site:
     unix_name: str
     domain: str
     ssl_supported: bool
+
+    def __post_init__(self):
+        self.pages = SitePagesMethods(self)
+        self.page = SitePageMethods(self)
 
     def __str__(self):
         return f'Site(id={self.id}, title={self.title}, unix_name={self.unix_name})'
@@ -147,3 +214,7 @@ class Site:
                     f'User is already a member of {self.unix_name}: {user.name}') from e
             else:
                 raise e
+
+    def get_url(self):
+        """サイトのURLを取得する"""
+        return f'http{"s" if self.ssl_supported else ""}://{self.domain}'
