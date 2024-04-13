@@ -1,8 +1,9 @@
-from dataclasses import dataclass, field
+from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union, Any
-from html import unescape
+
 from bs4 import BeautifulSoup
+
 from wikidot.common import exceptions
 from wikidot.util.parser import user as user_parser, odate as odate_parser
 
@@ -10,7 +11,6 @@ if TYPE_CHECKING:
     from wikidot.module.site import Site
     from wikidot.module.user import User
 
-# TODO: Pageクラスに合わせて変更する
 DEFAULT_MODULE_BODY = [
     "fullname",  # ページのフルネーム(str)
     "category",  # カテゴリ(str)
@@ -51,6 +51,10 @@ class SearchPagesQuery:
     name: Optional[str] = None
     fullname: Optional[str] = None
     range: Optional[str] = None
+
+    # ordering
+    order: str = "created_at desc"
+
     # pagination
     offset: Optional[int] = 0
     limit: Optional[int] = None
@@ -59,31 +63,8 @@ class SearchPagesQuery:
     separate: Optional[str] = "no"
     wrapper: Optional[str] = "no"
 
-    # body
-
-    def to_dict(self) -> dict[str, Any]:
-        query = {
-            'pagetype': self.pagetype,
-            'category': self.category,
-            'tags': self.tags,
-            'parent': self.parent,
-            'link_to': self.link_to,
-            'created_at': self.created_at,
-            'updated_at': self.updated_at,
-            'created_by': self.created_by,
-            'rating': self.rating,
-            'votes': self.votes,
-            'name': self.name,
-            'fullname': self.fullname,
-            'range': self.range,
-            'offset': self.offset,
-            'limit': self.limit,
-            'perPage': self.perPage,
-            'separate': self.separate,
-            'wrapper': self.wrapper
-        }
-
-        return {k: v for k, v in query.items() if v is not None}
+    def as_dict(self) -> dict[str, Any]:
+        return {k: v for k, v in asdict(self).items() if v is not None}
 
 
 class PageCollection(list):
@@ -169,7 +150,7 @@ class PageCollection(list):
             query: SearchPagesQuery = SearchPagesQuery()
     ):
         # 初回実行
-        query_dict = query.to_dict()
+        query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
         query_dict["module_body"] = '[[span class="page"]]' + "".join(
             [

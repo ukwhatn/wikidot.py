@@ -6,11 +6,39 @@ import httpx
 
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
+from wikidot.module.page import SearchPagesQuery, PageCollection
 from wikidot.module.site_application import SiteApplication
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client
     from wikidot.module.user import User
+
+
+class SitePageMethods:
+    def __init__(self, site: 'Site'):
+        self.site = site
+
+    def search(
+            self,
+            **kwargs
+    ) -> 'PageCollection':
+        """ページを検索する
+
+        Parameters
+        ----------
+        site: Site
+            サイト
+        query: SearchPagesQuery
+            検索クエリ
+
+        Returns
+        -------
+        PageCollection
+            ページのコレクション
+        """
+
+        query = SearchPagesQuery(**kwargs)
+        return PageCollection.search_pages(self.site, query)
 
 
 @dataclass
@@ -44,6 +72,9 @@ class Site:
     unix_name: str
     domain: str
     ssl_supported: bool
+
+    def __post_init__(self):
+        self.pages = SitePageMethods(self)
 
     def __str__(self):
         return f'Site(id={self.id}, title={self.title}, unix_name={self.unix_name})'
