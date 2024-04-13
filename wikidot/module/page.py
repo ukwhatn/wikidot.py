@@ -65,7 +65,10 @@ class SearchPagesQuery:
     wrapper: Optional[str] = "no"
 
     def as_dict(self) -> dict[str, Any]:
-        return {k: v for k, v in asdict(self).items() if v is not None}
+        res = {k: v for k, v in asdict(self).items() if v is not None}
+        if isinstance(res["tags"], list):
+            res["tags"] = " ".join(res["tags"])
+        return res
 
 
 class PageCollection(list):
