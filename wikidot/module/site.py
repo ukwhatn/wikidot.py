@@ -178,3 +178,7 @@ class Site:
                     f'User is already a member of {self.unix_name}: {user.name}') from e
             else:
                 raise e
+
+    def get_url(self):
+        """サイトのURLを取得する"""
+        return f'http{"s" if self.ssl_supported else ""}://{self.domain}'

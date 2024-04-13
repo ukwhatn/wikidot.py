@@ -1,3 +1,4 @@
+import re
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union, Any
@@ -196,6 +197,39 @@ class PageCollection(list):
 
         return pages
 
+    @staticmethod
+    def _acquire_page_ids(
+            pages: list['Page']
+    ):
+        # pagesからidが設定されていないものを抽出
+        target_pages = [page for page in pages if page.id is None]
+
+        # なければ終了
+        if len(target_pages) == 0:
+            return pages
+
+        # norender, noredirectでアクセス
+        request_datas = [
+            {
+                "url": f"{page.get_url()}/norender/true/noredirect/true"
+            } for page in target_pages
+        ]
+        responses = target_pages[0].site.client.amc_client.get(request_datas)
+
+        # "WIKIREQUEST.info.pageId = xxx;"の値をidに設定
+        for index, response in enumerate(responses):
+            source = response.text
+
+            id_match = re.search(r'WIKIREQUEST\.info\.pageId = (\d+);', source)
+            if id_match is None:
+                raise exceptions.UnexpectedException(f'Cannot find page id: {target_pages[index].fullname}')
+            target_pages[index].id = int(id_match.group(1))
+
+        return pages
+
+    def get_page_ids(self):
+        return PageCollection._acquire_page_ids(self)
+
 
 @dataclass
 class Page:
@@ -267,3 +301,6 @@ class Page:
     commented_by: Optional['User']
     commented_at: datetime
     id: int = None
+
+    def get_url(self) -> str:
+        return f"{self.site.get_url()}/{self.fullname}"
