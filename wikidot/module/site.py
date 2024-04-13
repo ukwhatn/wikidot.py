@@ -1,6 +1,6 @@
 import re
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import httpx
 
@@ -12,9 +12,10 @@ from wikidot.module.site_application import SiteApplication
 if TYPE_CHECKING:
     from wikidot.module.client import Client
     from wikidot.module.user import User
+    from wikidot.module.page import Page
 
 
-class SitePageMethods:
+class SitePagesMethods:
     def __init__(self, site: 'Site'):
         self.site = site
 
@@ -39,6 +40,40 @@ class SitePageMethods:
 
         query = SearchPagesQuery(**kwargs)
         return PageCollection.search_pages(self.site, query)
+
+
+class SitePageMethods:
+    def __init__(self, site: 'Site'):
+        self.site = site
+
+    def get(
+            self,
+            fullname: str,
+            raise_when_not_found: bool = True
+    ) -> Optional['Page']:
+        """フルネームからページを取得する
+
+        Parameters
+        ----------
+        fullname: str
+            ページのフルネーム
+        raise_when_not_found: bool
+            ページが見つからなかった場合に例外を発生させるかどうか させない場合はNoneを返す
+
+        Returns
+        -------
+        Page
+            ページオブジェクト
+        """
+        res = PageCollection.search_pages(
+            self.site,
+            SearchPagesQuery(fullname=fullname)
+        )
+        if len(res) == 0:
+            if raise_when_not_found:
+                raise exceptions.NotFoundException(f'Page is not found: {fullname}')
+            return None
+        return res[0]
 
 
 @dataclass
@@ -74,7 +109,8 @@ class Site:
     ssl_supported: bool
 
     def __post_init__(self):
-        self.pages = SitePageMethods(self)
+        self.pages = SitePagesMethods(self)
+        self.page = SitePageMethods(self)
 
     def __str__(self):
         return f'Site(id={self.id}, title={self.title}, unix_name={self.unix_name})'

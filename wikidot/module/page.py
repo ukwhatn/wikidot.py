@@ -66,7 +66,7 @@ class SearchPagesQuery:
 
     def as_dict(self) -> dict[str, Any]:
         res = {k: v for k, v in asdict(self).items() if v is not None}
-        if isinstance(res["tags"], list):
+        if "tags" in res and isinstance(res["tags"], list):
             res["tags"] = " ".join(res["tags"])
         return res
 
@@ -205,7 +205,7 @@ class PageCollection(list):
             pages: list['Page']
     ):
         # pagesからidが設定されていないものを抽出
-        target_pages = [page for page in pages if page.id is None]
+        target_pages = [page for page in pages if not page.is_id_acquired()]
 
         # なければ終了
         if len(target_pages) == 0:
@@ -280,7 +280,7 @@ class Page:
         コメントしたユーザ
     commented_at: datetime
         コメント日時
-    id: int
+    _id: int
         ページID
     """
     site: 'Site'
@@ -303,7 +303,36 @@ class Page:
     updated_at: datetime
     commented_by: Optional['User']
     commented_at: datetime
-    id: int = None
+    _id: int = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
+
+    @property
+    def id(self) -> int:
+        """ページID（必要であれば取得）
+
+        Returns
+        -------
+        int
+            ページID
+        """
+        if self._id is None:
+            PageCollection._acquire_page_ids([self])
+        return self._id
+
+    @id.setter
+    def id(self, value: int):
+        self._id = value
+
+    def is_id_acquired(self) -> bool:
+        return self._id is not None
+
+    def destroy(self):
+        self.site.client.login_check()
+        self.site.amc_request([{
+            "action": "WikiPageAction",
+            "event": "deletePage",
+            "page_id": self.id,
+            "moduleName": "Empty"
+        }])

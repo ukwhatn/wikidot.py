@@ -1,7 +1,5 @@
 from functools import wraps
 
-from .exceptions import LoginRequiredException
-
 
 def login_required(func):
     """ログインが必要な関数につけるデコレータ
@@ -30,8 +28,7 @@ def login_required(func):
         if client is None:
             raise ValueError('Client is not found')
 
-        if not client.is_logged_in:
-            raise LoginRequiredException('Login is required to execute this function')
+        client.login_check()
 
         return func(*args, **kwargs)
 
