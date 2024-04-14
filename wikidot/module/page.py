@@ -7,6 +7,7 @@ from bs4 import BeautifulSoup
 
 from wikidot.common import exceptions
 from wikidot.util.parser import user as user_parser, odate as odate_parser
+from wikidot.util.requestutil import RequestUtil
 
 if TYPE_CHECKING:
     from wikidot.module.site import Site
@@ -212,12 +213,11 @@ class PageCollection(list):
             return pages
 
         # norender, noredirectでアクセス
-        request_datas = [
-            {
-                "url": f"{page.get_url()}/norender/true/noredirect/true"
-            } for page in target_pages
-        ]
-        responses = target_pages[0].site.client.amc_client.get(request_datas)
+        responses = RequestUtil.request(
+            target_pages[0].site.client,
+            "GET",
+            [f"{page.get_url()}/norender/true/noredirect/true" for page in target_pages]
+        )
 
         # "WIKIREQUEST.info.pageId = xxx;"の値をidに設定
         for index, response in enumerate(responses):
@@ -318,7 +318,7 @@ class Page:
             ページID
         """
         if self._id is None:
-            PageCollection._acquire_page_ids([self])
+            PageCollection([self]).get_page_ids()
         return self._id
 
     @id.setter
