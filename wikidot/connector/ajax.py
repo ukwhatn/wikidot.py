@@ -1,6 +1,6 @@
 import asyncio
 import json.decoder
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 import httpx
@@ -65,21 +65,6 @@ class AjaxRequestHeader:
         del self.cookie[name]
         return
 
-    def is_cookie_set(self, name) -> bool:
-        """Cookieが設定されているかどうかを返す
-
-        Parameters
-        ----------
-        name: str
-            Cookie名
-
-        Returns
-        -------
-        bool
-            Cookieが設定されているかどうか
-        """
-        return name in self.cookie
-
     def get_header(self) -> dict:
         """ヘッダを構築して返す
 
@@ -115,13 +100,6 @@ class AjaxModuleConnectorConfig:
     attempt_limit: int = 3
     retry_interval: int = 5
     semaphore_limit: int = 10
-
-
-@dataclass
-class HTTPRequestData:
-    url: str
-    headers: dict[str, any] = field(default_factory=dict)
-    data: dict[str, any] = field(default_factory=dict)
 
 
 class AjaxModuleConnectorClient:
