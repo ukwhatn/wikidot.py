@@ -234,19 +234,25 @@ class PageCollection(list):
     def get_page_ids(self):
         return PageCollection._acquire_page_ids(self)
 
-    def get_page_sources(self):
-        if len(self) == 0:
+    @staticmethod
+    def _acquire_page_sources(
+            pages: list['Page']
+    ):
+        if len(pages) == 0:
             return []
-        response = self[0].site.amc_request([{
+        response = pages[0].site.amc_request([{
             "moduleName": "viewsource/ViewSourceModule",
             "page_id": page.id
-        } for page in self])
+        } for page in pages])
 
-        for page, response in zip(self, response):
+        for page, response in zip(pages, response):
             body = response.json()["body"]
             source = BeautifulSoup(body, "lxml").select_one("div.page-source").text.strip().removeprefix("\t")
             page.source = PageSource(page, source)
-        return self
+        return pages
+
+    def get_page_sources(self):
+        return PageCollection._acquire_page_sources(self)
 
 
 @dataclass
