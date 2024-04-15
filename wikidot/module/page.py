@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional, Union, Any
 from bs4 import BeautifulSoup
 
 from wikidot.common import exceptions
+from wikidot.module.page_revision import PageRevision, PageRevisionCollection
 from wikidot.module.page_source import PageSource
 from wikidot.util.parser import user as user_parser, odate as odate_parser
 from wikidot.util.requestutil import RequestUtil
@@ -74,9 +75,17 @@ class SearchPagesQuery:
 
 
 class PageCollection(list):
+    def __init__(self, site: 'Site' = None, pages: list['Page'] = None):
+        super().__init__(pages or [])
+
+        if site is not None:
+            self.site = site
+        else:
+            self.site = self[0].site
+
     @staticmethod
     def _parse(site: 'Site', html_body: BeautifulSoup):
-        pages = PageCollection()
+        pages = []
 
         for page_element in html_body.select("span.page"):
             page_params = {}
@@ -130,7 +139,7 @@ class PageCollection(list):
                 # keyを変換
                 if "_linked" in key:
                     key = key.replace("_linked", "")
-                elif key in ["comments", "children"]:
+                elif key in ["comments", "children", "revisions"]:
                     key = f"{key}_count"
                 elif key in ["rating_votes"]:
                     key = "votes"
@@ -148,7 +157,7 @@ class PageCollection(list):
             # ページオブジェクトを作成
             pages.append(Page(site, **page_params))
 
-        return pages
+        return PageCollection(site, pages)
 
     @staticmethod
     def search_pages(
@@ -196,14 +205,15 @@ class PageCollection(list):
             responses = site.amc_request(request_bodies)
             html_bodies.extend([BeautifulSoup(response.json()["body"], "lxml") for response in responses])
 
-        pages = PageCollection()
+        pages = []
         for html_body in html_bodies:
             pages.extend(PageCollection._parse(site, html_body))
 
-        return pages
+        return PageCollection(site, pages)
 
     @staticmethod
     def _acquire_page_ids(
+            site: 'Site',
             pages: list['Page']
     ):
         # pagesからidが設定されていないものを抽出
@@ -215,7 +225,7 @@ class PageCollection(list):
 
         # norender, noredirectでアクセス
         responses = RequestUtil.request(
-            target_pages[0].site.client,
+            site.client,
             "GET",
             [f"{page.get_url()}/norender/true/noredirect/true" for page in target_pages]
         )
@@ -232,27 +242,72 @@ class PageCollection(list):
         return pages
 
     def get_page_ids(self):
-        return PageCollection._acquire_page_ids(self)
+        return PageCollection._acquire_page_ids(self.site, self)
 
     @staticmethod
     def _acquire_page_sources(
+            site: 'Site',
             pages: list['Page']
     ):
         if len(pages) == 0:
-            return []
-        response = pages[0].site.amc_request([{
+            return pages
+
+        responses = site.amc_request([{
             "moduleName": "viewsource/ViewSourceModule",
             "page_id": page.id
         } for page in pages])
 
-        for page, response in zip(pages, response):
-            body = response.json()["body"]
+        for page, responses in zip(pages, responses):
+            body = responses.json()["body"]
             source = BeautifulSoup(body, "lxml").select_one("div.page-source").text.strip().removeprefix("\t")
             page.source = PageSource(page, source)
         return pages
 
     def get_page_sources(self):
-        return PageCollection._acquire_page_sources(self)
+        return PageCollection._acquire_page_sources(self.site, self)
+
+    @staticmethod
+    def _acquire_page_revisions(
+            site: 'Site',
+            pages: list['Page']
+    ):
+        if len(pages) == 0:
+            return pages
+
+        responses = site.amc_request([{
+            "moduleName": "history/PageRevisionListModule",
+            "page_id": page.id,
+            "options": {"all": True},
+            "perpage": 100000000  # pagerを使わずに全て取得
+        } for page in pages])
+
+        for page, response in zip(pages, responses):
+            body = response.json()["body"]
+            revs = []
+            body_html = BeautifulSoup(body, "lxml")
+            for rev_element in body_html.select('table.page-history > tr[id^=revision-row-]'):
+                rev_id = int(rev_element["id"].removeprefix("revision-row-"))
+
+                tds = rev_element.select("td")
+                rev_no = int(tds[0].text.strip().removesuffix("."))
+                created_by = user_parser(page.site.client, tds[4].select_one("span.printuser"))
+                created_at = odate_parser(tds[5].select_one("span.odate"))
+                comment = tds[6].text.strip()
+
+                revs.append(PageRevision(
+                    page=page,
+                    id=rev_id,
+                    rev_no=rev_no,
+                    created_by=created_by,
+                    created_at=created_at,
+                    comment=comment
+                ))
+            page.revisions = revs
+
+        return pages
+
+    def get_page_revisions(self):
+        return PageCollection._acquire_page_revisions(self.site, self)
 
 
 @dataclass
@@ -283,7 +338,7 @@ class Page:
         vote数
     rating_percent: float
         5つ星レーティングにおけるパーセンテージ
-    revisions: int
+    revisions_count: int
         リビジョン数
     parent_fullname: str | None
         親ページのフルネーム 存在しない場合はNone
@@ -315,7 +370,7 @@ class Page:
     rating: int | float
     votes: int
     rating_percent: float
-    revisions: int
+    revisions_count: int
     parent_fullname: str | None
     tags: list[str]
     created_by: 'User'
@@ -326,6 +381,7 @@ class Page:
     commented_at: datetime
     _id: int = None
     _source: Optional[PageSource] = None
+    _revisions: list['PageRevision'] = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
@@ -340,7 +396,7 @@ class Page:
             ページID
         """
         if self._id is None:
-            PageCollection([self]).get_page_ids()
+            PageCollection(self.site, [self]).get_page_ids()
         return self._id
 
     @id.setter
@@ -353,12 +409,31 @@ class Page:
     @property
     def source(self) -> PageSource:
         if self._source is None:
-            PageCollection([self]).get_page_sources()
+            PageCollection(self.site, [self]).get_page_sources()
         return self._source
 
     @source.setter
     def source(self, value: PageSource):
         self._source = value
+
+    @property
+    def revisions(self) -> PageRevisionCollection:
+        if self._revisions is None:
+            PageCollection(self.site, [self]).get_page_revisions()
+        return PageRevisionCollection(self, self._revisions)
+
+    @revisions.setter
+    def revisions(self, value: list['PageRevision']):
+        self._revisions = value
+
+    @property
+    def latest_revision(self) -> PageRevision:
+        # revision_countとrev_noが一致するものを取得
+        for revision in self.revisions:
+            if revision.rev_no == self.revisions_count:
+                return revision
+
+        raise exceptions.NotFoundException("Cannot find latest revision")
 
     def destroy(self):
         self.site.client.login_check()
