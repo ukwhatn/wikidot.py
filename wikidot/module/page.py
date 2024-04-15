@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional, Union, Any
 from bs4 import BeautifulSoup
 
 from wikidot.common import exceptions
+from wikidot.module.page_source import PageSource
 from wikidot.util.parser import user as user_parser, odate as odate_parser
 from wikidot.util.requestutil import RequestUtil
 
@@ -233,6 +234,20 @@ class PageCollection(list):
     def get_page_ids(self):
         return PageCollection._acquire_page_ids(self)
 
+    def get_page_sources(self):
+        if len(self) == 0:
+            return []
+        response = self[0].site.amc_request([{
+            "moduleName": "viewsource/ViewSourceModule",
+            "page_id": page.id
+        } for page in self])
+
+        for page, response in zip(self, response):
+            body = response.json()["body"]
+            source = BeautifulSoup(body, "lxml").select_one("div.page-source").text.strip().removeprefix("\t")
+            page.source = PageSource(page, source)
+        return self
+
 
 @dataclass
 class Page:
@@ -304,6 +319,7 @@ class Page:
     commented_by: Optional['User']
     commented_at: datetime
     _id: int = None
+    _source: Optional[PageSource] = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
@@ -327,6 +343,16 @@ class Page:
 
     def is_id_acquired(self) -> bool:
         return self._id is not None
+
+    @property
+    def source(self) -> PageSource:
+        if self._source is None:
+            PageCollection([self]).get_page_sources()
+        return self._source
+
+    @source.setter
+    def source(self, value: PageSource):
+        self._source = value
 
     def destroy(self):
         self.site.client.login_check()
