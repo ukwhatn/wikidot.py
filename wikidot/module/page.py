@@ -6,7 +6,9 @@ from typing import TYPE_CHECKING, Optional, Union, Any
 from bs4 import BeautifulSoup
 
 from wikidot.common import exceptions
+from wikidot.module.page_source import PageSource
 from wikidot.util.parser import user as user_parser, odate as odate_parser
+from wikidot.util.requestutil import RequestUtil
 
 if TYPE_CHECKING:
     from wikidot.module.site import Site
@@ -212,12 +214,11 @@ class PageCollection(list):
             return pages
 
         # norender, noredirectでアクセス
-        request_datas = [
-            {
-                "url": f"{page.get_url()}/norender/true/noredirect/true"
-            } for page in target_pages
-        ]
-        responses = target_pages[0].site.client.amc_client.get(request_datas)
+        responses = RequestUtil.request(
+            target_pages[0].site.client,
+            "GET",
+            [f"{page.get_url()}/norender/true/noredirect/true" for page in target_pages]
+        )
 
         # "WIKIREQUEST.info.pageId = xxx;"の値をidに設定
         for index, response in enumerate(responses):
@@ -232,6 +233,26 @@ class PageCollection(list):
 
     def get_page_ids(self):
         return PageCollection._acquire_page_ids(self)
+
+    @staticmethod
+    def _acquire_page_sources(
+            pages: list['Page']
+    ):
+        if len(pages) == 0:
+            return []
+        response = pages[0].site.amc_request([{
+            "moduleName": "viewsource/ViewSourceModule",
+            "page_id": page.id
+        } for page in pages])
+
+        for page, response in zip(pages, response):
+            body = response.json()["body"]
+            source = BeautifulSoup(body, "lxml").select_one("div.page-source").text.strip().removeprefix("\t")
+            page.source = PageSource(page, source)
+        return pages
+
+    def get_page_sources(self):
+        return PageCollection._acquire_page_sources(self)
 
 
 @dataclass
@@ -304,6 +325,7 @@ class Page:
     commented_by: Optional['User']
     commented_at: datetime
     _id: int = None
+    _source: Optional[PageSource] = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
@@ -318,7 +340,7 @@ class Page:
             ページID
         """
         if self._id is None:
-            PageCollection._acquire_page_ids([self])
+            PageCollection([self]).get_page_ids()
         return self._id
 
     @id.setter
@@ -327,6 +349,16 @@ class Page:
 
     def is_id_acquired(self) -> bool:
         return self._id is not None
+
+    @property
+    def source(self) -> PageSource:
+        if self._source is None:
+            PageCollection([self]).get_page_sources()
+        return self._source
+
+    @source.setter
+    def source(self, value: PageSource):
+        self._source = value
 
     def destroy(self):
         self.site.client.login_check()
