@@ -123,7 +123,7 @@ class PageCollection(list['Page']):
                 elif key in ["tags", "_tags"]:
                     value = value_element.text.split()
 
-                elif key in ["rating_votes", "comments", "size", "revisions", "votes"]:
+                elif key in ["rating_votes", "comments", "size", "revisions"]:
                     value = int(value_element.text.strip())
 
                 elif key in ["rating"]:
