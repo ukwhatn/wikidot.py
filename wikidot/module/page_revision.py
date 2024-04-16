@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Iterator
 
 from bs4 import BeautifulSoup
 
@@ -11,10 +11,13 @@ if TYPE_CHECKING:
     from wikidot.module.user import AbstractUser
 
 
-class PageRevisionCollection(list):
+class PageRevisionCollection(list['PageRevision']):
     def __init__(self, page: 'Page' = None, revisions: list['PageRevision'] = None):
         super().__init__(revisions or [])
         self.page = page or revisions[0].page
+
+    def __iter__(self) -> Iterator['PageRevision']:
+        return super().__iter__()
 
     @staticmethod
     def _acquire_sources(page, revisions: list['PageRevision']):
@@ -43,6 +46,34 @@ class PageRevisionCollection(list):
     def get_sources(self):
         return self._acquire_sources(self.page, self)
 
+    @staticmethod
+    def _acquire_htmls(page, revisions: list['PageRevision']):
+        target_revisions = [revision for revision in revisions if not revision.is_html_acquired()]
+
+        if len(target_revisions) == 0:
+            return revisions
+
+        responses = page.site.amc_request(
+            [{
+                'moduleName': 'history/PageVersionModule',
+                'revision_id': revision.id
+            } for revision in target_revisions]
+        )
+
+        for revision, response in zip(target_revisions, responses):
+            body = response.json()['body']
+            # onclick="document.getElementById('page-version-info').style.display='none'">(.*?)</a>\n\t</div>\n\n\n\n
+            # 以降をソースとして取得
+            source = body.split('onclick="document.getElementById(\'page-version-info\').style.display=\'none\'">',
+                                maxsplit=1)[1]
+            source = source.split('</a>\n\t</div>\n\n\n\n', maxsplit=1)[1]
+            revision._html = source
+
+        return revisions
+
+    def get_htmls(self):
+        return self._acquire_htmls(self.page, self)
+
 
 @dataclass
 class PageRevision:
@@ -70,3 +101,13 @@ class PageRevision:
     @source.setter
     def source(self, value: 'PageSource'):
         self._source = value
+
+    @property
+    def html(self) -> str:
+        if not self.is_html_acquired():
+            PageRevisionCollection(self.page, [self]).get_htmls()
+        return self._html
+
+    @html.setter
+    def html(self, value: str):
+        self._html = value

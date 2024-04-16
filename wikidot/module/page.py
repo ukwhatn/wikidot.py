@@ -417,13 +417,13 @@ class Page:
         self._source = value
 
     @property
-    def revisions(self) -> PageRevisionCollection:
+    def revisions(self) -> PageRevisionCollection['PageRevision']:
         if self._revisions is None:
             PageCollection(self.site, [self]).get_page_revisions()
         return PageRevisionCollection(self, self._revisions)
 
     @revisions.setter
-    def revisions(self, value: list['PageRevision']):
+    def revisions(self, value: list['PageRevision'] | PageRevisionCollection['PageRevision']):
         self._revisions = value
 
     @property
