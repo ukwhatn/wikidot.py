@@ -9,6 +9,7 @@ from bs4 import BeautifulSoup
 from wikidot.common import exceptions
 from wikidot.module.page_revision import PageRevision, PageRevisionCollection
 from wikidot.module.page_source import PageSource
+from wikidot.module.page_votes import PageVote, PageVoteCollection
 from wikidot.util.parser import user as user_parser, odate as odate_parser
 from wikidot.util.requestutil import RequestUtil
 
@@ -122,7 +123,7 @@ class PageCollection(list['Page']):
                 elif key in ["tags", "_tags"]:
                     value = value_element.text.split()
 
-                elif key in ["rating_votes", "comments", "size", "revisions"]:
+                elif key in ["rating_votes", "comments", "size", "revisions", "votes"]:
                     value = int(value_element.text.strip())
 
                 elif key in ["rating"]:
@@ -146,7 +147,7 @@ class PageCollection(list['Page']):
                 elif key in ["comments", "children", "revisions"]:
                     key = f"{key}_count"
                 elif key in ["rating_votes"]:
-                    key = "votes"
+                    key = "votes_count"
 
                 page_params[key] = value
 
@@ -313,6 +314,49 @@ class PageCollection(list['Page']):
     def get_page_revisions(self):
         return PageCollection._acquire_page_revisions(self.site, self)
 
+    @staticmethod
+    def _acquire_page_votes(
+            site: 'Site',
+            pages: list['Page']
+    ):
+        if len(pages) == 0:
+            return pages
+
+        responses = site.amc_request([{
+            "moduleName": "pagerate/WhoRatedPageModule",
+            "pageId": page.id
+        } for page in pages])
+
+        for page, response in zip(pages, responses):
+            body = response.json()["body"]
+            html = BeautifulSoup(body, "lxml")
+            user_elems = html.select("span.printuser")
+            value_elems = html.select("span[style^='color']")
+
+            if len(user_elems) != len(value_elems):
+                raise exceptions.UnexpectedException("User and value count mismatch")
+
+            users = [user_parser(site.client, user_elem) for user_elem in user_elems]
+            values = []
+            for value in value_elems:
+                value = value.text.strip()
+                if value == "+":
+                    values.append(1)
+                elif value == "-":
+                    values.append(-1)
+                else:
+                    values.append(int(value))
+
+            votes = [
+                PageVote(page, user, vote) for user, vote in zip(users, values)
+            ]
+            page._votes = PageVoteCollection(page.site, votes)
+
+        return pages
+
+    def get_page_votes(self):
+        return PageCollection._acquire_page_votes(self.site, self)
+
 
 @dataclass
 class Page:
@@ -338,7 +382,7 @@ class Page:
         サイズ
     rating: int | float
         レーティング +/-ならint、5つ星ならfloat
-    votes: int
+    votes_count: int
         vote数
     rating_percent: float
         5つ星レーティングにおけるパーセンテージ
@@ -372,7 +416,7 @@ class Page:
     comments_count: int
     size: int
     rating: int | float
-    votes: int
+    votes_count: int
     rating_percent: float
     revisions_count: int
     parent_fullname: str | None
@@ -386,6 +430,7 @@ class Page:
     _id: int = None
     _source: Optional[PageSource] = None
     _revisions: list['PageRevision'] = None
+    _votes: PageVoteCollection = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
@@ -438,6 +483,16 @@ class Page:
                 return revision
 
         raise exceptions.NotFoundException("Cannot find latest revision")
+
+    @property
+    def votes(self) -> PageVoteCollection:
+        if self._votes is None:
+            PageCollection(self.site, [self]).get_page_votes()
+        return self._votes
+
+    @votes.setter
+    def votes(self, value: PageVoteCollection):
+        self._votes = value
 
     def destroy(self):
         self.site.client.login_check()
