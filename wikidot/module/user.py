@@ -1,3 +1,4 @@
+from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -11,8 +12,11 @@ if TYPE_CHECKING:
     from wikidot.module.client import Client
 
 
-class UserCollection(list):
+class UserCollection(list['AbstractUser']):
     """ユーザーオブジェクトのリスト"""
+
+    def __iter__(self) -> Iterator['AbstractUser']:
+        return super().__iter__()
 
     @staticmethod
     def from_names(

@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
+from collections.abc import Iterator
 
 import httpx
 from bs4 import BeautifulSoup, Tag, ResultSet
@@ -14,9 +15,12 @@ if TYPE_CHECKING:
     from wikidot.module.client import Client
 
 
-class PrivateMessageCollection(list):
+class PrivateMessageCollection(list['PrivateMessage']):
     def __str__(self):
         return f'{self.__class__.__name__}({len(self)} messages)'
+
+    def __iter__(self) -> Iterator['PrivateMessage']:
+        return super().__iter__()
 
     @staticmethod
     @login_required
