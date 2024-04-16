@@ -6,7 +6,7 @@ release_from-develop:
 make post-release:
 	rm -rf dist
 	git add .
-	git commit -m 'release: $(version)'
+	git commit -m 'release: $(version)' --allow-empty
 	git push origin develop
 	make release_from-develop version=$(version)
 
