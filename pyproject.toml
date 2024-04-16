@@ -1,6 +1,6 @@
 [project]
 name = "wikidot"
-version = "3.0.2"
+version = "3.0.3"
 authors = [{ name = "ukwhatn", email = "ukwhatn@gmail.com" }]
 description = "Wikidot Utility Library"
 readme = "README.md"
