@@ -1,4 +1,5 @@
 import re
+from collections.abc import Iterator
 from dataclasses import dataclass, asdict
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional, Union, Any
@@ -74,7 +75,7 @@ class SearchPagesQuery:
         return res
 
 
-class PageCollection(list):
+class PageCollection(list['Page']):
     def __init__(self, site: 'Site' = None, pages: list['Page'] = None):
         super().__init__(pages or [])
 
@@ -82,6 +83,9 @@ class PageCollection(list):
             self.site = site
         else:
             self.site = self[0].site
+
+    def __iter__(self) -> Iterator['Page']:
+        return super().__iter__()
 
     @staticmethod
     def _parse(site: 'Site', html_body: BeautifulSoup):
