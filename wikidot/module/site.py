@@ -6,13 +6,13 @@ import httpx
 
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
-from wikidot.module.page import SearchPagesQuery, PageCollection
+from wikidot.module.page import PageCollection, SearchPagesQuery
 from wikidot.module.site_application import SiteApplication
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client
-    from wikidot.module.user import User
     from wikidot.module.page import Page
+    from wikidot.module.user import User
 
 
 class SitePagesMethods:

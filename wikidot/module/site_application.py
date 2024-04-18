@@ -8,8 +8,8 @@ from wikidot.common.decorators import login_required
 from wikidot.util.parser import user as user_parser
 
 if TYPE_CHECKING:
-    from wikidot.module.user import AbstractUser
     from wikidot.module.site import Site
+    from wikidot.module.user import AbstractUser
 
 
 @dataclass

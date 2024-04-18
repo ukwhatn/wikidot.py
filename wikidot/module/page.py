@@ -1,8 +1,8 @@
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Union, Any
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from bs4 import BeautifulSoup
 
@@ -10,7 +10,8 @@ from wikidot.common import exceptions
 from wikidot.module.page_revision import PageRevision, PageRevisionCollection
 from wikidot.module.page_source import PageSource
 from wikidot.module.page_votes import PageVote, PageVoteCollection
-from wikidot.util.parser import user as user_parser, odate as odate_parser
+from wikidot.util.parser import odate as odate_parser
+from wikidot.util.parser import user as user_parser
 from wikidot.util.requestutil import RequestUtil
 
 if TYPE_CHECKING:

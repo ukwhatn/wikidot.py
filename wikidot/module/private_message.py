@@ -1,18 +1,19 @@
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
-from collections.abc import Iterator
 
 import httpx
-from bs4 import BeautifulSoup, Tag, ResultSet
+from bs4 import BeautifulSoup, ResultSet, Tag
 
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
-from wikidot.util.parser import odate as odate_parser, user as user_parser
+from wikidot.util.parser import odate as odate_parser
+from wikidot.util.parser import user as user_parser
 
 if TYPE_CHECKING:
-    from wikidot.module.user import AbstractUser, User
     from wikidot.module.client import Client
+    from wikidot.module.user import AbstractUser, User
 
 
 class PrivateMessageCollection(list["PrivateMessage"]):
