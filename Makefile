@@ -5,7 +5,7 @@ release_from-develop:
 
 build:
 	rm -rf dist
-	pip install -e .[dev]
+	pip install -e .[build]
 	python -m build
 
 release:
@@ -15,4 +15,20 @@ release:
 	git push origin develop
 	make release_from-develop version=$(version)
 
-PHONY: build release release_from-develop
+format:
+	pip install -e .[format]
+	python -m black .
+
+commit:
+	make format
+	git add .
+	git commit -m '$(message)'
+
+lint:
+	pip install -e .[lint]
+	python -m flake8
+
+test:
+	pip install -e .[test]
+
+PHONY: build release release_from-develop format commit test
