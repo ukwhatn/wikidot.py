@@ -20,9 +20,20 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = [
+build = [
     "build",
     "twine",
+]
+test = [
+    "pytest",
+    "pytest-cov",
+    "pytest-asyncio",
+    "pytest-mock",
+    "pytest-xdist",
+    "flake8",
+    "mypy",
+    "black",
+    "isort",
 ]
 
 [project.urls]
