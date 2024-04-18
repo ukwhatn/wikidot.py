@@ -24,16 +24,21 @@ build = [
     "build",
     "twine",
 ]
+lint = [
+    "flake8",
+    "mypy",
+    "isort",
+]
+format = [
+    "black",
+    "isort",
+]
 test = [
     "pytest",
     "pytest-cov",
     "pytest-asyncio",
     "pytest-mock",
-    "pytest-xdist",
-    "flake8",
-    "mypy",
-    "black",
-    "isort",
+    "pytest-xdist"
 ]
 
 [project.urls]
