@@ -1,0 +1,27 @@
+#file: noinspection YAMLSchemaValidation
+name: Publish to PyPI
+on:
+  # 新規リリースの作成時に実行
+  release:
+    types: [ released, prereleased ]
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.10'
+
+      - name: Build package
+        run: |
+          make build
+
+      - name: Publish package to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          user: __token__
+          password: ${{ secrets.PYPI_API_TOKEN }}
