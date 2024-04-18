@@ -29,7 +29,8 @@ commit:
 
 lint:
 	pip install -e .[lint]
-	python -m flake8
+	python -m flake8 $(FORMAT_DIR)
+	python -m mypy $(FORMAT_DIR) --install-types --non-interactive
 
 test:
 	pip install -e .[test]
