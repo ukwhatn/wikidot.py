@@ -10,10 +10,7 @@ if TYPE_CHECKING:
 class RequestUtil:
     @staticmethod
     def request(
-            client: 'Client',
-            method: str,
-            urls: list[str],
-            return_exceptions: bool = False
+        client: "Client", method: str, urls: list[str], return_exceptions: bool = False
     ) -> list[httpx.Response | Exception]:
         """GETリクエストを送信する
 
@@ -37,26 +34,26 @@ class RequestUtil:
         config = client.amc_client.config
         semaphore = asyncio.Semaphore(config.semaphore_limit)
 
-        async def _get(
-                url: str
-        ) -> httpx.Response:
+        async def _get(url: str) -> httpx.Response:
             async with semaphore:
                 async with httpx.AsyncClient() as _client:
                     return await _client.get(url)
 
-        async def _post(
-                url: str
-        ) -> httpx.Response:
+        async def _post(url: str) -> httpx.Response:
             async with semaphore:
                 async with httpx.AsyncClient() as _client:
                     return await _client.post(url)
 
         async def _execute():
-            if method == 'GET':
-                return await asyncio.gather(*[_get(url) for url in urls], return_exceptions=return_exceptions)
-            elif method == 'POST':
-                return await asyncio.gather(*[_post(url) for url in urls], return_exceptions=return_exceptions)
+            if method == "GET":
+                return await asyncio.gather(
+                    *[_get(url) for url in urls], return_exceptions=return_exceptions
+                )
+            elif method == "POST":
+                return await asyncio.gather(
+                    *[_post(url) for url in urls], return_exceptions=return_exceptions
+                )
             else:
-                raise ValueError('Invalid method')
+                raise ValueError("Invalid method")
 
         return asyncio.run(_execute())

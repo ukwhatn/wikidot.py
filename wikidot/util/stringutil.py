@@ -29,20 +29,20 @@ class StringUtil:
         target_str = target_str.lower()
 
         # ascii以外の文字を削除
-        target_str = re.sub(r'[^a-z0-9\-:_]', '-', target_str)
-        target_str = re.sub(r'^_', ':_', target_str)
-        target_str = re.sub(r'(?<!:)_', '-', target_str)
-        target_str = re.sub(r'^-*', '', target_str)
-        target_str = re.sub(r'-*$', '', target_str)
-        target_str = re.sub(r'-{2,}', '-', target_str)
-        target_str = re.sub(r':{2,}', ':', target_str)
-        target_str = target_str.replace(':-', ':')
-        target_str = target_str.replace('-:', ':')
-        target_str = target_str.replace('_-', '_')
-        target_str = target_str.replace('-_', '_')
+        target_str = re.sub(r"[^a-z0-9\-:_]", "-", target_str)
+        target_str = re.sub(r"^_", ":_", target_str)
+        target_str = re.sub(r"(?<!:)_", "-", target_str)
+        target_str = re.sub(r"^-*", "", target_str)
+        target_str = re.sub(r"-*$", "", target_str)
+        target_str = re.sub(r"-{2,}", "-", target_str)
+        target_str = re.sub(r":{2,}", ":", target_str)
+        target_str = target_str.replace(":-", ":")
+        target_str = target_str.replace("-:", ":")
+        target_str = target_str.replace("_-", "_")
+        target_str = target_str.replace("-_", "_")
 
         # 先頭と末尾の:を削除
-        target_str = re.sub(r'^:', '', target_str)
-        target_str = re.sub(r':$', '', target_str)
+        target_str = re.sub(r"^:", "", target_str)
+        target_str = re.sub(r":$", "", target_str)
 
         return target_str

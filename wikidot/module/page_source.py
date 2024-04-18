@@ -7,5 +7,5 @@ if TYPE_CHECKING:
 
 @dataclass
 class PageSource:
-    page: 'Page'
+    page: "Page"
     wiki_text: str

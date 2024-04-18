@@ -18,9 +18,9 @@ class QMCPage:
 class QuickModule:
     @staticmethod
     def _request(
-            module_name: str,
-            site_id: int,
-            query: str,
+        module_name: str,
+        site_id: int,
+        query: str,
     ):
         """リクエストを送信する
 
@@ -41,17 +41,14 @@ class QuickModule:
         ]:
             raise ValueError("Invalid module name")
 
-        url = f'https://www.wikidot.com/quickmodule.php?module={module_name}&s={site_id}&q={query}'
+        url = f"https://www.wikidot.com/quickmodule.php?module={module_name}&s={site_id}&q={query}"
         response = httpx.get(url, timeout=300)
         if response.status_code == httpx.codes.INTERNAL_SERVER_ERROR:
             raise ValueError("Site is not found")
         return response.json()
 
     @staticmethod
-    def member_lookup(
-            site_id: int,
-            query: str
-    ):
+    def member_lookup(site_id: int, query: str):
         """メンバーを検索する
 
         Parameters
@@ -70,10 +67,7 @@ class QuickModule:
         return [QMCUser(id=user["user_id"], name=user["name"]) for user in users]
 
     @staticmethod
-    def user_lookup(
-            site_id: int,
-            query: str
-    ):
+    def user_lookup(site_id: int, query: str):
         """ユーザーを検索する
 
         Parameters
@@ -92,10 +86,7 @@ class QuickModule:
         return [QMCUser(id=user["user_id"], name=user["name"]) for user in users]
 
     @staticmethod
-    def page_lookup(
-            site_id: int,
-            query: str
-    ):
+    def page_lookup(site_id: int, query: str):
         """ページを検索する
 
         Parameters
@@ -111,4 +102,6 @@ class QuickModule:
             ページのリスト
         """
         pages = QuickModule._request("PageLookupQModule", site_id, query)["pages"]
-        return [QMCPage(title=page["title"], unix_name=page["unix_name"]) for page in pages]
+        return [
+            QMCPage(title=page["title"], unix_name=page["unix_name"]) for page in pages
+        ]
