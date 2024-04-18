@@ -6,9 +6,12 @@ from typing import Any
 import httpx
 
 from ..common import wd_logger
-from ..common.exceptions import (AMCHttpStatusCodeException, NotFoundException,
-                                 ResponseDataException,
-                                 WikidotStatusCodeException)
+from ..common.exceptions import (
+    AMCHttpStatusCodeException,
+    NotFoundException,
+    ResponseDataException,
+    WikidotStatusCodeException,
+)
 
 
 class AjaxRequestHeader:

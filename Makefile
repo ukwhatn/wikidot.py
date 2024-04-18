@@ -1,3 +1,5 @@
+FORMAT_DIR = "wikidot"
+
 release_from-develop:
 	gh pr create --base main --head develop --title "Release v$(version)"
 	gh pr merge --auto
@@ -17,7 +19,8 @@ release:
 
 format:
 	pip install -e .[format]
-	python -m black .
+	python -m isort $(FORMAT_DIR)
+	python -m black $(FORMAT_DIR)
 
 commit:
 	make format

@@ -1,12 +1,13 @@
 from wikidot.common import wd_logger
 from wikidot.common.exceptions import LoginRequiredException
-from wikidot.connector.ajax import (AjaxModuleConnectorClient,
-                                    AjaxModuleConnectorConfig)
+from wikidot.connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
 from wikidot.module.auth import HTTPAuthentication
-from wikidot.module.private_message import (PrivateMessage,
-                                            PrivateMessageCollection,
-                                            PrivateMessageInbox,
-                                            PrivateMessageSentBox)
+from wikidot.module.private_message import (
+    PrivateMessage,
+    PrivateMessageCollection,
+    PrivateMessageInbox,
+    PrivateMessageSentBox,
+)
 from wikidot.module.site import Site
 from wikidot.module.user import User, UserCollection
 
