@@ -20,7 +20,7 @@ class UserCollection(list["AbstractUser"]):
 
     @staticmethod
     def from_names(
-        client: "Client", names: list[str], raise_when_not_found: bool = False
+            client: "Client", names: list[str], raise_when_not_found: bool = False
     ) -> "UserCollection":
         """ユーザー名のリストからユーザーオブジェクトのリストを取得する
 
@@ -48,7 +48,7 @@ class UserCollection(list["AbstractUser"]):
             ],
         )
 
-        users = []
+        users: list[AbstractUser] = []
 
         for response in responses:
             if isinstance(response, Exception):
@@ -61,7 +61,6 @@ class UserCollection(list["AbstractUser"]):
                 if raise_when_not_found:
                     raise NotFoundException(f"User not found: {response.url}")
                 else:
-                    users.append(None)
                     continue
 
             # id取得
@@ -148,7 +147,7 @@ class User(AbstractUser):
 
     @staticmethod
     def from_name(
-        client: "Client", name: str, raise_when_not_found: bool = False
+            client: "Client", name: str, raise_when_not_found: bool = False
     ) -> "User":
         """ユーザー名からユーザーオブジェクトを取得する
 

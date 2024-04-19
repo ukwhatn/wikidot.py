@@ -64,7 +64,7 @@ class QuickModule:
             ユーザーのリスト
         """
         users = QuickModule._request("MemberLookupQModule", site_id, query)["users"]
-        return [QMCUser(id=user["user_id"], name=user["name"]) for user in users]
+        return [QMCUser(id=int(user["user_id"]), name=user["name"]) for user in users]
 
     @staticmethod
     def user_lookup(site_id: int, query: str):
@@ -83,7 +83,7 @@ class QuickModule:
             ユーザーのリスト
         """
         users = QuickModule._request("UserLookupQModule", site_id, query)["users"]
-        return [QMCUser(id=user["user_id"], name=user["name"]) for user in users]
+        return [QMCUser(id=int(user["user_id"]), name=user["name"]) for user in users]
 
     @staticmethod
     def page_lookup(site_id: int, query: str):

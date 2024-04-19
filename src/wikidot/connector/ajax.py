@@ -44,7 +44,7 @@ class AjaxRequestHeader:
         )
         self.user_agent: str = "WikidotPy" if user_agent is None else user_agent
         self.referer: str = "https://www.wikidot.com/" if referer is None else referer
-        self.cookie: dict[str, any] = {"wikidot_token7": 123456}
+        self.cookie: dict[str, Any] = {"wikidot_token7": 123456}
         if cookie is not None:
             self.cookie.update(cookie)
         return
@@ -162,7 +162,7 @@ class AjaxModuleConnectorClient:
 
     def request(
         self,
-        bodies: list[dict[str, any]],
+        bodies: list[dict[str, Any]],
         return_exceptions: bool = False,
         site_name: str | None = None,
         site_ssl_supported: bool | None = None,
@@ -208,7 +208,7 @@ class AjaxModuleConnectorClient:
             site_ssl_supported if site_ssl_supported is not None else self.ssl_supported
         )
 
-        async def _request(_body: dict[str, any]) -> httpx.Response:
+        async def _request(_body: dict[str, Any]) -> httpx.Response:
             retry_count = 0
 
             while True:

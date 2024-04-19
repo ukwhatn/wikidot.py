@@ -33,13 +33,6 @@ format = [
     "black",
     "isort",
 ]
-test = [
-    "pytest",
-    "pytest-cov",
-    "pytest-asyncio",
-    "pytest-mock",
-    "pytest-xdist"
-]
 
 [project.urls]
 "Homepage" = "https://github.com/ukwhatn/wikidot.py"
