@@ -2,21 +2,21 @@ from wikidot.common import wd_logger
 from wikidot.common.exceptions import LoginRequiredException
 from wikidot.connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
 from wikidot.module.auth import HTTPAuthentication
-from wikidot.module.private_message import PrivateMessage, PrivateMessageInbox, \
-    PrivateMessageSentBox, PrivateMessageCollection
+from wikidot.module.private_message import (
+    PrivateMessage,
+    PrivateMessageCollection,
+    PrivateMessageInbox,
+    PrivateMessageSentBox,
+)
 from wikidot.module.site import Site
 from wikidot.module.user import User, UserCollection
 
 
 class ClientUserMethods:
-    def __init__(self, client: 'Client'):
+    def __init__(self, client: "Client"):
         self.client = client
 
-    def get(
-            self,
-            name: str,
-            raise_when_not_found: bool = False
-    ) -> User:
+    def get(self, name: str, raise_when_not_found: bool = False) -> User:
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters
@@ -36,9 +36,7 @@ class ClientUserMethods:
         return User.from_name(self.client, name, raise_when_not_found)
 
     def get_bulk(
-            self,
-            names: list[str],
-            raise_when_not_found: bool = False
+        self, names: list[str], raise_when_not_found: bool = False
     ) -> list[User]:
         """ユーザー名からユーザーオブジェクトを取得する
 
@@ -59,15 +57,10 @@ class ClientUserMethods:
 
 
 class ClientPrivateMessageMethods:
-    def __init__(self, client: 'Client'):
+    def __init__(self, client: "Client"):
         self.client = client
 
-    def send(
-            self,
-            recipient: User,
-            subject: str,
-            body: str
-    ) -> None:
+    def send(self, recipient: User, subject: str, body: str) -> None:
         """メッセージを送信する
 
         Parameters
@@ -133,10 +126,10 @@ class ClientPrivateMessageMethods:
 
 
 class ClientSiteMethods:
-    def __init__(self, client: 'Client'):
+    def __init__(self, client: "Client"):
         self.client = client
 
-    def get(self, unix_name: str) -> 'Site':
+    def get(self, unix_name: str) -> "Site":
         """UNIX名からサイトオブジェクトを取得する
 
         Parameters
@@ -156,11 +149,11 @@ class Client:
     """基幹クライアント"""
 
     def __init__(
-            self,
-            username: str | None = None,
-            password: str | None = None,
-            amc_config: AjaxModuleConnectorConfig | None = None,
-            logging_level: str = "WARNING"
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        amc_config: AjaxModuleConnectorConfig | None = None,
+        logging_level: str = "WARNING",
     ):
         """Wikidot Client
 
@@ -179,10 +172,7 @@ class Client:
         wd_logger.setLevel(logging_level)
 
         # AMCClientを初期化
-        self.amc_client = AjaxModuleConnectorClient(
-            site_name=None,
-            config=amc_config
-        )
+        self.amc_client = AjaxModuleConnectorClient(site_name=None, config=amc_config)
 
         # セッション関連変数の初期化
         self.is_logged_in = False
@@ -226,5 +216,5 @@ class Client:
 
     def login_check(self) -> None:
         if not self.is_logged_in:
-            raise LoginRequiredException('Login is required to execute this function')
+            raise LoginRequiredException("Login is required to execute this function")
         return

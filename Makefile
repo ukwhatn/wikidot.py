@@ -1,3 +1,5 @@
+FORMAT_DIR = src
+
 release_from-develop:
 	gh pr create --base main --head develop --title "Release v$(version)"
 	gh pr merge --auto
@@ -5,7 +7,7 @@ release_from-develop:
 
 build:
 	rm -rf dist
-	pip install -e .[dev]
+	pip install -e .[build]
 	python -m build
 
 release:
@@ -15,4 +17,19 @@ release:
 	git push origin develop
 	make release_from-develop version=$(version)
 
-PHONY: build release release_from-develop
+commit:
+	make format
+	git add .
+	git commit -m '$(message)'
+
+format:
+	pip install -e .[format]
+	python -m isort $(FORMAT_DIR)
+	python -m black $(FORMAT_DIR)
+
+lint:
+	pip install -e .[lint]
+	python -m flake8 $(FORMAT_DIR)
+	# python -m mypy $(FORMAT_DIR) --install-types --non-interactive
+
+PHONY: build release release_from-develop format commit

@@ -1,8 +1,8 @@
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, Union, Any
+from typing import TYPE_CHECKING, Any, Optional, Union
 
 from bs4 import BeautifulSoup
 
@@ -10,7 +10,8 @@ from wikidot.common import exceptions
 from wikidot.module.page_revision import PageRevision, PageRevisionCollection
 from wikidot.module.page_source import PageSource
 from wikidot.module.page_votes import PageVote, PageVoteCollection
-from wikidot.util.parser import user as user_parser, odate as odate_parser
+from wikidot.util.parser import odate as odate_parser
+from wikidot.util.parser import user as user_parser
 from wikidot.util.requestutil import RequestUtil
 
 if TYPE_CHECKING:
@@ -51,7 +52,7 @@ class SearchPagesQuery:
     link_to: Optional[str] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
-    created_by: Optional[Union['User', str]] = None
+    created_by: Optional[Union["User", str]] = None
     rating: Optional[str] = None
     votes: Optional[str] = None
     name: Optional[str] = None
@@ -76,8 +77,8 @@ class SearchPagesQuery:
         return res
 
 
-class PageCollection(list['Page']):
-    def __init__(self, site: 'Site' = None, pages: list['Page'] = None):
+class PageCollection(list["Page"]):
+    def __init__(self, site: "Site" = None, pages: list["Page"] = None):
         super().__init__(pages or [])
 
         if site is not None:
@@ -85,18 +86,21 @@ class PageCollection(list['Page']):
         else:
             self.site = self[0].site
 
-    def __iter__(self) -> Iterator['Page']:
+    def __iter__(self) -> Iterator["Page"]:
         return super().__iter__()
 
     @staticmethod
-    def _parse(site: 'Site', html_body: BeautifulSoup):
+    def _parse(site: "Site", html_body: BeautifulSoup):
         pages = []
 
         for page_element in html_body.select("span.page"):
             page_params = {}
 
             # レーティング方式を判定
-            is_5star_rating = page_element.select_one("span.rating span.page-rate-list-pages-start") is not None
+            is_5star_rating = (
+                page_element.select_one("span.rating span.page-rate-list-pages-start")
+                is not None
+            )
 
             # 各値を取得
             for set_element in page_element.select("span.set"):
@@ -113,7 +117,11 @@ class PageCollection(list['Page']):
                     else:
                         value = odate_parser(odate_element)
 
-                elif key in ["created_by_linked", "updated_by_linked", "commented_by_linked"]:
+                elif key in [
+                    "created_by_linked",
+                    "updated_by_linked",
+                    "commented_by_linked",
+                ]:
                     printuser_element = value_element.select_one("span.printuser")
                     if printuser_element is None:
                         value = None
@@ -165,28 +173,31 @@ class PageCollection(list['Page']):
         return PageCollection(site, pages)
 
     @staticmethod
-    def search_pages(
-            site: 'Site',
-            query: SearchPagesQuery = SearchPagesQuery()
-    ):
+    def search_pages(site: "Site", query: SearchPagesQuery = SearchPagesQuery()):
         # 初回実行
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
-        query_dict["module_body"] = '[[span class="page"]]' + "".join(
-            [
-                f'[[span class="set {key}"]]'
-                f'[[span class="name"]] {key} [[/span]]'
-                f'[[span class="value"]] %%{key}%% [[/span]]'
-                f'[[/span]]'
-                for key in DEFAULT_MODULE_BODY
-            ]
-        ) + "[[/span]]"
+        query_dict["module_body"] = (
+            '[[span class="page"]]'
+            + "".join(
+                [
+                    f'[[span class="set {key}"]]'
+                    f'[[span class="name"]] {key} [[/span]]'
+                    f'[[span class="value"]] %%{key}%% [[/span]]'
+                    f"[[/span]]"
+                    for key in DEFAULT_MODULE_BODY
+                ]
+            )
+            + "[[/span]]"
+        )
 
         try:
             response = site.amc_request([query_dict])[0]
         except exceptions.WikidotStatusCodeException as e:
             if e.status_code == "not_ok":
-                raise exceptions.ForbiddenException("Failed to get pages, target site may be private") from e
+                raise exceptions.ForbiddenException(
+                    "Failed to get pages, target site may be private"
+                ) from e
             raise e
 
         body = response.json()["body"]
@@ -198,7 +209,11 @@ class PageCollection(list['Page']):
         # pagerが存在する
         if first_page_html_body.select_one("div.pager") is not None:
             # span.target[-2] > a から最大ページ数を取得
-            total = int(first_page_html_body.select("div.pager span.target")[-2].select_one("a").text)
+            total = int(
+                first_page_html_body.select("div.pager span.target")[-2]
+                .select_one("a")
+                .text
+            )
 
         if total > 1:
             request_bodies = []
@@ -208,7 +223,12 @@ class PageCollection(list['Page']):
                 request_bodies.append(_query_dict)
 
             responses = site.amc_request(request_bodies)
-            html_bodies.extend([BeautifulSoup(response.json()["body"], "lxml") for response in responses])
+            html_bodies.extend(
+                [
+                    BeautifulSoup(response.json()["body"], "lxml")
+                    for response in responses
+                ]
+            )
 
         pages = []
         for html_body in html_bodies:
@@ -217,10 +237,7 @@ class PageCollection(list['Page']):
         return PageCollection(site, pages)
 
     @staticmethod
-    def _acquire_page_ids(
-            site: 'Site',
-            pages: list['Page']
-    ):
+    def _acquire_page_ids(site: "Site", pages: list["Page"]):
         # pagesからidが設定されていないものを抽出
         target_pages = [page for page in pages if not page.is_id_acquired()]
 
@@ -232,16 +249,21 @@ class PageCollection(list['Page']):
         responses = RequestUtil.request(
             site.client,
             "GET",
-            [f"{page.get_url()}/norender/true/noredirect/true" for page in target_pages]
+            [
+                f"{page.get_url()}/norender/true/noredirect/true"
+                for page in target_pages
+            ],
         )
 
         # "WIKIREQUEST.info.pageId = xxx;"の値をidに設定
         for index, response in enumerate(responses):
             source = response.text
 
-            id_match = re.search(r'WIKIREQUEST\.info\.pageId = (\d+);', source)
+            id_match = re.search(r"WIKIREQUEST\.info\.pageId = (\d+);", source)
             if id_match is None:
-                raise exceptions.UnexpectedException(f'Cannot find page id: {target_pages[index].fullname}')
+                raise exceptions.UnexpectedException(
+                    f"Cannot find page id: {target_pages[index].fullname}"
+                )
             target_pages[index].id = int(id_match.group(1))
 
         return pages
@@ -250,21 +272,25 @@ class PageCollection(list['Page']):
         return PageCollection._acquire_page_ids(self.site, self)
 
     @staticmethod
-    def _acquire_page_sources(
-            site: 'Site',
-            pages: list['Page']
-    ):
+    def _acquire_page_sources(site: "Site", pages: list["Page"]):
         if len(pages) == 0:
             return pages
 
-        responses = site.amc_request([{
-            "moduleName": "viewsource/ViewSourceModule",
-            "page_id": page.id
-        } for page in pages])
+        responses = site.amc_request(
+            [
+                {"moduleName": "viewsource/ViewSourceModule", "page_id": page.id}
+                for page in pages
+            ]
+        )
 
         for page, responses in zip(pages, responses):
             body = responses.json()["body"]
-            source = BeautifulSoup(body, "lxml").select_one("div.page-source").text.strip().removeprefix("\t")
+            source = (
+                BeautifulSoup(body, "lxml")
+                .select_one("div.page-source")
+                .text.strip()
+                .removeprefix("\t")
+            )
             page.source = PageSource(page, source)
         return pages
 
@@ -272,41 +298,49 @@ class PageCollection(list['Page']):
         return PageCollection._acquire_page_sources(self.site, self)
 
     @staticmethod
-    def _acquire_page_revisions(
-            site: 'Site',
-            pages: list['Page']
-    ):
+    def _acquire_page_revisions(site: "Site", pages: list["Page"]):
         if len(pages) == 0:
             return pages
 
-        responses = site.amc_request([{
-            "moduleName": "history/PageRevisionListModule",
-            "page_id": page.id,
-            "options": {"all": True},
-            "perpage": 100000000  # pagerを使わずに全て取得
-        } for page in pages])
+        responses = site.amc_request(
+            [
+                {
+                    "moduleName": "history/PageRevisionListModule",
+                    "page_id": page.id,
+                    "options": {"all": True},
+                    "perpage": 100000000,  # pagerを使わずに全て取得
+                }
+                for page in pages
+            ]
+        )
 
         for page, response in zip(pages, responses):
             body = response.json()["body"]
             revs = []
             body_html = BeautifulSoup(body, "lxml")
-            for rev_element in body_html.select('table.page-history > tr[id^=revision-row-]'):
+            for rev_element in body_html.select(
+                "table.page-history > tr[id^=revision-row-]"
+            ):
                 rev_id = int(rev_element["id"].removeprefix("revision-row-"))
 
                 tds = rev_element.select("td")
                 rev_no = int(tds[0].text.strip().removesuffix("."))
-                created_by = user_parser(page.site.client, tds[4].select_one("span.printuser"))
+                created_by = user_parser(
+                    page.site.client, tds[4].select_one("span.printuser")
+                )
                 created_at = odate_parser(tds[5].select_one("span.odate"))
                 comment = tds[6].text.strip()
 
-                revs.append(PageRevision(
-                    page=page,
-                    id=rev_id,
-                    rev_no=rev_no,
-                    created_by=created_by,
-                    created_at=created_at,
-                    comment=comment
-                ))
+                revs.append(
+                    PageRevision(
+                        page=page,
+                        id=rev_id,
+                        rev_no=rev_no,
+                        created_by=created_by,
+                        created_at=created_at,
+                        comment=comment,
+                    )
+                )
             page.revisions = revs
 
         return pages
@@ -315,17 +349,16 @@ class PageCollection(list['Page']):
         return PageCollection._acquire_page_revisions(self.site, self)
 
     @staticmethod
-    def _acquire_page_votes(
-            site: 'Site',
-            pages: list['Page']
-    ):
+    def _acquire_page_votes(site: "Site", pages: list["Page"]):
         if len(pages) == 0:
             return pages
 
-        responses = site.amc_request([{
-            "moduleName": "pagerate/WhoRatedPageModule",
-            "pageId": page.id
-        } for page in pages])
+        responses = site.amc_request(
+            [
+                {"moduleName": "pagerate/WhoRatedPageModule", "pageId": page.id}
+                for page in pages
+            ]
+        )
 
         for page, response in zip(pages, responses):
             body = response.json()["body"]
@@ -347,9 +380,7 @@ class PageCollection(list['Page']):
                 else:
                     values.append(int(value))
 
-            votes = [
-                PageVote(page, user, vote) for user, vote in zip(users, values)
-            ]
+            votes = [PageVote(page, user, vote) for user, vote in zip(users, values)]
             page._votes = PageVoteCollection(page.site, votes)
 
         return pages
@@ -407,7 +438,8 @@ class Page:
     _id: int
         ページID
     """
-    site: 'Site'
+
+    site: "Site"
     fullname: str
     name: str
     category: str
@@ -421,15 +453,15 @@ class Page:
     revisions_count: int
     parent_fullname: str | None
     tags: list[str]
-    created_by: 'User'
+    created_by: "User"
     created_at: datetime
-    updated_by: 'User'
+    updated_by: "User"
     updated_at: datetime
-    commented_by: Optional['User']
+    commented_by: Optional["User"]
     commented_at: datetime
     _id: int = None
     _source: Optional[PageSource] = None
-    _revisions: list['PageRevision'] = None
+    _revisions: list["PageRevision"] = None
     _votes: PageVoteCollection = None
 
     def get_url(self) -> str:
@@ -466,13 +498,15 @@ class Page:
         self._source = value
 
     @property
-    def revisions(self) -> PageRevisionCollection['PageRevision']:
+    def revisions(self) -> PageRevisionCollection["PageRevision"]:
         if self._revisions is None:
             PageCollection(self.site, [self]).get_page_revisions()
         return PageRevisionCollection(self, self._revisions)
 
     @revisions.setter
-    def revisions(self, value: list['PageRevision'] | PageRevisionCollection['PageRevision']):
+    def revisions(
+        self, value: list["PageRevision"] | PageRevisionCollection["PageRevision"]
+    ):
         self._revisions = value
 
     @property
@@ -496,9 +530,13 @@ class Page:
 
     def destroy(self):
         self.site.client.login_check()
-        self.site.amc_request([{
-            "action": "WikiPageAction",
-            "event": "deletePage",
-            "page_id": self.id,
-            "moduleName": "Empty"
-        }])
+        self.site.amc_request(
+            [
+                {
+                    "action": "WikiPageAction",
+                    "event": "deletePage",
+                    "page_id": self.id,
+                    "moduleName": "Empty",
+                }
+            ]
+        )

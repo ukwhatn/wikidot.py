@@ -1,6 +1,6 @@
 [project]
 name = "wikidot"
-version = "3.0.3"
+version = "3.0.4"
 authors = [{ name = "ukwhatn", email = "ukwhatn@gmail.com" }]
 description = "Wikidot Utility Library"
 readme = "README.md"
@@ -14,15 +14,24 @@ classifiers = [
 ]
 
 dependencies = [
-    "httpx ~= 0.25.0",
+    "httpx >= 0.25,< 0.28",
     "beautifulsoup4 ~= 4.12.2",
-    "lxml ~= 4.9.3",
+    "lxml >= 4.9.3,< 5.3.0",
 ]
 
 [project.optional-dependencies]
-dev = [
+build = [
     "build",
     "twine",
+]
+lint = [
+    "flake8",
+    "mypy",
+    "isort",
+]
+format = [
+    "black",
+    "isort",
 ]
 
 [project.urls]

@@ -12,5 +12,6 @@ class APIKeys:
     rw_key: str
         Read-Write Key
     """
+
     ro_key: str
     rw_key: str

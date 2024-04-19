@@ -12,18 +12,16 @@ if TYPE_CHECKING:
     from wikidot.module.client import Client
 
 
-class UserCollection(list['AbstractUser']):
+class UserCollection(list["AbstractUser"]):
     """ユーザーオブジェクトのリスト"""
 
-    def __iter__(self) -> Iterator['AbstractUser']:
+    def __iter__(self) -> Iterator["AbstractUser"]:
         return super().__iter__()
 
     @staticmethod
     def from_names(
-            client: 'Client',
-            names: list[str],
-            raise_when_not_found: bool = False
-    ) -> 'UserCollection':
+            client: "Client", names: list[str], raise_when_not_found: bool = False
+    ) -> "UserCollection":
         """ユーザー名のリストからユーザーオブジェクトのリストを取得する
 
         Parameters
@@ -43,42 +41,48 @@ class UserCollection(list['AbstractUser']):
         """
         responses = RequestUtil.request(
             client,
-            'GET',
-            [f'https://www.wikidot.com/user:info/{StringUtil.to_unix(name)}' for name in names]
+            "GET",
+            [
+                f"https://www.wikidot.com/user:info/{StringUtil.to_unix(name)}"
+                for name in names
+            ],
         )
 
-        users = []
+        users: list[AbstractUser] = []
 
         for response in responses:
             if isinstance(response, Exception):
                 raise response
 
-            html = BeautifulSoup(response.text, 'lxml')
+            html = BeautifulSoup(response.text, "lxml")
 
             # 存在チェック
-            if html.select_one('div.error-block'):
+            if html.select_one("div.error-block"):
                 if raise_when_not_found:
-                    raise NotFoundException(f'User not found: {response.url}')
+                    raise NotFoundException(f"User not found: {response.url}")
                 else:
-                    users.append(None)
                     continue
 
             # id取得
-            user_id = int(html.select_one('a.btn.btn-default.btn-xs')['href'].split('/')[-1])
+            user_id = int(
+                html.select_one("a.btn.btn-default.btn-xs")["href"].split("/")[-1]
+            )
 
             # name取得
-            name = html.select_one('h1.profile-title').get_text(strip=True)
+            name = html.select_one("h1.profile-title").get_text(strip=True)
 
             # avatar_url取得
-            avatar_url = f'https://www.wikidot.com/avatar.php?userid={user_id}'
+            avatar_url = f"https://www.wikidot.com/avatar.php?userid={user_id}"
 
-            users.append(User(
-                client=client,
-                id=user_id,
-                name=name,
-                unix_name=StringUtil.to_unix(name),
-                avatar_url=avatar_url
-            ))
+            users.append(
+                User(
+                    client=client,
+                    id=user_id,
+                    name=name,
+                    unix_name=StringUtil.to_unix(name),
+                    avatar_url=avatar_url,
+                )
+            )
 
         return UserCollection(users)
 
@@ -102,7 +106,8 @@ class AbstractUser:
     ip: str | None
         ユーザーのIPアドレス
     """
-    client: 'Client'
+
+    client: "Client"
     id: int | None = None
     name: str | None = None
     unix_name: str | None = None
@@ -110,7 +115,7 @@ class AbstractUser:
     ip: str | None = None
 
     def __str__(self):
-        return f'{self.__class__.__name__}(id={self.id}, name={self.name}, unix_name={self.unix_name})'
+        return f"{self.__class__.__name__}(id={self.id}, name={self.name}, unix_name={self.unix_name})"
 
 
 @dataclass
@@ -132,6 +137,7 @@ class User(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+
     # client: 'Client'
     # id: int | None
     # name: str | None
@@ -141,10 +147,8 @@ class User(AbstractUser):
 
     @staticmethod
     def from_name(
-            client: 'Client',
-            name: str,
-            raise_when_not_found: bool = False
-    ) -> 'User':
+            client: "Client", name: str, raise_when_not_found: bool = False
+    ) -> "User":
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters
@@ -184,6 +188,7 @@ class DeletedUser(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+
     # client: 'Client'
     # id: int | None
     name: str = "account deleted"
@@ -211,6 +216,7 @@ class AnonymousUser(AbstractUser):
     ip: str
         ユーザーのIPアドレス
     """
+
     # client: 'Client'
     id: None = None
     name: str = "Anonymous"
@@ -238,6 +244,7 @@ class GuestUser(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+
     # client: 'Client'
     id: None = None
     # name: str | None
@@ -265,6 +272,7 @@ class WikidotUser(AbstractUser):
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
+
     # client: 'Client'
     id: None = None
     name: str = "Wikidot"

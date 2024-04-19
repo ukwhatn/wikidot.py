@@ -2,6 +2,7 @@
 # 基底クラス
 # ---
 
+
 class WikidotException(Exception):
     """独自例外の基底クラス"""
 
@@ -13,6 +14,7 @@ class WikidotException(Exception):
 # ワイルドカード
 # ---
 
+
 class UnexpectedException(WikidotException):
     """予期せぬ例外が発生したときの例外"""
 
@@ -23,6 +25,7 @@ class UnexpectedException(WikidotException):
 # ---
 # セッション関連
 # ---
+
 
 class SessionCreateException(WikidotException):
     """セッションの作成に失敗したときの例外"""
@@ -77,6 +80,7 @@ class ResponseDataException(AjaxModuleConnectorException):
 # ---
 # ターゲットエラー関連
 # ---
+
 
 class NotFoundException(WikidotException):
     """サイトやページ・ユーザが見つからなかったときの例外"""

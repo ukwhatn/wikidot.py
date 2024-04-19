@@ -11,10 +11,11 @@ def login_required(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
         client = None
-        if 'client' in kwargs:
-            client = kwargs['client']
+        if "client" in kwargs:
+            client = kwargs["client"]
         else:
             from wikidot.module.client import Client
+
             for arg in args:
                 if isinstance(arg, Client):
                     client = arg
@@ -22,11 +23,11 @@ def login_required(func):
 
             # selfに存在するか？
             if client is None:
-                if hasattr(args[0], 'client'):
+                if hasattr(args[0], "client"):
                     client = args[0].client
 
         if client is None:
-            raise ValueError('Client is not found')
+            raise ValueError("Client is not found")
 
         client.login_check()
 
