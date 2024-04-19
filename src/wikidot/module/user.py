@@ -20,7 +20,7 @@ class UserCollection(list["AbstractUser"]):
 
     @staticmethod
     def from_names(
-            client: "Client", names: list[str], raise_when_not_found: bool = False
+        client: "Client", names: list[str], raise_when_not_found: bool = False
     ) -> "UserCollection":
         """ユーザー名のリストからユーザーオブジェクトのリストを取得する
 
@@ -147,7 +147,7 @@ class User(AbstractUser):
 
     @staticmethod
     def from_name(
-            client: "Client", name: str, raise_when_not_found: bool = False
+        client: "Client", name: str, raise_when_not_found: bool = False
     ) -> "User":
         """ユーザー名からユーザーオブジェクトを取得する
 
