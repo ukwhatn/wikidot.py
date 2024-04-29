@@ -178,7 +178,7 @@ class PageCollection(list["Page"]):
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
         query_dict["module_body"] = (
-            '[[div class="page"]]'
+            '[[div class="page"]]\n'
             + "".join(
                 [
                     f'[[span class="set {key}"]]'
@@ -188,7 +188,7 @@ class PageCollection(list["Page"]):
                     for key in DEFAULT_MODULE_BODY
                 ]
             )
-            + "[[/div]]"
+            + "\n[[/div]]"
         )
 
         try:
