@@ -93,7 +93,7 @@ class PageCollection(list["Page"]):
     def _parse(site: "Site", html_body: BeautifulSoup):
         pages = []
 
-        for page_element in html_body.select("span.page"):
+        for page_element in html_body.select("div.page"):
             page_params = {}
 
             # レーティング方式を判定
@@ -178,7 +178,7 @@ class PageCollection(list["Page"]):
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
         query_dict["module_body"] = (
-            '[[span class="page"]]'
+            '[[div class="page"]]'
             + "".join(
                 [
                     f'[[span class="set {key}"]]'
@@ -188,7 +188,7 @@ class PageCollection(list["Page"]):
                     for key in DEFAULT_MODULE_BODY
                 ]
             )
-            + "[[/span]]"
+            + "[[/div]]"
         )
 
         try:
