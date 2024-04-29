@@ -161,7 +161,7 @@ class PageCollection(list["Page"]):
 
             # タグのリストを統合
             for key in ["tags", "_tags"]:
-                if page_params[key] is None:
+                if key not in page_params or page_params[key] is None:
                     page_params[key] = []
 
             page_params["tags"] = page_params["tags"] + page_params["_tags"]
