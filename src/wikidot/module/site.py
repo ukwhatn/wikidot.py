@@ -6,6 +6,7 @@ import httpx
 
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
+from wikidot.module.forum import Forum
 from wikidot.module.page import PageCollection, SearchPagesQuery
 from wikidot.module.site_application import SiteApplication
 
@@ -104,6 +105,7 @@ class Site:
     def __post_init__(self):
         self.pages = SitePagesMethods(self)
         self.page = SitePageMethods(self)
+        self.forum = Forum(self)
 
     def __str__(self):
         return f"Site(id={self.id}, title={self.title}, unix_name={self.unix_name})"
