@@ -53,8 +53,8 @@ class ForumGroupCollection(list["ForumGroup"]):
                     forum=forum,
                     title=name.select_one("a").text,
                     group=group,
-                    _threads_counts=thread_count,
-                    _posts_counts=post_count
+                    threads_counts=thread_count,
+                    posts_counts=post_count
                 )
                 for name,thread_count,post_count in zip(names,thread_counts,post_counts)
             ]
@@ -64,9 +64,9 @@ class ForumGroupCollection(list["ForumGroup"]):
 
         forum._groups = ForumGroupCollection(site, groups)
 
-    def get(self, title: str) -> Optional["ForumGroup"]:
+    def find(self, title: str, description: str) -> Optional["ForumGroup"]:
         for group in self:
-            if group.title == title:
+            if group.title == title and group.description == description:
                 return group
 
 @dataclass
