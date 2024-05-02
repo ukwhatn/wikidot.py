@@ -27,26 +27,18 @@ class Forum:
     _groups: "ForumGroupCollection" = None
     _categories: "ForumCategoryCollection" = None
 
-    def get_url(self):
-        return f"{self.site.get_url}/forum/start"
-
     def __post_init__(self):
         self.category = ForumCategoryMethods(self)
+
+    def get_url(self):
+        return f"{self.site.get_url}/forum/start"
 
     @property
     def groups(self):
         ForumGroupCollection._acquire_groups(self.site, self)
         return self._groups
-    
-    @groups.setter
-    def groups(self, value: "ForumGroupCollection"):
-        self._groups = value
 
     @property
     def categories(self):
         ForumCategoryCollection._acquire_categories(self.site, self)
         return self._categories
-
-    @categories.setter
-    def categories(self, value: "ForumCategoryCollection"):
-        self._categories = value

@@ -13,13 +13,9 @@ if TYPE_CHECKING:
 
 
 class ForumGroupCollection(list["ForumGroup"]):
-    def __init__(self, site: "Site" = None, groups: list["ForumGroup"] = None):
-        super().__init__(groups or [])
-
-        if site is not None:
-            self.site = site
-        else:
-            self.site = self[0].site
+    def __init__(self, forum: "Forum", groups: list["ForumGroup"]):
+        super().__init__(groups)
+        self.forum = forum
     
     def __iter__(self) -> Iterator["ForumGroup"]:
         return super().__iter__()
@@ -64,10 +60,19 @@ class ForumGroupCollection(list["ForumGroup"]):
 
         forum._groups = ForumGroupCollection(site, groups)
 
-    def find(self, title: str, description: str) -> Optional["ForumGroup"]:
+    def find(self, title: str = None, description: str = None) -> Optional["ForumGroup"]:
         for group in self:
-            if group.title == title and group.description == description:
+            if ((title is None or group.title == title) and 
+                (description is None or group.description == description)):
                 return group
+    
+    def findall(self, title: str = None, description: str = None) -> list["ForumGroup"]:
+        groups = []
+        for group in self:
+            if ((title is None or group.title == title) and 
+                (description is None or group.description == description)):
+                groups.append(group)
+        return groups
 
 @dataclass
 class ForumGroup:
