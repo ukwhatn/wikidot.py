@@ -6,9 +6,6 @@ from typing import TYPE_CHECKING, Optional
 from bs4 import BeautifulSoup
 
 from wikidot.module.forum_category import ForumCategory, ForumCategoryCollection
-from wikidot.module.forum_post import ForumPost
-from wikidot.util.parser import odate as odate_parser
-from wikidot.util.parser import user as user_parser
 
 if TYPE_CHECKING:
     from wikidot.module.site import Site
