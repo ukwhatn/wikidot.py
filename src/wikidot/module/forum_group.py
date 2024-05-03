@@ -49,7 +49,7 @@ class ForumGroupCollection(list["ForumGroup"]):
                 thread_count = info.select_one("td.threads")
                 post_count = info.select_one("td.posts")
                 last_id = info.select_one("td.last>a").get("href")
-                thread_id, post_id = re.search(r"t-(\d+).+post-(\d+)",last_id).group()
+                thread_id, post_id = re.search(r"t-(\d+).+post-(\d+)",last_id).groups()
 
                 category = ForumCategory(
                     site=site,
