@@ -123,12 +123,15 @@ class ForumThread:
                     site=self.site,
                     id=int(re.search(r"post-(\d+)", post.get("id")).group(1)),
                     forum=self.forum,
+                    thread=self,
                     _title=post.select_one("div.title").text.strip(),
                     parent_id=parent_id,
                     created_by=user_parser(client, cuser),
                     created_at=odate_parser(codate),
                     edited_by=client.user.get(euser.text) if euser is not None else None,
-                    edited_at=odate_parser(eodate) if eodate is not None else None
+                    edited_at=odate_parser(eodate) if eodate is not None else None,
+                    source_ele=post.select_one("div.content"),
+                    source_text=post.select_one("div.content").text.strip()
                 ))
         
         return ForumPostCollection(self, posts)

@@ -59,9 +59,9 @@ class ForumPostCollection(list["ForumPost"]):
             html = BeautifulSoup(response.json()["body"], "lxml")
 
             title = html.select_one("input#np-title").text.strip()
-            content = html.select_one("textarea#np-text").text.strip()
+            source = html.select_one("textarea#np-text").text.strip()
             post._title = title
-            post._content = content
+            post._source = source
         
         return posts
 
@@ -80,9 +80,11 @@ class ForumPost:
     created_at: datetime = None
     edited_by: "AbstractUser" = None
     edited_at: datetime = None
+    source_text: str = None
+    source_ele: BeautifulSoup = None
     _parent: "ForumPost" = None
     _title: str = None
-    _content: str = None
+    _source: str = None
 
     def reply(self, title: str = "", source: str = ""):
         client = self.site.client
@@ -115,6 +117,9 @@ class ForumPost:
             created_at=body["CURRENT_TIMESTAMP"]
         )
     
+    def get_url(self):
+        return f"{self.thread.get_url()}#post-{self.id}"
+
     @property
     def parent(self):
         if self._parent is None:
@@ -127,7 +132,7 @@ class ForumPost:
     
     @property
     def title(self):
-        if self._content is None:
+        if self._title is None:
             ForumPostCollection(self.thread, [self]).get_post_info()
         return self._title
     
@@ -136,56 +141,58 @@ class ForumPost:
         self._title = value
 
     @property
-    def content(self):
-        if self._content is None:
+    def source(self):
+        if self._source is None:
             ForumPostCollection(self.thread, [self]).get_post_info()
-        return self._content
+        return self._source
     
-    @content.setter
-    def content(self, value: str):
-        self._content = value
+    @source.setter
+    def source(self, value: str):
+        self._source = value
     
-    def edit(self, title: str = None, content: str = None):
+    def edit(self, title: str = None, source: str = None):
         client = self.site.client
         client.login_check()
 
-        if title is None and content is None:
+        if title is None and source is None:
             return self
         
-        if content == "":
-            raise exceptions.UnexpectedException("Post content can not be left empty.")
-        
-        response = self.site.amc_request(
-            [
-                {
-                    "postId": self.id,
-                    "threadId": self.thread.id,
-                    "moduleName": "forum/sub/ForumEditPostFormModule"
-                }
-            ]
-        )[0]
-        html = BeautifulSoup(response.json()["body"], "lxml")
-        current_id = int(html.select("form#edit-post-form>input")[1].get("value"))
+        if source == "":
+            raise exceptions.UnexpectedException("Post source can not be left empty.")
+        try:
+            response = self.site.amc_request(
+                [
+                    {
+                        "postId": self.id,
+                        "threadId": self.thread.id,
+                        "moduleName": "forum/sub/ForumEditPostFormModule"
+                    }
+                ]
+            )[0]
+            html = BeautifulSoup(response.json()["body"], "lxml")
+            current_id = int(html.select("form#edit-post-form>input")[1].get("value"))
 
-        response = self.site.amc_request(
-            [
-                {
-                    "postId": self.id,
-                    "currentRevisionId": current_id,
-                    "title": title if title is not None else self.title,
-                    "source": content if content is not None else self.content,
-                    "action": "ForumAction",
-                    "event": "saveEditPost",
-                    "moduleName": "Empty"
-                }
-            ]
-        )[0]
+            response = self.site.amc_request(
+                [
+                    {
+                        "postId": self.id,
+                        "currentRevisionId": current_id,
+                        "title": title if title is not None else self.title,
+                        "source": source if source is not None else self.source,
+                        "action": "ForumAction",
+                        "event": "saveEditPost",
+                        "moduleName": "Empty"
+                    }
+                ]
+            )[0]
+        except exceptions.WikidotStatusCodeException:
+            return self
 
         body = response.json()
         self.edited_by = client.user.get(client.username)
         self.edited_at = datetime.fromtimestamp(body["CURRENT_TIMESTAMP"])
         self.title = title if title is not None else self.title
-        self.content = content if content is not None else self.content
+        self.source = source if source is not None else self.source
 
         return self
     

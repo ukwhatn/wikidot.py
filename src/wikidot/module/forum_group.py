@@ -42,15 +42,16 @@ class ForumGroupCollection(list["ForumGroup"]):
                 description=group_info.select_one("div.description").text
             )
 
-            names = group_info.select("td.name")
-            thread_counts = group_info.select("td.threads")
-            post_counts = group_info.select("td.posts")
-            last_users = group_info.select("span.printuser")
-            last_odates = group_info.select("span.odate")
-            last_ids = group_info.select("td.last>a")
+            categories = []
 
-            categories = [
-                ForumCategory(
+            for info in group_info.select("table.table tr.head~tr"):
+                name = info.select_one("td.name")
+                thread_count = info.select_one("td.threads")
+                post_count = info.select_one("td.posts")
+                last_id = info.select_one("td.last>a").get("href")
+                thread_id, post_id = re.search(r"t-(\d+).+post-(\d+)",last_id).group()
+
+                category = ForumCategory(
                     site=site,
                     id=int(re.search(r"c-(\d+)", name.select_one("a").get("href")).group(1)),
                     description=name.select_one("div.description").text,
@@ -59,17 +60,11 @@ class ForumGroupCollection(list["ForumGroup"]):
                     group=group,
                     threads_counts=thread_count,
                     posts_counts=post_count,
-                    last=ForumPost(
-                        site=site,
-                        id=int(re.search(r"post-(\d+)",last_id.get("href")).group(1)),
-                        forum=forum,
-                        created_by=user_parser(forum.site.client, last_user),
-                        created_at=odate_parser(last_odate)
-                    )
+                    last=forum.thread.get(thread_id).get(post_id)
                 )
-                for name,thread_count,post_count,last_user,last_odate,last_id 
-                in zip(names,thread_counts,post_counts,last_users,last_odates,last_ids)
-            ]
+
+                categories.append(category)
+            
             group.categories = ForumCategoryCollection(site, categories)
 
             groups.append(group)

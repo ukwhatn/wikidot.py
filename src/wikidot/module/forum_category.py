@@ -117,31 +117,25 @@ class ForumCategory:
             html = BeautifulSoup(response.json()["body"],"lxml")
             for info in html.select("table.table tr.head~tr"):
                 title = info.select_one("div.title a")
+                thread_id = re.search(r"t-(\d+)",title.get("href")).group(1)
                 description = info.select_one("div.description")
                 user = info.select_one("span.printuser")
                 odate = info.select_one("span.odate")
                 posts_count = info.select_one("td.posts")
-                last_user = info.select_one("span.printuser")
-                last_odate = info.select_one("span.odate")
-                last_id = info.select_one("td.last>a")
+                last_id = info.select_one("td.last>a").get("href")
+                post_id = re.search(r"post-(d\+)",last_id).group(1)
 
 
                 thread = ForumThread(
                     site=self.site,
-                    id=re.search(r"t-(\d+)",title.get("href")).group(1),
+                    id=thread_id,
                     forum=self.forum,
                     title=title.text,
                     description=description.text.strip(),
                     created_by=user_parser(client, user),
                     created_at=odate_parser(odate),
                     posts_counts=int(posts_count.text),
-                    last=ForumPost(
-                        site=self.site,
-                        id=int(re.search(r"post-(\d+)",last_id.get("href")).group(1)),
-                        forum=self.forum,
-                        created_by=user_parser(client, last_user),
-                        created_at=odate_parser(last_odate)
-                    )
+                    last=self.forum.thread.get(thread_id).get(post_id)
                 )
 
                 threads.append(thread)
