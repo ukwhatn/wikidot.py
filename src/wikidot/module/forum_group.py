@@ -21,7 +21,7 @@ class ForumGroupCollection(list["ForumGroup"]):
         return super().__iter__()
     
     @staticmethod
-    def _acquire_groups(site: "Site",forum: "Forum"):
+    def get_groups(site: "Site",forum: "Forum"):
         groups = []
 
         response = site.amc_request([{

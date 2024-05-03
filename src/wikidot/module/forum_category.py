@@ -26,7 +26,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
         return super().__iter__()
     
     @staticmethod
-    def _acquire_categories(site: "Site",forum: "Forum"):
+    def get_categories(site: "Site",forum: "Forum"):
         categories = []
 
         for group in forum.groups:
@@ -39,7 +39,43 @@ class ForumCategoryCollection(list["ForumCategory"]):
             if ((id is None or category.id == id) and
                 (title is None or category.title) == title):
                 return category
+    
+    @staticmethod
+    def _acquire_update(forum: "Forum", categories: list["ForumCategory"]):
+        if len(categories) == 0:
+            return categories
 
+        responses = forum.site.amc_request(
+            [
+                {
+                    "c": category.id,
+                    "moduleName":"forum/ForumViewCategoryModule",
+                }
+                for category in categories
+            ]
+        )
+        for category, response in zip(categories, responses):
+            html = BeautifulSoup(response.json()["body"], "lxml")
+            statistics = html.select_one("div.statistics").text
+            description = html.select_one("div.description-block").text.strip()
+            info = re.search(r"([ \S]*) /\s+([ \S]*)", html.select_one("div.forum-breadcrumbs").text)
+
+
+            if category.posts_counts != re.findall(r"\d+", statistics)[1]:
+                category.last = None
+            category.description = re.search(r"[ \S]*$", description).group()
+            category.threads_counts, category.posts_counts = re.findall(r"\d+", statistics)
+            category.group = category.forum.groups.find(info.group(1))
+            category.title = info.group(2)
+            if (pagerno:=html.select_one("span.pager-no")) is None:
+                category.pagerno = 1
+            else:
+                category.pagerno = int(re.search(r"of (\d+)", pagerno.text).group(1))
+
+        return categories
+    
+    def update(self):
+        return ForumCategoryCollection._acquire_update(self.forum, self)
 
 @dataclass
 class ForumCategory:
@@ -58,30 +94,7 @@ class ForumCategory:
         return f"{self.site.get_url}/forum/c-{self.id}"
 
     def update(self):
-        response = self.site.amc_request(
-            [
-                {
-                    "c": self.id,
-                    "moduleName":"forum/ForumViewCategoryModule",
-                }
-            ]
-        )[0]
-        
-        html = BeautifulSoup(response.json()["body"], "lxml")
-        statistics = html.select_one("div.statistics").text
-        info = re.search(r"(\S*) /\s+(\S*)", html.select_one("div.forum-breadcrumbs").text)
-
-
-        if self.posts_counts != re.findall(r"\d+", statistics)[1]:
-            self.last = None
-        self.description = re.search(r"\S*\s+$",html.select_one("div.description-block").text).group().strip()
-        self.threads_counts, self.posts_counts = re.findall(r"\d+", statistics)
-        self.group = self.forum.groups.find(info.group(1))
-        self.title = info.group(2)
-        if (pagerno:=html.select_one("span.pager-no")) is None:
-            self.pagerno = 1
-        else:
-            self.pagerno = int(re.search(r"of (\d+)", pagerno.text).group(1))
+        return ForumCategoryCollection(self.forum, [self]).update()[0]
 
     @property
     def threads(self):
@@ -115,7 +128,7 @@ class ForumCategory:
                     forum=self.forum,
                     title=title.text,
                     description=description.text.strip(),
-                    created_by=client.user.get(user_parser(client, user).unix_name),
+                    created_by=user_parser(client, user),
                     created_at=odate_parser(odate),
                     posts_counts=int(posts_count.text)
                 )
@@ -126,6 +139,7 @@ class ForumCategory:
     
     def new_thread(self, title: str, source :str, description: str = ""):
         client = self.site.client
+        client.login_check()
 
         response = self.site.amc_request(
             [
