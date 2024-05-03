@@ -50,7 +50,7 @@ class ForumThreadCollection(list["ForumThread"]):
             title = html.select_one("div.forum-breadcrumbs").text.strip()
             counts = int(re.findall(r"\n.+\D(\d+)", statistics.text)[-1])
 
-            thread.title = re.search(r"» ([ \S]+)$", title).group(1)
+            thread.title = re.search(r"»([ \S]*)$", title).group(1).strip()
             thread.category = thread.forum.category.get(int(category_id))
             if html.select_one("div.description-block div.head") is None:
                 thread.description = ""
@@ -85,10 +85,23 @@ class ForumThread:
     description: str = None
     created_by: "AbstractUser" = None
     created_at: datetime = None
-    last: "ForumPost" = None
     posts_counts: int = None
     page: "Page" = None
     pagerno: int = None
+    _last_post_id: int = None
+    _last: "ForumPost" = None
+
+    @property
+    def last(self):
+        if self._last_post_id is not None:
+            if self._last is None:
+                self.update()
+                self._last = self.get(self._last_post_id)
+            return self._last
+    
+    @last.setter
+    def last(self, value: "ForumPost"):
+        self._last = value
 
     @property
     def posts(self) -> ForumPostCollection:

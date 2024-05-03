@@ -48,10 +48,12 @@ class Forum:
 
     @property
     def groups(self):
-        ForumGroupCollection.get_groups(self.site, self)
+        if self._groups is None:
+            ForumGroupCollection.get_groups(self.site, self)
         return self._groups
 
     @property
     def categories(self):
-        ForumCategoryCollection.get_categories(self.site, self)
+        if self._categories is None:
+            ForumCategoryCollection.get_categories(self.site, self)
         return self._categories

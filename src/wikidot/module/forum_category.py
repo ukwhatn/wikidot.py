@@ -85,16 +85,29 @@ class ForumCategory:
     title: str = None
     description: str = None
     group: "ForumGroup" = None
-    last: "ForumPost" = None
     threads_counts: int = None
     posts_counts: int = None
     pagerno: int = None
+    _last_thread_id: int = None
+    _last_post_id: int = None
+    _last: "ForumPost" = None
     
     def get_url(self):
         return f"{self.site.get_url}/forum/c-{self.id}"
 
     def update(self):
         return ForumCategoryCollection(self.forum, [self]).update()[0]
+
+    @property
+    def last(self):
+        if self._last_thread_id is not None and self._last_post_id is not None:
+            if self._last is None:
+                self._last = self.forum.thread.get(self._last_thread_id).get(self._last_post_id)
+            return self._last
+    
+    @last.setter
+    def last(self, value: "ForumPost"):
+        self._last = value
 
     @property
     def threads(self):
@@ -122,9 +135,11 @@ class ForumCategory:
                 user = info.select_one("span.printuser")
                 odate = info.select_one("span.odate")
                 posts_count = info.select_one("td.posts")
-                last_id = info.select_one("td.last>a").get("href")
-                post_id = re.search(r"post-(d\+)",last_id).group(1)
-
+                last_id = info.select_one("td.last>a")
+                if last_id is None:
+                    post_id = None
+                else:
+                    post_id = int(re.search(r"post-(\d+)",last_id.get("href")).group(1))
 
                 thread = ForumThread(
                     site=self.site,
@@ -135,7 +150,7 @@ class ForumCategory:
                     created_by=user_parser(client, user),
                     created_at=odate_parser(odate),
                     posts_counts=int(posts_count.text),
-                    last=self.forum.thread.get(thread_id).get(post_id)
+                    _last_post_id=post_id
                 )
 
                 threads.append(thread)

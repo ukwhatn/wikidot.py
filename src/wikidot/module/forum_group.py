@@ -44,12 +44,16 @@ class ForumGroupCollection(list["ForumGroup"]):
 
             categories = []
 
-            for info in group_info.select("table.table tr.head~tr"):
+            for info in group_info.select("table tr.head~tr"):
                 name = info.select_one("td.name")
                 thread_count = info.select_one("td.threads")
                 post_count = info.select_one("td.posts")
-                last_id = info.select_one("td.last>a").get("href")
-                thread_id, post_id = re.search(r"t-(\d+).+post-(\d+)",last_id).groups()
+                last_id = info.select_one("td.last>a")
+                if last_id is None:
+                    thread_id, post_id = None, None
+                else:
+                    thread_id, post_id = re.search(r"t-(\d+).+post-(\d+)",last_id.get("href")).groups()
+                    thread_id, post_id = int(thread_id), int(post_id)
 
                 category = ForumCategory(
                     site=site,
@@ -60,7 +64,8 @@ class ForumGroupCollection(list["ForumGroup"]):
                     group=group,
                     threads_counts=thread_count,
                     posts_counts=post_count,
-                    last=forum.thread.get(thread_id).get(post_id)
+                    _last_thread_id=thread_id,
+                    _last_post_id=post_id
                 )
 
                 categories.append(category)
