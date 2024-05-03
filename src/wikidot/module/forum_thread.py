@@ -48,6 +48,7 @@ class ForumThreadCollection(list["ForumThread"]):
             category_url = html.select("div.forum-breadcrumbs a")[1].get("href")
             category_id = re.search(r"c-(\d+)", category_url).group(1)
             title = html.select_one("div.forum-breadcrumbs").text.strip()
+            counts = int(re.findall(r"\n.+\D(\d+)", statistics.text)[-1])
 
             thread.title = re.search(r"» ([ \S]+)$", title).group(1)
             thread.category = thread.forum.category.get(int(category_id))
@@ -55,10 +56,16 @@ class ForumThreadCollection(list["ForumThread"]):
                 thread.description = ""
             else:
                 description = html.select_one("div.description-block").text.strip()
-                thread.description = re.search(r"[ \S]+$", description).group() 
-            thread.posts_counts = int(re.findall(r"\n.+\D(\d+)", statistics.text)[-1])
+                thread.description = re.search(r"[ \S]+$", description).group()
+            if thread.posts_counts != counts:
+                thread.last = None
+            thread.posts_counts = counts
             thread.created_by = user_parser(client, user)
             thread.created_at = odate_parser(odate)
+            if (pagerno:=html.select_one("span.pager-no")) is None:
+                thread.pagerno = 1
+            else:
+                thread.pagerno = int(re.search(r"of (\d+)", pagerno.text).group(1))
             if (page_ele:=html.select_one("div.description-block>a")) is not None:
                 thread.page = thread.site.page.get(page_ele.get("href")[1:])
                 thread.page.discuss = thread
@@ -81,19 +88,50 @@ class ForumThread:
     last: "ForumPost" = None
     posts_counts: int = None
     page: "Page" = None
+    pagerno: int = None
 
     @property
-    def posts(self):
-        response = self.site.amc_request(
+    def posts(self) -> ForumPostCollection:
+        client = self.site.client
+        responses = self.site.amc_request(
             [
                 {
+                    "pagerNo": no+1,
                     "t": self.id,
-                    "moduleName":"forum/ForumViewThreadModule",
+                    "order": "",
+                    "moduleName":"forum/ForumViewThreadPostsModule",
                 }
+                for no in range(self.pagerno)
             ]
-        )[0]
+        )
 
-        #未完成
+        posts = []
+
+        for response in responses:
+            html = BeautifulSoup(response.json()["body"], "lxml")
+            for post in html.select("div.post"):
+                cuser = post.select_one("div.info span.printuser")
+                codate = post.select_one("div.info span.odate")
+                if (parent:=post.parent.get("id")) != "thread-container-posts":
+                    parent_id=int(re.search(r"fpc-(\d+)",parent).group(1))
+                else:
+                    parent_id = None
+                euser = post.select_one("div.changes span.printuser")
+                eodate = post.select_one("div.changes span.odate a") 
+
+                posts.append(ForumPost(
+                    site=self.site,
+                    id=int(re.search(r"post-(\d+)", post.get("id")).group(1)),
+                    forum=self.forum,
+                    _title=post.select_one("div.title").text.strip(),
+                    parent_id=parent_id,
+                    created_by=user_parser(client, cuser),
+                    created_at=odate_parser(codate),
+                    edited_by=client.user.get(euser.text) if euser is not None else None,
+                    edited_at=odate_parser(eodate) if eodate is not None else None
+                ))
+        
+        return ForumPostCollection(self, posts)
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/forum/t-{self.id}"
@@ -109,6 +147,9 @@ class ForumThread:
         if self.page is not None:
             raise exceptions.UnexpectedException("Page's discussion can not be edited.")
         
+        if title is None and description is None:
+            return self
+        
         self.site.amc_request(
             [
                 {
@@ -122,11 +163,8 @@ class ForumThread:
             ]
         )
 
-        if title is not None:
-            self.title = title
-        
-        if description is not None:
-            self.description = description
+        self.title = self.title if title is None else title
+        self.description = self.description if description is None else description
 
         return self
     
@@ -237,3 +275,37 @@ class ForumThread:
         checked = html.select_one("input.checkbox").get("checked")
 
         return checked is not None
+    
+    def new_post(self, title: str = "", source: str = "", parent_id: int = ""):
+        client = self.site.client
+        client.login_check()
+        if source == "":
+            raise exceptions.UnexpectedException("Post body can not be left empty.")
+        
+        response = self.site.amc_request(
+            [
+                {
+                    "parentId": parent_id,
+                    "title": title,
+                    "source": source,
+                    "action": "ForumAction",
+                    "event": "savePost"
+                }
+            ]
+        )
+        body = response.json()
+
+        return ForumPost(
+            site=self.site,
+            id=int(body["postId"]),
+            forum=self.forum,
+            title=title,
+            source=source,
+            thread=self,
+            parent_id=parent_id if parent_id == "" else None,
+            created_by=client.user.get(client.username),
+            created_at=datetime.fromtimestamp(body["CURRENT_TIMESTAMP"])
+        )
+    
+    def get(self, post_id: int):
+        return self.posts.find(post_id)

@@ -1,9 +1,14 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from datetime import datetime
+from typing import TYPE_CHECKING, Optional
+
+from bs4 import BeautifulSoup
+
+from wikidot.common import exceptions
 
 if TYPE_CHECKING:
-    from wikidot.module.page import Page
+    from wikidot.module.forum import Forum
     from wikidot.module.user import AbstractUser
     from wikidot.module.site import Site
     from wikidot.module.forum_thread import ForumThread
@@ -16,14 +21,183 @@ class ForumPostCollection(list["ForumPost"]):
     def __iter__(self) -> Iterator["ForumPost"]:
         return super().__iter__()
     
-    @staticmethod
-    def _acquire_posts(thread: "ForumThread", posts: list["ForumPost"]):
-        pass    #在这里继续
+    def find(self, target_id: int) -> Optional["ForumPost"]:
+        for post in self:
+            if target_id == post.id:
+                return post
 
-    def get_discuss_posts(self):
-        return self._acquire_posts(self.page, self)
+    @staticmethod
+    def _acquire_parent_post(thread: "ForumThread", posts: list["ForumPost"]):
+        if len(posts) == 0:
+            return posts
+        
+        for post in posts:
+            post._parent = thread.get(post.parent_id)
+        
+        return posts
+    
+    def get_parent_post(self):
+        return ForumPostCollection._acquire_parent_post(self.thread, self)
+    
+    @staticmethod
+    def _acquire_post_info(thread: "ForumThread", posts: list["ForumPost"]):
+        if len(posts) == 0:
+            return posts
+        
+        responses = thread.site.amc_request(
+            [
+                {
+                    "postId": post.id,
+                    "threadId": thread.id,
+                    "moduleName": "forum/sub/ForumEditPostFormModule"
+                }
+                for post in posts
+            ]
+        )
+
+        for post, response in zip(posts, responses):
+            html = BeautifulSoup(response.json()["body"], "lxml")
+
+            title = html.select_one("input#np-title").text.strip()
+            content = html.select_one("textarea#np-text").text.strip()
+            post._title = title
+            post._content = content
+        
+        return posts
+
+    def get_post_info(self):
+        return ForumPostCollection._acquire_post_info(self.thread, self)
+
 
 @dataclass
 class ForumPost:
-    page: "Page"
-    user: "AbstractUser"
+    site: "Site"
+    id: int
+    forum: "Forum"
+    thread: "ForumThread" = None
+    parent_id: int = None
+    created_by: "AbstractUser" = None
+    created_at: datetime = None
+    edited_by: "AbstractUser" = None
+    edited_at: datetime = None
+    _parent: "ForumPost" = None
+    _title: str = None
+    _content: str = None
+
+    def reply(self, title: str = "", source: str = ""):
+        client = self.site.client
+        client.login_check()
+        if source == "":
+            raise exceptions.UnexpectedException("Post body can not be left empty.")
+        
+        response = self.site.amc_request(
+            [
+                {
+                    "parentId": self.id,
+                    "title": title,
+                    "source": source,
+                    "action": "ForumAction",
+                    "event": "savePost"
+                }
+            ]
+        )[0]
+        body = response.json()
+
+        return ForumPost(
+            site=self.site,
+            id=int(body["postId"]),
+            forum=self.forum,
+            title=title,
+            source=source,
+            thread=self.thread,
+            parent_id=self.id,
+            created_by=client.user.get(client.username),
+            created_at=body["CURRENT_TIMESTAMP"]
+        )
+    
+    @property
+    def parent(self):
+        if self._parent is None:
+            ForumPostCollection(self.thread, [self]).get_parent_post()
+        return self._parent
+    
+    @parent.setter
+    def parent(self, value: "ForumPost"):
+        self._parent = value
+    
+    @property
+    def title(self):
+        if self._content is None:
+            ForumPostCollection(self.thread, [self]).get_post_info()
+        return self._title
+    
+    @title.setter
+    def title(self, value: str):
+        self._title = value
+
+    @property
+    def content(self):
+        if self._content is None:
+            ForumPostCollection(self.thread, [self]).get_post_info()
+        return self._content
+    
+    @content.setter
+    def content(self, value: str):
+        self._content = value
+    
+    def edit(self, title: str = None, content: str = None):
+        client = self.site.client
+        client.login_check()
+
+        if title is None and content is None:
+            return self
+        
+        if content == "":
+            raise exceptions.UnexpectedException("Post content can not be left empty.")
+        
+        response = self.site.amc_request(
+            [
+                {
+                    "postId": self.id,
+                    "threadId": self.thread.id,
+                    "moduleName": "forum/sub/ForumEditPostFormModule"
+                }
+            ]
+        )[0]
+        html = BeautifulSoup(response.json()["body"], "lxml")
+        current_id = int(html.select("form#edit-post-form>input")[1].get("value"))
+
+        response = self.site.amc_request(
+            [
+                {
+                    "postId": self.id,
+                    "currentRevisionId": current_id,
+                    "title": title if title is not None else self.title,
+                    "source": content if content is not None else self.content,
+                    "action": "ForumAction",
+                    "event": "saveEditPost",
+                    "moduleName": "Empty"
+                }
+            ]
+        )[0]
+
+        body = response.json()
+        self.edited_by = client.user.get(client.username)
+        self.edited_at = datetime.fromtimestamp(body["CURRENT_TIMESTAMP"])
+        self.title = title if title is not None else self.title
+        self.content = content if content is not None else self.content
+
+        return self
+    
+    def destroy(self):
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "postId": self.id,
+                    "action": "ForumAction",
+                    "event": "deletePost",
+                    "moduleName": "Empty"
+                }
+            ]
+        )

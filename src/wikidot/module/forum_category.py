@@ -59,12 +59,12 @@ class ForumCategoryCollection(list["ForumCategory"]):
             statistics = html.select_one("div.statistics").text
             description = html.select_one("div.description-block").text.strip()
             info = re.search(r"([ \S]*) /\s+([ \S]*)", html.select_one("div.forum-breadcrumbs").text)
+            counts = re.findall(r"\d+", statistics)
 
-
-            if category.posts_counts != re.findall(r"\d+", statistics)[1]:
+            if category.posts_counts != int(counts[1]):
                 category.last = None
             category.description = re.search(r"[ \S]*$", description).group()
-            category.threads_counts, category.posts_counts = re.findall(r"\d+", statistics)
+            category.threads_counts, category.posts_counts = counts
             category.group = category.forum.groups.find(info.group(1))
             category.title = info.group(2)
             if (pagerno:=html.select_one("span.pager-no")) is None:
@@ -121,6 +121,10 @@ class ForumCategory:
                 user = info.select_one("span.printuser")
                 odate = info.select_one("span.odate")
                 posts_count = info.select_one("td.posts")
+                last_user = info.select_one("span.printuser")
+                last_odate = info.select_one("span.odate")
+                last_id = info.select_one("td.last>a")
+
 
                 thread = ForumThread(
                     site=self.site,
@@ -130,7 +134,14 @@ class ForumCategory:
                     description=description.text.strip(),
                     created_by=user_parser(client, user),
                     created_at=odate_parser(odate),
-                    posts_counts=int(posts_count.text)
+                    posts_counts=int(posts_count.text),
+                    last=ForumPost(
+                        site=self.site,
+                        id=int(re.search(r"post-(\d+)",last_id.get("href")).group(1)),
+                        forum=self.forum,
+                        created_by=user_parser(client, last_user),
+                        created_at=odate_parser(last_odate)
+                    )
                 )
 
                 threads.append(thread)
@@ -154,14 +165,16 @@ class ForumCategory:
             ]
         )[0]
 
+        body = response.json()
+
         return ForumThread(
             site=self.site,
-            id=response.json()["threadId"],
+            id=body["threadId"],
             forum=self.forum,
             category=self,
             title=title,
             description=description,
             created_by=client.user.get(client.username),
-            created_at=datetime.fromtimestamp(response.json()["CURRENT_TIMESTAMP"]),
+            created_at=datetime.fromtimestamp(body["CURRENT_TIMESTAMP"]),
             posts_counts=1
             )

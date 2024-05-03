@@ -6,6 +6,9 @@ from typing import TYPE_CHECKING, Optional
 from bs4 import BeautifulSoup
 
 from wikidot.module.forum_category import ForumCategory, ForumCategoryCollection
+from wikidot.module.forum_post import ForumPost
+from wikidot.util.parser import odate as odate_parser
+from wikidot.util.parser import user as user_parser
 
 if TYPE_CHECKING:
     from wikidot.module.site import Site
@@ -38,9 +41,14 @@ class ForumGroupCollection(list["ForumGroup"]):
                 title=group_info.select_one("div.title").text,
                 description=group_info.select_one("div.description").text
             )
+
             names = group_info.select("td.name")
             thread_counts = group_info.select("td.threads")
             post_counts = group_info.select("td.posts")
+            last_users = group_info.select("span.printuser")
+            last_odates = group_info.select("span.odate")
+            last_ids = group_info.select("td.last>a")
+
             categories = [
                 ForumCategory(
                     site=site,
@@ -50,9 +58,17 @@ class ForumGroupCollection(list["ForumGroup"]):
                     title=name.select_one("a").text,
                     group=group,
                     threads_counts=thread_count,
-                    posts_counts=post_count
+                    posts_counts=post_count,
+                    last=ForumPost(
+                        site=site,
+                        id=int(re.search(r"post-(\d+)",last_id.get("href")).group(1)),
+                        forum=forum,
+                        created_by=user_parser(forum.site.client, last_user),
+                        created_at=odate_parser(last_odate)
+                    )
                 )
-                for name,thread_count,post_count in zip(names,thread_counts,post_counts)
+                for name,thread_count,post_count,last_user,last_odate,last_id 
+                in zip(names,thread_counts,post_counts,last_users,last_odates,last_ids)
             ]
             group.categories = ForumCategoryCollection(site, categories)
 
