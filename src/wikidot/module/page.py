@@ -13,6 +13,7 @@ from wikidot.module.page_votes import PageVote, PageVoteCollection
 from wikidot.util.parser import odate as odate_parser
 from wikidot.util.parser import user as user_parser
 from wikidot.util.requestutil import RequestUtil
+from wikidot.module.forum_thread import ForumThread
 
 if TYPE_CHECKING:
     from wikidot.module.site import Site
@@ -387,6 +388,31 @@ class PageCollection(list["Page"]):
 
     def get_page_votes(self):
         return PageCollection._acquire_page_votes(self.site, self)
+    
+    def _acquire_page_discuss(site: "Site", pages: list["Page"]):
+        target_pages = [page for page in pages if not page.is_discuss_acquired()]
+
+        if len(target_pages) == 0:
+            return pages
+        
+        responses = site.amc_request(
+                [
+                    {
+                        "action": "ForumAction",
+                        "event": "createPageDiscussionThread",
+                        "page_id": page.id,
+                        "moduleName": "Empty",
+                    }
+                    for page in target_pages
+                ]
+            )
+        
+        for page, response in zip(pages, responses):
+            page._discuss = ForumThread(site, response.json()["thread_id"], page=page)
+
+    def get_page_discuss(self):
+        return PageCollection._acquire_page_discuss(self.site, self)
+
 
 
 @dataclass
@@ -463,6 +489,21 @@ class Page:
     _source: Optional[PageSource] = None
     _revisions: list["PageRevision"] = None
     _votes: PageVoteCollection = None
+    _discuss: ForumThread = None
+
+    @property
+    def discuss(self):
+        if self._discuss is None:
+            PageCollection(self.site, [self]).get_page_discuss()
+        self._discuss.update()
+        return self._discuss
+
+    @discuss.setter
+    def discuss(self, value: ForumThread):
+        self._discuss = value
+
+    def is_discuss_acquired(self) -> bool:
+        return self._discuss is not None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
