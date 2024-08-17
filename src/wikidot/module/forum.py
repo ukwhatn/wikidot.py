@@ -8,29 +8,32 @@ from wikidot.module.forum_thread import ForumThread
 if TYPE_CHECKING:
     from wikidot.module.site import Site
 
+
 class ForumCategoryMethods:
     def __init__(self, forum: "Forum") -> None:
         self.forum = forum
-        
+
     def get(self, id: int):
         category = ForumCategory(
-                site = self.forum.site,
-                id = id,
-                forum = self.forum,
-            )
+            site=self.forum.site,
+            id=id,
+            forum=self.forum,
+        )
         return category.update()
+
 
 class ForumThreadMethods:
     def __init__(self, forum: "Forum") -> None:
         self.forum = forum
-    
+
     def get(self, id: int):
         thread = ForumThread(
-                site = self.forum.site,
-                id = id,
-                forum = self.forum,
+            site=self.forum.site,
+            id=id,
+            forum=self.forum,
         )
         return thread.update()
+
 
 @dataclass
 class Forum:

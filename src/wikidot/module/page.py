@@ -5,15 +5,15 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from bs4 import BeautifulSoup
+
+from wikidot.common import exceptions
 from wikidot.module.forum_thread import ForumThread
 from wikidot.module.page_revision import PageRevision, PageRevisionCollection
 from wikidot.module.page_source import PageSource
 from wikidot.module.page_votes import PageVote, PageVoteCollection
-from wikidot.util.requestutil import RequestUtil
-
-from wikidot.common import exceptions
 from wikidot.util.parser import odate as odate_parser
 from wikidot.util.parser import user as user_parser
+from wikidot.util.requestutil import RequestUtil
 
 if TYPE_CHECKING:
     from wikidot.module.site import Site
@@ -99,8 +99,8 @@ class PageCollection(list["Page"]):
 
             # レーティング方式を判定
             is_5star_rating = (
-                    page_element.select_one("span.rating span.page-rate-list-pages-start")
-                    is not None
+                page_element.select_one("span.rating span.page-rate-list-pages-start")
+                is not None
             )
 
             # 各値を取得
@@ -179,17 +179,17 @@ class PageCollection(list["Page"]):
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
         query_dict["module_body"] = (
-                '[[div class="page"]]\n'
-                + "".join(
-            [
-                f'[[span class="set {key}"]]'
-                f'[[span class="name"]] {key} [[/span]]'
-                f'[[span class="value"]] %%{key}%% [[/span]]'
-                f"[[/span]]"
-                for key in DEFAULT_MODULE_BODY
-            ]
-        )
-                + "\n[[/div]]"
+            '[[div class="page"]]\n'
+            + "".join(
+                [
+                    f'[[span class="set {key}"]]'
+                    f'[[span class="name"]] {key} [[/span]]'
+                    f'[[span class="value"]] %%{key}%% [[/span]]'
+                    f"[[/span]]"
+                    for key in DEFAULT_MODULE_BODY
+                ]
+            )
+            + "\n[[/div]]"
         )
 
         try:
@@ -320,7 +320,7 @@ class PageCollection(list["Page"]):
             revs = []
             body_html = BeautifulSoup(body, "lxml")
             for rev_element in body_html.select(
-                    "table.page-history > tr[id^=revision-row-]"
+                "table.page-history > tr[id^=revision-row-]"
             ):
                 rev_id = int(rev_element["id"].removeprefix("revision-row-"))
 
@@ -545,7 +545,7 @@ class Page:
 
     @revisions.setter
     def revisions(
-            self, value: list["PageRevision"] | PageRevisionCollection["PageRevision"]
+        self, value: list["PageRevision"] | PageRevisionCollection["PageRevision"]
     ):
         self._revisions = value
 
