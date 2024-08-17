@@ -9,9 +9,10 @@ from wikidot.common import exceptions
 
 if TYPE_CHECKING:
     from wikidot.module.forum import Forum
-    from wikidot.module.user import AbstractUser
-    from wikidot.module.site import Site
     from wikidot.module.forum_thread import ForumThread
+    from wikidot.module.site import Site
+    from wikidot.module.user import AbstractUser
+
 
 class ForumPostCollection(list["ForumPost"]):
     def __init__(self, thread: "ForumThread", posts: list["ForumPost"]):
@@ -20,7 +21,7 @@ class ForumPostCollection(list["ForumPost"]):
 
     def __iter__(self) -> Iterator["ForumPost"]:
         return super().__iter__()
-    
+
     def find(self, target_id: int) -> Optional["ForumPost"]:
         for post in self:
             if target_id == post.id:
@@ -30,26 +31,26 @@ class ForumPostCollection(list["ForumPost"]):
     def _acquire_parent_post(thread: "ForumThread", posts: list["ForumPost"]):
         if len(posts) == 0:
             return posts
-        
+
         for post in posts:
             post._parent = thread.get(post.parent_id)
-        
+
         return posts
-    
+
     def get_parent_post(self):
         return ForumPostCollection._acquire_parent_post(self.thread, self)
-    
+
     @staticmethod
     def _acquire_post_info(thread: "ForumThread", posts: list["ForumPost"]):
         if len(posts) == 0:
             return posts
-        
+
         responses = thread.site.amc_request(
             [
                 {
                     "postId": post.id,
                     "threadId": thread.id,
-                    "moduleName": "forum/sub/ForumEditPostFormModule"
+                    "moduleName": "forum/sub/ForumEditPostFormModule",
                 }
                 for post in posts
             ]
@@ -62,7 +63,7 @@ class ForumPostCollection(list["ForumPost"]):
             source = html.select_one("textarea#np-text").text.strip()
             post._title = title
             post._source = source
-        
+
         return posts
 
     def get_post_info(self):
@@ -91,7 +92,7 @@ class ForumPost:
         client.login_check()
         if source == "":
             raise exceptions.UnexpectedException("Post body can not be left empty.")
-        
+
         response = self.site.amc_request(
             [
                 {
@@ -99,7 +100,7 @@ class ForumPost:
                     "title": title,
                     "source": source,
                     "action": "ForumAction",
-                    "event": "savePost"
+                    "event": "savePost",
                 }
             ]
         )[0]
@@ -114,9 +115,9 @@ class ForumPost:
             thread=self.thread,
             parent_id=self.id,
             created_by=client.user.get(client.username),
-            created_at=body["CURRENT_TIMESTAMP"]
+            created_at=body["CURRENT_TIMESTAMP"],
         )
-    
+
     def get_url(self):
         return f"{self.thread.get_url()}#post-{self.id}"
 
@@ -125,17 +126,17 @@ class ForumPost:
         if self._parent is None:
             ForumPostCollection(self.thread, [self]).get_parent_post()
         return self._parent
-    
+
     @parent.setter
     def parent(self, value: "ForumPost"):
         self._parent = value
-    
+
     @property
     def title(self):
         if self._title is None:
             ForumPostCollection(self.thread, [self]).get_post_info()
         return self._title
-    
+
     @title.setter
     def title(self, value: str):
         self._title = value
@@ -145,18 +146,18 @@ class ForumPost:
         if self._source is None:
             ForumPostCollection(self.thread, [self]).get_post_info()
         return self._source
-    
+
     @source.setter
     def source(self, value: str):
         self._source = value
-    
+
     def edit(self, title: str = None, source: str = None):
         client = self.site.client
         client.login_check()
 
         if title is None and source is None:
             return self
-        
+
         if source == "":
             raise exceptions.UnexpectedException("Post source can not be left empty.")
         try:
@@ -165,7 +166,7 @@ class ForumPost:
                     {
                         "postId": self.id,
                         "threadId": self.thread.id,
-                        "moduleName": "forum/sub/ForumEditPostFormModule"
+                        "moduleName": "forum/sub/ForumEditPostFormModule",
                     }
                 ]
             )[0]
@@ -181,7 +182,7 @@ class ForumPost:
                         "source": source if source is not None else self.source,
                         "action": "ForumAction",
                         "event": "saveEditPost",
-                        "moduleName": "Empty"
+                        "moduleName": "Empty",
                     }
                 ]
             )[0]
@@ -195,7 +196,7 @@ class ForumPost:
         self.source = source if source is not None else self.source
 
         return self
-    
+
     def destroy(self):
         self.site.client.login_check()
         self.site.amc_request(
@@ -204,7 +205,7 @@ class ForumPost:
                     "postId": self.id,
                     "action": "ForumAction",
                     "event": "deletePost",
-                    "moduleName": "Empty"
+                    "moduleName": "Empty",
                 }
             ]
         )

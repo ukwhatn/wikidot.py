@@ -1,7 +1,7 @@
+import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-import re
 from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
@@ -12,8 +12,8 @@ from wikidot.util.parser import odate as odate_parser
 from wikidot.util.parser import user as user_parser
 
 if TYPE_CHECKING:
-    from wikidot.module.forum_group import ForumGroup
     from wikidot.module.forum import Forum
+    from wikidot.module.forum_group import ForumGroup
     from wikidot.module.site import Site
 
 
@@ -21,12 +21,12 @@ class ForumCategoryCollection(list["ForumCategory"]):
     def __init__(self, forum: "Forum", categories: list["ForumCategory"]):
         super().__init__(categories)
         self.forum = forum
-    
+
     def __iter__(self) -> Iterator["ForumCategory"]:
         return super().__iter__()
-    
+
     @staticmethod
-    def get_categories(site: "Site",forum: "Forum"):
+    def get_categories(site: "Site", forum: "Forum"):
         categories = []
 
         for group in forum.groups:
@@ -36,10 +36,11 @@ class ForumCategoryCollection(list["ForumCategory"]):
 
     def find(self, id: int = None, title: str = None) -> Optional["ForumCategory"]:
         for category in self:
-            if ((id is None or category.id == id) and
-                (title is None or category.title) == title):
+            if (id is None or category.id == id) and (
+                title is None or category.title
+            ) == title:
                 return category
-    
+
     @staticmethod
     def _acquire_update(forum: "Forum", categories: list["ForumCategory"]):
         if len(categories) == 0:
@@ -49,7 +50,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
             [
                 {
                     "c": category.id,
-                    "moduleName":"forum/ForumViewCategoryModule",
+                    "moduleName": "forum/ForumViewCategoryModule",
                 }
                 for category in categories
             ]
@@ -58,7 +59,9 @@ class ForumCategoryCollection(list["ForumCategory"]):
             html = BeautifulSoup(response.json()["body"], "lxml")
             statistics = html.select_one("div.statistics").text
             description = html.select_one("div.description-block").text.strip()
-            info = re.search(r"([ \S]*) /\s+([ \S]*)", html.select_one("div.forum-breadcrumbs").text)
+            info = re.search(
+                r"([ \S]*) /\s+([ \S]*)", html.select_one("div.forum-breadcrumbs").text
+            )
             counts = re.findall(r"\d+", statistics)
 
             if category.posts_counts != int(counts[1]):
@@ -67,15 +70,16 @@ class ForumCategoryCollection(list["ForumCategory"]):
             category.threads_counts, category.posts_counts = counts
             category.group = category.forum.groups.find(info.group(1))
             category.title = info.group(2)
-            if (pagerno:=html.select_one("span.pager-no")) is None:
+            if (pagerno := html.select_one("span.pager-no")) is None:
                 category.pagerno = 1
             else:
                 category.pagerno = int(re.search(r"of (\d+)", pagerno.text).group(1))
 
         return categories
-    
+
     def update(self):
         return ForumCategoryCollection._acquire_update(self.forum, self)
+
 
 @dataclass
 class ForumCategory:
@@ -91,7 +95,7 @@ class ForumCategory:
     _last_thread_id: int = None
     _last_post_id: int = None
     _last: "ForumPost" = None
-    
+
     def get_url(self):
         return f"{self.site.get_url}/forum/c-{self.id}"
 
@@ -102,9 +106,11 @@ class ForumCategory:
     def last(self):
         if self._last_thread_id is not None and self._last_post_id is not None:
             if self._last is None:
-                self._last = self.forum.thread.get(self._last_thread_id).get(self._last_post_id)
+                self._last = self.forum.thread.get(self._last_thread_id).get(
+                    self._last_post_id
+                )
             return self._last
-    
+
     @last.setter
     def last(self, value: "ForumPost"):
         self._last = value
@@ -116,9 +122,9 @@ class ForumCategory:
         responses = self.site.amc_request(
             [
                 {
-                    "p": no+1,
+                    "p": no + 1,
                     "c": self.id,
-                    "moduleName":"forum/ForumViewCategoryModule",
+                    "moduleName": "forum/ForumViewCategoryModule",
                 }
                 for no in range(self.pagerno)
             ]
@@ -127,10 +133,10 @@ class ForumCategory:
         threads = []
 
         for response in responses:
-            html = BeautifulSoup(response.json()["body"],"lxml")
+            html = BeautifulSoup(response.json()["body"], "lxml")
             for info in html.select("table.table tr.head~tr"):
                 title = info.select_one("div.title a")
-                thread_id = re.search(r"t-(\d+)",title.get("href")).group(1)
+                thread_id = re.search(r"t-(\d+)", title.get("href")).group(1)
                 description = info.select_one("div.description")
                 user = info.select_one("span.printuser")
                 odate = info.select_one("span.odate")
@@ -139,7 +145,9 @@ class ForumCategory:
                 if last_id is None:
                     post_id = None
                 else:
-                    post_id = int(re.search(r"post-(\d+)",last_id.get("href")).group(1))
+                    post_id = int(
+                        re.search(r"post-(\d+)", last_id.get("href")).group(1)
+                    )
 
                 thread = ForumThread(
                     site=self.site,
@@ -150,14 +158,14 @@ class ForumCategory:
                     created_by=user_parser(client, user),
                     created_at=odate_parser(odate),
                     posts_counts=int(posts_count.text),
-                    _last_post_id=post_id
+                    _last_post_id=post_id,
                 )
 
                 threads.append(thread)
 
         return ForumThreadCollection(self, threads)
-    
-    def new_thread(self, title: str, source :str, description: str = ""):
+
+    def new_thread(self, title: str, source: str, description: str = ""):
         client = self.site.client
         client.login_check()
 
@@ -169,7 +177,7 @@ class ForumCategory:
                     "description": description,
                     "source": source,
                     "action": "ForumAction",
-                    "event": "newThread"
+                    "event": "newThread",
                 }
             ]
         )[0]
@@ -185,5 +193,5 @@ class ForumCategory:
             description=description,
             created_by=client.user.get(client.username),
             created_at=datetime.fromtimestamp(body["CURRENT_TIMESTAMP"]),
-            posts_counts=1
-            )
+            posts_counts=1,
+        )
