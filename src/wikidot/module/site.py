@@ -74,7 +74,7 @@ class SitePageMethods:
         source: str = "",
         comment: str = "",
         force_edit: bool = False,
-    ) -> None:
+    ) -> "Page":
         """ページを作成する
 
         Parameters

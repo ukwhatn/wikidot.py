@@ -640,7 +640,7 @@ class Page:
         comment: str = "",
         force_edit: bool = False,
         raise_on_exists: bool = False,
-    ):
+    ) -> "Page":
         site.client.login_check()
 
         # ページロックを取得しにいく
@@ -694,7 +694,16 @@ class Page:
         }
         response = site.amc_request([edit_request_body])[0]
 
-        return response.json()
+        if response.json()["status"] != "ok":
+            raise exceptions.WikidotStatusCodeException(
+                f"Failed to create or edit page: {fullname}", response.json()["status"]
+            )
+
+        res = PageCollection.search_pages(site, SearchPagesQuery(fullname=fullname))
+        if len(res) == 0:
+            raise exceptions.NotFoundException(f"Page creation failed: {fullname}")
+
+        return res[0]
 
     def edit(
         self,
@@ -702,7 +711,7 @@ class Page:
         source: str = None,
         comment: str = None,
         force_edit: bool = False,
-    ):
+    ) -> "Page":
         # Noneならそのままにする
         title = title or self.title
         source = source or self.source.wiki_text
