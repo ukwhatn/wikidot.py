@@ -717,3 +717,18 @@ class Page:
             comment,
             force_edit,
         )
+
+    def set_tags(self, tags: list[str]):
+        # TODO: setter/getterにする
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "tags": " ".join(tags),
+                    "action": "WikiPageAction",
+                    "event": "saveTags",
+                    "pageId": self.id,
+                    "moduleName": "Empty",
+                }
+            ]
+        )
