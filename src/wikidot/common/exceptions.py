@@ -89,6 +89,13 @@ class NotFoundException(WikidotException):
         super().__init__(message)
 
 
+class TargetExistsException(WikidotException):
+    """対象が既に存在しているときの例外"""
+
+    def __init__(self, message):
+        super().__init__(message)
+
+
 class TargetErrorException(WikidotException):
     """メソッドの対象としたオブジェクトに操作が適用できないときの例外"""
 
