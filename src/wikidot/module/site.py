@@ -7,12 +7,11 @@ import httpx
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
 from wikidot.module.forum import Forum
-from wikidot.module.page import PageCollection, SearchPagesQuery
+from wikidot.module.page import Page, PageCollection, SearchPagesQuery
 from wikidot.module.site_application import SiteApplication
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client
-    from wikidot.module.page import Page
     from wikidot.module.user import User
 
 
@@ -91,7 +90,7 @@ class SitePageMethods:
         force_edit: bool
             ページが存在する場合に上書きするかどうか
         """
-        Page.create_or_edit(
+        return Page.create_or_edit(
             site=self.site,
             fullname=fullname,
             title=title,
