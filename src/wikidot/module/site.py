@@ -68,6 +68,39 @@ class SitePageMethods:
             return None
         return res[0]
 
+    def create(
+            self,
+            fullname: str,
+            title: str = "",
+            source: str = "",
+            comment: str = "",
+            force_edit: bool = False,
+    ) -> None:
+        """ページを作成する
+
+        Parameters
+        ----------
+        fullname: str
+            ページのフルネーム
+        title: str
+            ページのタイトル
+        source: str
+            ページのソース
+        comment: str
+            コメント
+        force_edit: bool
+            ページが存在する場合に上書きするかどうか
+        """
+        Page.create_or_edit(
+            site=self.site,
+            fullname=fullname,
+            title=title,
+            source=source,
+            comment=comment,
+            force_edit=force_edit,
+            raise_on_exists=True
+        )
+
 
 @dataclass
 class Site:
