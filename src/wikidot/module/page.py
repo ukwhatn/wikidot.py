@@ -99,8 +99,8 @@ class PageCollection(list["Page"]):
 
             # レーティング方式を判定
             is_5star_rating = (
-                    page_element.select_one("span.rating span.page-rate-list-pages-start")
-                    is not None
+                page_element.select_one("span.rating span.page-rate-list-pages-start")
+                is not None
             )
 
             # 各値を取得
@@ -179,17 +179,17 @@ class PageCollection(list["Page"]):
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
         query_dict["module_body"] = (
-                '[[div class="page"]]\n'
-                + "".join(
-            [
-                f'[[span class="set {key}"]]'
-                f'[[span class="name"]] {key} [[/span]]'
-                f'[[span class="value"]] %%{key}%% [[/span]]'
-                f"[[/span]]"
-                for key in DEFAULT_MODULE_BODY
-            ]
-        )
-                + "\n[[/div]]"
+            '[[div class="page"]]\n'
+            + "".join(
+                [
+                    f'[[span class="set {key}"]]'
+                    f'[[span class="name"]] {key} [[/span]]'
+                    f'[[span class="value"]] %%{key}%% [[/span]]'
+                    f"[[/span]]"
+                    for key in DEFAULT_MODULE_BODY
+                ]
+            )
+            + "\n[[/div]]"
         )
 
         try:
@@ -320,7 +320,7 @@ class PageCollection(list["Page"]):
             revs = []
             body_html = BeautifulSoup(body, "lxml")
             for rev_element in body_html.select(
-                    "table.page-history > tr[id^=revision-row-]"
+                "table.page-history > tr[id^=revision-row-]"
             ):
                 rev_id = int(rev_element["id"].removeprefix("revision-row-"))
 
@@ -545,7 +545,7 @@ class Page:
 
     @revisions.setter
     def revisions(
-            self, value: list["PageRevision"] | PageRevisionCollection["PageRevision"]
+        self, value: list["PageRevision"] | PageRevisionCollection["PageRevision"]
     ):
         self._revisions = value
 
@@ -632,14 +632,14 @@ class Page:
 
     @staticmethod
     def create_or_edit(
-            site: "Site",
-            fullname: str,
-            page_id: int | None = None,
-            title: str = "",
-            source: str = "",
-            comment: str = "",
-            force_edit: bool = False,
-            raise_on_exists: bool = False,
+        site: "Site",
+        fullname: str,
+        page_id: int | None = None,
+        title: str = "",
+        source: str = "",
+        comment: str = "",
+        force_edit: bool = False,
+        raise_on_exists: bool = False,
     ):
         site.client.login_check()
 
@@ -647,7 +647,7 @@ class Page:
         page_lock_request_body = {
             "mode": "page",
             "wiki_page": fullname,
-            "moduleName": "edit/PageEditModule"
+            "moduleName": "edit/PageEditModule",
         }
         if force_edit:
             page_lock_request_body["force_lock"] = "yes"
@@ -655,7 +655,10 @@ class Page:
         page_lock_response = site.amc_request([page_lock_request_body])[0]
         page_lock_response_data = page_lock_response.json()
 
-        if "locked" in page_lock_response_data or "other_locks" in page_lock_response_data:
+        if (
+            "locked" in page_lock_response_data
+            or "other_locks" in page_lock_response_data
+        ):
             raise exceptions.TargetErrorException(
                 f"Page {fullname} is locked or other locks exist",
             )
@@ -687,18 +690,18 @@ class Page:
             "page_id": page_id if page_id is not None else "",
             "title": title,
             "source": source,
-            "comments": comment
+            "comments": comment,
         }
         response = site.amc_request([edit_request_body])[0]
 
         return response.json()
 
     def edit(
-            self,
-            title: str = None,
-            source: str = None,
-            comment: str = None,
-            force_edit: bool = False,
+        self,
+        title: str = None,
+        source: str = None,
+        comment: str = None,
+        force_edit: bool = False,
     ):
         # Noneならそのままにする
         title = title or self.title

@@ -12,6 +12,8 @@ build:
 
 release:
 	echo "Releasing version $(version)"
+	make format
+	make lint
 	git add .
 	git commit -m 'release: $(version)' --allow-empty
 	git push origin develop
