@@ -69,12 +69,12 @@ class SitePageMethods:
         return res[0]
 
     def create(
-            self,
-            fullname: str,
-            title: str = "",
-            source: str = "",
-            comment: str = "",
-            force_edit: bool = False,
+        self,
+        fullname: str,
+        title: str = "",
+        source: str = "",
+        comment: str = "",
+        force_edit: bool = False,
     ) -> None:
         """ページを作成する
 
@@ -98,7 +98,7 @@ class SitePageMethods:
             source=source,
             comment=comment,
             force_edit=force_edit,
-            raise_on_exists=True
+            raise_on_exists=True,
         )
 
 
