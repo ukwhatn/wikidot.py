@@ -476,7 +476,7 @@ class Page:
         int
             ページID
         """
-        if self._id is None:
+        if not self.is_id_acquired():
             PageCollection(self.site, [self]).get_page_ids()
         return self._id
 
@@ -687,13 +687,12 @@ class Page:
             force_edit,
         )
 
-    def set_tags(self, tags: list[str]):
-        # TODO: setter/getterにする
+    def commit_tags(self):
         self.site.client.login_check()
         self.site.amc_request(
             [
                 {
-                    "tags": " ".join(tags),
+                    "tags": " ".join(self.tags),
                     "action": "WikiPageAction",
                     "event": "saveTags",
                     "pageId": self.id,
@@ -701,3 +700,4 @@ class Page:
                 }
             ]
         )
+        return self
