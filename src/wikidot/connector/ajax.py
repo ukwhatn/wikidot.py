@@ -107,7 +107,7 @@ class AjaxModuleConnectorConfig:
         セマフォの上限
     """
 
-    request_timeout: int = 20
+    request_timeout: int = 60
     attempt_limit: int = 3
     retry_interval: int = 5
     semaphore_limit: int = 10
