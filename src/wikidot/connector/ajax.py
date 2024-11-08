@@ -107,7 +107,7 @@ class AjaxModuleConnectorConfig:
         セマフォの上限
     """
 
-    request_timeout: int = 60
+    request_timeout: int = 20
     attempt_limit: int = 3
     retry_interval: int = 5
     semaphore_limit: int = 10
@@ -215,6 +215,7 @@ class AjaxModuleConnectorClient:
 
                 # リクエスト実行
                 try:
+                    response = None
                     # Semaphoreで同時実行数制御
                     async with semaphore_instance:
                         async with httpx.AsyncClient() as client:
@@ -236,7 +237,7 @@ class AjaxModuleConnectorClient:
                     retry_count += 1
 
                     # リトライ回数上限に達した場合は例外送出
-                    if retry_count >= self.config.attempt_limit:
+                    if retry_count > self.config.attempt_limit:
                         wd_logger.error(
                             f"AMC is respond HTTP error code: {response.status_code} -> {_body}"
                         )
@@ -247,7 +248,8 @@ class AjaxModuleConnectorClient:
 
                     # 間隔を空けてリトライ
                     wd_logger.info(
-                        f"AMC is respond status: {response.status_code} (retry: {retry_count}) -> {_body}"
+                        f"AMC is respond status: {response.status_code if response is not None else 'timeout'} "
+                        f"(retry: {retry_count}) -> {_body}"
                     )
                     await asyncio.sleep(self.config.retry_interval)
                     continue
