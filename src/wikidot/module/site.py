@@ -67,12 +67,12 @@ class SitePageMethods:
         return res[0]
 
     def create(
-            self,
-            fullname: str,
-            title: str = "",
-            source: str = "",
-            comment: str = "",
-            force_edit: bool = False,
+        self,
+        fullname: str,
+        title: str = "",
+        source: str = "",
+        comment: str = "",
+        force_edit: bool = False,
     ) -> "Page":
         """ページを作成する
 
