@@ -463,6 +463,7 @@ class Page:
     _source: Optional[PageSource] = None
     _revisions: list["PageRevision"] = None
     _votes: PageVoteCollection = None
+    _metas: dict[str, str] = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
@@ -541,54 +542,67 @@ class Page:
             ]
         )
 
-    def get_metas(self) -> dict[str, str]:
-        response = self.site.amc_request(
-            [
-                {
-                    "pageId": self.id,
-                    "moduleName": "edit/EditMetaModule",
-                }
-            ]
-        )
+    @property
+    def metas(self) -> dict[str, str]:
+        if self._metas is None:
+            response = self.site.amc_request(
+                [
+                    {
+                        "pageId": self.id,
+                        "moduleName": "edit/EditMetaModule",
+                    }
+                ]
+            )
 
-        # レスポンス解析
-        body = response[0].json()["body"]
+            # レスポンス解析
+            body = response[0].json()["body"]
 
-        # <meta name="xxx" content="yyy"/> を正規表現で取得
-        metas = {}
-        for meta in re.findall(r'&lt;meta name="([^"]+)" content="([^"]+)"/&gt;', body):
-            metas[meta[0]] = meta[1]
+            # <meta name="xxx" content="yyy"/> を正規表現で取得
+            metas = {}
+            for meta in re.findall(
+                r'&lt;meta name="([^"]+)" content="([^"]+)"/&gt;', body
+            ):
+                metas[meta[0]] = meta[1]
 
-        return metas
+            self._metas = metas
 
-    def set_meta(self, name: str, value: str):
+        return self._metas
+
+    @metas.setter
+    def metas(self, value: dict[str, str]):
         self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "metaName": name,
-                    "metaContent": value,
-                    "action": "WikiPageAction",
-                    "event": "saveMetaTag",
-                    "pageId": self.id,
-                    "moduleName": "edit/EditMetaModule",
-                }
-            ]
-        )
+        current_metas = self.metas
+        deleted_metas = {k: v for k, v in current_metas.items() if k not in value}
+        added_metas = {k: v for k, v in value.items() if k not in current_metas}
 
-    def delete_meta(self, name: str):
-        self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "metaName": name,
-                    "action": "WikiPageAction",
-                    "event": "deleteMetaTag",
-                    "pageId": self.id,
-                    "moduleName": "edit/EditMetaModule",
-                }
-            ]
-        )
+        for name, content in deleted_metas.items():
+            self.site.amc_request(
+                [
+                    {
+                        "metaName": name,
+                        "action": "WikiPageAction",
+                        "event": "deleteMetaTag",
+                        "pageId": self.id,
+                        "moduleName": "edit/EditMetaModule",
+                    }
+                ]
+            )
+
+        for name, content in added_metas.items():
+            self.site.amc_request(
+                [
+                    {
+                        "metaName": name,
+                        "metaContent": content,
+                        "action": "WikiPageAction",
+                        "event": "saveMetaTag",
+                        "pageId": self.id,
+                        "moduleName": "edit/EditMetaModule",
+                    }
+                ]
+            )
+
+        self._metas = value
 
     @staticmethod
     def create_or_edit(
