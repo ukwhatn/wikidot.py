@@ -6,6 +6,7 @@ import httpx
 
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
+from wikidot.module.forum_category import ForumCategoryCollection
 from wikidot.module.page import Page, PageCollection, SearchPagesQuery
 from wikidot.module.site_application import SiteApplication
 
@@ -100,6 +101,15 @@ class SitePageMethods:
         )
 
 
+class SiteForumMethods:
+    def __init__(self, site: "Site"):
+        self.site = site
+
+    def categories(self) -> "ForumCategoryCollection":
+        """フォーラムのカテゴリを取得する"""
+        return ForumCategoryCollection.acquire_all(self.site)
+
+
 @dataclass
 class Site:
     """サイトオブジェクト
@@ -136,6 +146,7 @@ class Site:
     def __post_init__(self):
         self.pages = SitePagesMethods(self)
         self.page = SitePageMethods(self)
+        self.forum = SiteForumMethods(self)
 
     def __str__(self):
         return f"Site(id={self.id}, title={self.title}, unix_name={self.unix_name})"
