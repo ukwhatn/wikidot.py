@@ -26,7 +26,8 @@ def user_parse(client: "Client", elem: bs4.Tag) -> user.AbstractUser:
     """
 
     if ("class" in elem.attrs and "deleted" in elem["class"]) or (
-            isinstance(elem, str) and elem.strip() == "(user deleted)"):
+        isinstance(elem, str) and elem.strip() == "(user deleted)"
+    ):
         return user.DeletedUser(client=client, id=int(elem["data-id"]))
 
     elif "class" in elem.attrs and "anonymous" in elem["class"]:
@@ -49,11 +50,7 @@ def user_parse(client: "Client", elem: bs4.Tag) -> user.AbstractUser:
     elif elem.find("img") and "gravatar.com" in elem.find("img")["src"]:
         avatar_url = elem.find("img")["src"]
         guest_name = elem.get_text().strip().split(" ")[0]
-        return user.GuestUser(
-            client=client,
-            name=guest_name,
-            avatar_url=avatar_url
-        )
+        return user.GuestUser(client=client, name=guest_name, avatar_url=avatar_url)
 
     elif elem.get_text() == "Wikidot":
         return user.WikidotUser(client=client)
