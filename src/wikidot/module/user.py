@@ -239,8 +239,8 @@ class GuestUser(AbstractUser):
         ユーザー名
     unix_name: None
         ユーザーのUNIX名（ゲストユーザーのためNone）
-    avatar_url: None
-        ユーザーアバターのURL（ゲストユーザーのためNone）
+    avatar_url: str | None
+        ユーザーアバターのURL (Gravatar URL)
     ip: None
         ユーザーのIPアドレス（取得できないためNone）
     """
@@ -249,7 +249,7 @@ class GuestUser(AbstractUser):
     id: None = None
     # name: str | None
     unix_name: None = None
-    avatar_url: None = None
+    avatar_url: str | None = None
     ip: None = None
 
 

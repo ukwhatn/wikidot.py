@@ -45,6 +45,16 @@ def user_parse(client: "Client", elem: bs4.Tag) -> user.AbstractUser:
     #         name=elem.get_text().strip()
     #     )
 
+    # Gravatar URLを持つ場合はGuestUserとする
+    elif elem.find("img") and "gravatar.com" in elem.find("img")["src"]:
+        avatar_url = elem.find("img")["src"]
+        guest_name = elem.get_text().strip().split(" ")[0]
+        return user.GuestUser(
+            client=client,
+            name=guest_name,
+            avatar_url=avatar_url
+        )
+
     elif elem.get_text() == "Wikidot":
         return user.WikidotUser(client=client)
 
