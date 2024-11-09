@@ -27,13 +27,15 @@ class ForumThreadCollection(list["ForumThread"]):
         if site is not None:
             self.site = site
         else:
-            self.site = self[0].category.site
+            self.site = self[0].site
 
     def __iter__(self) -> Iterator["ForumThread"]:
         return super().__iter__()
 
     @staticmethod
-    def _parse(category: "ForumCategory", html: BeautifulSoup) -> list["ForumThread"]:
+    def _parse(
+        site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
+    ) -> list["ForumThread"]:
         threads = []
         for info in html.select("table.table tr.head~tr"):
             title = info.select_one("div.title a")
@@ -65,13 +67,14 @@ class ForumThreadCollection(list["ForumThread"]):
                 raise NoElementException("Posts count element is not found.")
 
             thread = ForumThread(
-                category=category,
+                site=site,
                 id=int(thread_id),
                 title=title.text,
                 description=description_elem.text,
-                created_by=user_parser(category.site.client, user_elem),
+                created_by=user_parser(site.client, user_elem),
                 created_at=odate_parser(odate_elem),
                 post_count=int(posts_count_elem.text),
+                category=category,
             )
 
             threads.append(thread)
@@ -79,7 +82,7 @@ class ForumThreadCollection(list["ForumThread"]):
         return threads
 
     @staticmethod
-    def acquire_all(category: "ForumCategory") -> "ForumThreadCollection":
+    def acquire_all_in_category(category: "ForumCategory") -> "ForumThreadCollection":
         threads = []
 
         first_response = category.site.amc_request(
@@ -95,7 +98,7 @@ class ForumThreadCollection(list["ForumThread"]):
         first_body = first_response.json()["body"]
         first_html = BeautifulSoup(first_body, "lxml")
 
-        threads.extend(ForumThreadCollection._parse(category, first_html))
+        threads.extend(ForumThreadCollection._parse(category.site, first_html))
 
         # pager検索
         pager = first_html.select_one("div.pager")
@@ -120,20 +123,21 @@ class ForumThreadCollection(list["ForumThread"]):
         for response in responses:
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
-            threads.extend(ForumThreadCollection._parse(category, html))
+            threads.extend(ForumThreadCollection._parse(category.site, html, category))
 
         return ForumThreadCollection(site=category.site, threads=threads)
 
 
 @dataclass
 class ForumThread:
-    category: "ForumCategory"
+    site: "Site"
     id: int
     title: str
     description: str
     created_by: "AbstractUser"
     created_at: datetime
     post_count: int
+    category: Optional["ForumCategory"] = None
 
     def __str__(self):
         return (
