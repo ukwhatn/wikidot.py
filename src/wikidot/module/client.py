@@ -1,22 +1,22 @@
-from wikidot.common import wd_logger
-from wikidot.common.exceptions import LoginRequiredException
-from wikidot.connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
-from wikidot.module.auth import HTTPAuthentication
-from wikidot.module.private_message import (
+from ..common import wd_logger
+from ..common.exceptions import LoginRequiredException
+from ..connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
+from .auth import HTTPAuthentication
+from .private_message import (
     PrivateMessage,
     PrivateMessageCollection,
     PrivateMessageInbox,
     PrivateMessageSentBox,
 )
-from wikidot.module.site import Site
-from wikidot.module.user import User, UserCollection
+from .site import Site
+from .user import AbstractUser, User, UserCollection
 
 
 class ClientUserMethods:
     def __init__(self, client: "Client"):
         self.client = client
 
-    def get(self, name: str, raise_when_not_found: bool = False) -> User:
+    def get(self, name: str, raise_when_not_found: bool = False) -> "AbstractUser":
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters
@@ -37,7 +37,7 @@ class ClientUserMethods:
 
     def get_bulk(
         self, names: list[str], raise_when_not_found: bool = False
-    ) -> list[User]:
+    ) -> UserCollection:
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters

@@ -4,15 +4,15 @@ from typing import TYPE_CHECKING, Optional
 
 import httpx
 
-from wikidot.common import exceptions
-from wikidot.common.decorators import login_required
-from wikidot.module.forum import Forum
-from wikidot.module.page import Page, PageCollection, SearchPagesQuery
-from wikidot.module.site_application import SiteApplication
+from ..common import exceptions
+from ..common.decorators import login_required
+from .forum_category import ForumCategoryCollection
+from .page import Page, PageCollection, SearchPagesQuery
+from .site_application import SiteApplication
 
 if TYPE_CHECKING:
-    from wikidot.module.client import Client
-    from wikidot.module.user import User
+    from .client import Client
+    from .user import User
 
 
 class SitePagesMethods:
@@ -101,6 +101,15 @@ class SitePageMethods:
         )
 
 
+class SiteForumMethods:
+    def __init__(self, site: "Site"):
+        self.site = site
+
+    def categories(self) -> "ForumCategoryCollection":
+        """フォーラムのカテゴリを取得する"""
+        return ForumCategoryCollection.acquire_all(self.site)
+
+
 @dataclass
 class Site:
     """サイトオブジェクト
@@ -137,7 +146,7 @@ class Site:
     def __post_init__(self):
         self.pages = SitePagesMethods(self)
         self.page = SitePageMethods(self)
-        self.forum = Forum(self)
+        self.forum = SiteForumMethods(self)
 
     def __str__(self):
         return f"Site(id={self.id}, title={self.title}, unix_name={self.unix_name})"

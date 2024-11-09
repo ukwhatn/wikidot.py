@@ -1,0 +1,62 @@
+name: Check Code Quality
+
+on:
+  pull_request:
+    branches:
+      - develop
+      - main
+
+jobs:
+  format:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.10'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+
+    - name: Run formatter
+      run: make format
+
+    - name: Commit changes
+      run: |
+        if [ -n "$(git status --porcelain)" ]; then
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git commit -m "🎨 Format code with isort and black"
+          git push
+        fi
+
+  lint:
+    needs: format  # formatジョブの完了後に実行
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+      fail-fast: false
+
+    steps:
+    - uses: actions/checkout@v4
+      with:
+        ref: ${{ github.head_ref }}
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v5
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+
+    - name: Run linter
+      run: make lint

@@ -32,6 +32,6 @@ format:
 lint:
 	pip install -e .[lint]
 	python -m flake8 $(FORMAT_DIR)
-	# python -m mypy $(FORMAT_DIR) --install-types --non-interactive
+	python -m mypy $(FORMAT_DIR) --install-types --non-interactive
 
 PHONY: build release release_from-develop format commit

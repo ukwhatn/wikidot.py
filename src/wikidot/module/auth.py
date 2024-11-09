@@ -2,10 +2,10 @@ from typing import TYPE_CHECKING
 
 import httpx
 
-from wikidot.common.exceptions import SessionCreateException
+from ..common.exceptions import SessionCreateException
 
 if TYPE_CHECKING:
-    from wikidot.module.client import Client
+    from .client import Client
 
 
 class HTTPAuthentication:

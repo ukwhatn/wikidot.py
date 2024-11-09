@@ -5,17 +5,22 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
-from wikidot.module.page_source import PageSource
+from ..common.exceptions import NoElementException
+from .page_source import PageSource
 
 if TYPE_CHECKING:
-    from wikidot.module.page import Page
-    from wikidot.module.user import AbstractUser
+    from .page import Page
+    from .user import AbstractUser
 
 
 class PageRevisionCollection(list["PageRevision"]):
-    def __init__(self, page: "Page" = None, revisions: list["PageRevision"] = None):
+    def __init__(
+        self,
+        page: Optional["Page"] = None,
+        revisions: Optional[list["PageRevision"]] = None,
+    ):
         super().__init__(revisions or [])
-        self.page = page or revisions[0].page
+        self.page = page or self[0].page if len(self) > 0 else None
 
     def __iter__(self) -> Iterator["PageRevision"]:
         return super().__iter__()
@@ -39,9 +44,12 @@ class PageRevisionCollection(list["PageRevision"]):
         for revision, response in zip(target_revisions, responses):
             body = response.json()["body"]
             body_html = BeautifulSoup(body, "lxml")
+            wiki_text_elem = body_html.select_one("div.page-source")
+            if wiki_text_elem is None:
+                raise NoElementException("Wiki text element not found")
             revision.source = PageSource(
                 page=page,
-                wiki_text=body_html.select_one("div.page-source").text.strip(),
+                wiki_text=wiki_text_elem.text.strip(),
             )
 
         return revisions
@@ -100,7 +108,7 @@ class PageRevision:
         return self._html is not None
 
     @property
-    def source(self) -> "PageSource":
+    def source(self) -> Optional["PageSource"]:
         if not self.is_source_acquired():
             PageRevisionCollection(self.page, [self]).get_sources()
         return self._source
@@ -110,7 +118,7 @@ class PageRevision:
         self._source = value
 
     @property
-    def html(self) -> str:
+    def html(self) -> Optional[str]:
         if not self.is_html_acquired():
             PageRevisionCollection(self.page, [self]).get_htmls()
         return self._html

@@ -4,20 +4,20 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+import httpx
 from bs4 import BeautifulSoup
 
-from wikidot.common import exceptions
-from wikidot.module.forum_thread import ForumThread
-from wikidot.module.page_revision import PageRevision, PageRevisionCollection
-from wikidot.module.page_source import PageSource
-from wikidot.module.page_votes import PageVote, PageVoteCollection
-from wikidot.util.parser import odate as odate_parser
-from wikidot.util.parser import user as user_parser
-from wikidot.util.requestutil import RequestUtil
+from ..common import exceptions
+from ..util.parser import odate as odate_parser
+from ..util.parser import user as user_parser
+from ..util.requestutil import RequestUtil
+from .page_revision import PageRevision, PageRevisionCollection
+from .page_source import PageSource
+from .page_votes import PageVote, PageVoteCollection
 
 if TYPE_CHECKING:
-    from wikidot.module.site import Site
-    from wikidot.module.user import User
+    from .site import Site
+    from .user import User
 
 DEFAULT_MODULE_BODY = [
     "fullname",  # ページのフルネーム(str)
@@ -79,7 +79,9 @@ class SearchPagesQuery:
 
 
 class PageCollection(list["Page"]):
-    def __init__(self, site: "Site" = None, pages: list["Page"] = None):
+    def __init__(
+        self, site: Optional["Site"] = None, pages: Optional[list["Page"]] = None
+    ):
         super().__init__(pages or [])
 
         if site is not None:
@@ -105,11 +107,14 @@ class PageCollection(list["Page"]):
 
             # 各値を取得
             for set_element in page_element.select("span.set"):
-                key = set_element.select_one("span.name").text.strip()
+                key_element = set_element.select_one("span.name")
+                if key_element is None:
+                    raise exceptions.NoElementException("Cannot find key element")
+                key = key_element.text.strip()
                 value_element = set_element.select_one("span.value")
 
                 if value_element is None:
-                    value = None
+                    value: Any = None
 
                 elif key in ["created_at", "updated_at", "commented_at"]:
                     odate_element = value_element.select_one("span.odate")
@@ -210,17 +215,19 @@ class PageCollection(list["Page"]):
         # pagerが存在する
         if first_page_html_body.select_one("div.pager") is not None:
             # span.target[-2] > a から最大ページ数を取得
-            total = int(
-                first_page_html_body.select("div.pager span.target")[-2]
-                .select_one("a")
-                .text
-            )
+            last_pager_element = first_page_html_body.select("div.pager span.target")[
+                -2
+            ]
+            last_pager_link_element = last_pager_element.select_one("a")
+            if last_pager_link_element is None:
+                raise exceptions.NoElementException("Cannot find last pager link")
+            total = int(last_pager_link_element.text.strip())
 
         if total > 1:
             request_bodies = []
             for i in range(1, total):
                 _query_dict = query_dict.copy()
-                _query_dict["offset"] = i * query.perPage
+                _query_dict["offset"] = i * (query.perPage or 250)
                 request_bodies.append(_query_dict)
 
             responses = site.amc_request(request_bodies)
@@ -258,6 +265,10 @@ class PageCollection(list["Page"]):
 
         # "WIKIREQUEST.info.pageId = xxx;"の値をidに設定
         for index, response in enumerate(responses):
+            if not isinstance(response, httpx.Response):
+                raise exceptions.UnexpectedException(
+                    f"Unexpected response type: {type(response)}"
+                )
             source = response.text
 
             id_match = re.search(r"WIKIREQUEST\.info\.pageId = (\d+);", source)
@@ -286,12 +297,11 @@ class PageCollection(list["Page"]):
 
         for page, responses in zip(pages, responses):
             body = responses.json()["body"]
-            source = (
-                BeautifulSoup(body, "lxml")
-                .select_one("div.page-source")
-                .text.strip()
-                .removeprefix("\t")
-            )
+            html = BeautifulSoup(body, "lxml")
+            source_element = html.select_one("div.page-source")
+            if source_element is None:
+                raise exceptions.NoElementException("Cannot find source element")
+            source = source_element.text.strip().removeprefix("\t")
             page.source = PageSource(page, source)
         return pages
 
@@ -322,14 +332,24 @@ class PageCollection(list["Page"]):
             for rev_element in body_html.select(
                 "table.page-history > tr[id^=revision-row-]"
             ):
-                rev_id = int(rev_element["id"].removeprefix("revision-row-"))
+                rev_id = int(str(rev_element["id"]).removeprefix("revision-row-"))
 
                 tds = rev_element.select("td")
                 rev_no = int(tds[0].text.strip().removesuffix("."))
-                created_by = user_parser(
-                    page.site.client, tds[4].select_one("span.printuser")
-                )
-                created_at = odate_parser(tds[5].select_one("span.odate"))
+                created_by_elem = tds[4].select_one("span.printuser")
+                if created_by_elem is None:
+                    raise exceptions.NoElementException(
+                        "Cannot find created by element"
+                    )
+                created_by = user_parser(page.site.client, created_by_elem)
+
+                created_at_elem = tds[5].select_one("span.odate")
+                if created_at_elem is None:
+                    raise exceptions.NoElementException(
+                        "Cannot find created at element"
+                    )
+                created_at = odate_parser(created_at_elem)
+
                 comment = tds[6].text.strip()
 
                 revs.append(
@@ -342,7 +362,7 @@ class PageCollection(list["Page"]):
                         comment=comment,
                     )
                 )
-            page.revisions = revs
+            page.revisions = PageRevisionCollection(page, revs)
 
         return pages
 
@@ -373,45 +393,21 @@ class PageCollection(list["Page"]):
             users = [user_parser(site.client, user_elem) for user_elem in user_elems]
             values = []
             for value in value_elems:
-                value = value.text.strip()
-                if value == "+":
+                _v = value.text.strip()
+                if _v == "+":
                     values.append(1)
-                elif value == "-":
+                elif _v == "-":
                     values.append(-1)
                 else:
-                    values.append(int(value))
+                    values.append(int(_v))
 
             votes = [PageVote(page, user, vote) for user, vote in zip(users, values)]
-            page._votes = PageVoteCollection(page.site, votes)
+            page._votes = PageVoteCollection(page, votes)
 
         return pages
 
     def get_page_votes(self):
         return PageCollection._acquire_page_votes(self.site, self)
-
-    def _acquire_page_discuss(site: "Site", pages: list["Page"]):
-        target_pages = [page for page in pages if not page.is_discuss_acquired()]
-
-        if len(target_pages) == 0:
-            return pages
-
-        responses = site.amc_request(
-            [
-                {
-                    "action": "ForumAction",
-                    "event": "createPageDiscussionThread",
-                    "page_id": page.id,
-                    "moduleName": "Empty",
-                }
-                for page in target_pages
-            ]
-        )
-
-        for page, response in zip(pages, responses):
-            page._discuss = ForumThread(site, response.json()["thread_id"], page=page)
-
-    def get_page_discuss(self):
-        return PageCollection._acquire_page_discuss(self.site, self)
 
 
 @dataclass
@@ -483,26 +479,12 @@ class Page:
     updated_by: "User"
     updated_at: datetime
     commented_by: Optional["User"]
-    commented_at: datetime
-    _id: int = None
+    commented_at: Optional[datetime]
+    _id: Optional[int] = None
     _source: Optional[PageSource] = None
-    _revisions: list["PageRevision"] = None
-    _votes: PageVoteCollection = None
-    _discuss: ForumThread = None
-
-    @property
-    def discuss(self):
-        if self._discuss is None:
-            PageCollection(self.site, [self]).get_page_discuss()
-        self._discuss.update()
-        return self._discuss
-
-    @discuss.setter
-    def discuss(self, value: ForumThread):
-        self._discuss = value
-
-    def is_discuss_acquired(self) -> bool:
-        return self._discuss is not None
+    _revisions: Optional[PageRevisionCollection] = None
+    _votes: Optional[PageVoteCollection] = None
+    _metas: Optional[dict[str, str]] = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
@@ -516,8 +498,12 @@ class Page:
         int
             ページID
         """
-        if self._id is None:
+        if not self.is_id_acquired():
             PageCollection(self.site, [self]).get_page_ids()
+
+        if self._id is None:
+            raise exceptions.NotFoundException("Cannot find page id")
+
         return self._id
 
     @id.setter
@@ -531,6 +517,10 @@ class Page:
     def source(self) -> PageSource:
         if self._source is None:
             PageCollection(self.site, [self]).get_page_sources()
+
+        if self._source is None:
+            raise exceptions.NotFoundException("Cannot find page source")
+
         return self._source
 
     @source.setter
@@ -538,16 +528,17 @@ class Page:
         self._source = value
 
     @property
-    def revisions(self) -> PageRevisionCollection["PageRevision"]:
+    def revisions(self) -> PageRevisionCollection:
         if self._revisions is None:
             PageCollection(self.site, [self]).get_page_revisions()
         return PageRevisionCollection(self, self._revisions)
 
     @revisions.setter
-    def revisions(
-        self, value: list["PageRevision"] | PageRevisionCollection["PageRevision"]
-    ):
-        self._revisions = value
+    def revisions(self, value: list["PageRevision"] | PageRevisionCollection):
+        if isinstance(value, list):
+            self._revisions = PageRevisionCollection(self, value)
+        else:
+            self._revisions = value
 
     @property
     def latest_revision(self) -> PageRevision:
@@ -562,6 +553,10 @@ class Page:
     def votes(self) -> PageVoteCollection:
         if self._votes is None:
             PageCollection(self.site, [self]).get_page_votes()
+
+        if self._votes is None:
+            raise exceptions.NotFoundException("Cannot find page votes")
+
         return self._votes
 
     @votes.setter
@@ -581,54 +576,67 @@ class Page:
             ]
         )
 
-    def get_metas(self) -> dict[str, str]:
-        response = self.site.amc_request(
-            [
-                {
-                    "pageId": self.id,
-                    "moduleName": "edit/EditMetaModule",
-                }
-            ]
-        )
+    @property
+    def metas(self) -> dict[str, str]:
+        if self._metas is None:
+            response = self.site.amc_request(
+                [
+                    {
+                        "pageId": self.id,
+                        "moduleName": "edit/EditMetaModule",
+                    }
+                ]
+            )
 
-        # レスポンス解析
-        body = response[0].json()["body"]
+            # レスポンス解析
+            body = response[0].json()["body"]
 
-        # <meta name="xxx" content="yyy"/> を正規表現で取得
-        metas = {}
-        for meta in re.findall(r'&lt;meta name="([^"]+)" content="([^"]+)"/&gt;', body):
-            metas[meta[0]] = meta[1]
+            # <meta name="xxx" content="yyy"/> を正規表現で取得
+            metas = {}
+            for meta in re.findall(
+                r'&lt;meta name="([^"]+)" content="([^"]+)"/&gt;', body
+            ):
+                metas[meta[0]] = meta[1]
 
-        return metas
+            self._metas = metas
 
-    def set_meta(self, name: str, value: str):
+        return self._metas
+
+    @metas.setter
+    def metas(self, value: dict[str, str]):
         self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "metaName": name,
-                    "metaContent": value,
-                    "action": "WikiPageAction",
-                    "event": "saveMetaTag",
-                    "pageId": self.id,
-                    "moduleName": "edit/EditMetaModule",
-                }
-            ]
-        )
+        current_metas = self.metas
+        deleted_metas = {k: v for k, v in current_metas.items() if k not in value}
+        added_metas = {k: v for k, v in value.items() if k not in current_metas}
 
-    def delete_meta(self, name: str):
-        self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "metaName": name,
-                    "action": "WikiPageAction",
-                    "event": "deleteMetaTag",
-                    "pageId": self.id,
-                    "moduleName": "edit/EditMetaModule",
-                }
-            ]
-        )
+        for name, content in deleted_metas.items():
+            self.site.amc_request(
+                [
+                    {
+                        "metaName": name,
+                        "action": "WikiPageAction",
+                        "event": "deleteMetaTag",
+                        "pageId": self.id,
+                        "moduleName": "edit/EditMetaModule",
+                    }
+                ]
+            )
+
+        for name, content in added_metas.items():
+            self.site.amc_request(
+                [
+                    {
+                        "metaName": name,
+                        "metaContent": content,
+                        "action": "WikiPageAction",
+                        "event": "saveMetaTag",
+                        "pageId": self.id,
+                        "moduleName": "edit/EditMetaModule",
+                    }
+                ]
+            )
+
+        self._metas = value
 
     @staticmethod
     def create_or_edit(
@@ -707,9 +715,9 @@ class Page:
 
     def edit(
         self,
-        title: str = None,
-        source: str = None,
-        comment: str = None,
+        title: Optional[str] = None,
+        source: Optional[str] = None,
+        comment: Optional[str] = None,
         force_edit: bool = False,
     ) -> "Page":
         # Noneならそのままにする
@@ -727,13 +735,12 @@ class Page:
             force_edit,
         )
 
-    def set_tags(self, tags: list[str]):
-        # TODO: setter/getterにする
+    def commit_tags(self):
         self.site.client.login_check()
         self.site.amc_request(
             [
                 {
-                    "tags": " ".join(tags),
+                    "tags": " ".join(self.tags),
                     "action": "WikiPageAction",
                     "event": "saveTags",
                     "pageId": self.id,
@@ -741,3 +748,4 @@ class Page:
                 }
             ]
         )
+        return self

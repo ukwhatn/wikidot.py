@@ -2,332 +2,149 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
-from wikidot.common import exceptions
-from wikidot.module.forum_post import ForumPost, ForumPostCollection
-from wikidot.util.parser import odate as odate_parser
-from wikidot.util.parser import user as user_parser
+from ..common.exceptions import NoElementException
+from ..util.parser import odate as odate_parser
+from ..util.parser import user as user_parser
 
 if TYPE_CHECKING:
-    from wikidot.module.forum import Forum
-    from wikidot.module.forum_category import ForumCategory
-    from wikidot.module.page import Page
-    from wikidot.module.site import Site
-    from wikidot.module.user import AbstractUser
+    from .forum_category import ForumCategory
+    from .site import Site
+    from .user import AbstractUser
 
 
 class ForumThreadCollection(list["ForumThread"]):
-    def __init__(self, forum: "Forum", threads: list["ForumThread"] = None):
+    def __init__(
+        self,
+        site: Optional["Site"] = None,
+        threads: Optional[list["ForumThread"]] = None,
+    ):
         super().__init__(threads or [])
-        self.forum = forum
+
+        if site is not None:
+            self.site = site
+        else:
+            self.site = self[0].category.site
 
     def __iter__(self) -> Iterator["ForumThread"]:
         return super().__iter__()
 
-    def _acquire_update(forum: "Forum", threads: list["ForumThread"]):
-        if len(threads) == 0:
-            return threads
+    @staticmethod
+    def _parse(category: "ForumCategory", html: BeautifulSoup) -> list["ForumThread"]:
+        threads = []
+        for info in html.select("table.table tr.head~tr"):
+            title = info.select_one("div.title a")
+            if title is None:
+                raise NoElementException("Title element is not found.")
 
-        client = forum.site.client
-        responses = forum.site.amc_request(
-            [
-                {"t": thread.id, "moduleName": "forum/ForumViewThreadModule"}
-                for thread in threads
-            ]
-        )
+            title_href = title.get("href")
+            if title_href is None:
+                raise NoElementException("Title href is not found.")
 
-        for thread, response in zip(threads, responses):
-            html = BeautifulSoup(response.json()["body"], "lxml")
-            statistics = html.select_one("div.statistics")
-            user = statistics.select_one("span.printuser")
-            odate = statistics.select_one("span.odate")
-            category_url = html.select("div.forum-breadcrumbs a")[1].get("href")
-            category_id = re.search(r"c-(\d+)", category_url).group(1)
-            title = html.select_one("div.forum-breadcrumbs").text.strip()
-            counts = int(re.findall(r"\n.+\D(\d+)", statistics.text)[-1])
+            thread_id_match = re.search(r"t-(\d+)", str(title_href))
+            if thread_id_match is None:
+                raise NoElementException("Thread ID is not found.")
 
-            thread.title = re.search(r"»([ \S]*)$", title).group(1).strip()
-            thread.category = thread.forum.category.get(int(category_id))
-            if html.select_one("div.description-block div.head") is None:
-                thread.description = ""
-            else:
-                description = html.select_one("div.description-block").text.strip()
-                thread.description = re.search(r"[ \S]+$", description).group()
-            if thread.posts_counts != counts:
-                thread.last = None
-            thread.posts_counts = counts
-            thread.created_by = user_parser(client, user)
-            thread.created_at = odate_parser(odate)
-            if (pagerno := html.select_one("span.pager-no")) is None:
-                thread.pagerno = 1
-            else:
-                thread.pagerno = int(re.search(r"of (\d+)", pagerno.text).group(1))
-            if (page_ele := html.select_one("div.description-block>a")) is not None:
-                thread.page = thread.site.page.get(page_ele.get("href")[1:])
-                thread.page.discuss = thread
+            thread_id = int(thread_id_match.group(1))
+
+            description_elem = info.select_one("div.description")
+            user_elem = info.select_one("span.printuser")
+            odate_elem = info.select_one("span.odate")
+            posts_count_elem = info.select_one("td.posts")
+
+            if description_elem is None:
+                raise NoElementException("Description element is not found.")
+            if user_elem is None:
+                raise NoElementException("User element is not found.")
+            if odate_elem is None:
+                raise NoElementException("Odate element is not found.")
+            if posts_count_elem is None:
+                raise NoElementException("Posts count element is not found.")
+
+            thread = ForumThread(
+                _category=category,
+                id=int(thread_id),
+                title=title.text,
+                description=description_elem.text,
+                created_by=user_parser(category.site.client, user_elem),
+                created_at=odate_parser(odate_elem),
+                post_count=int(posts_count_elem.text),
+            )
+
+            threads.append(thread)
 
         return threads
 
-    def update(self):
-        return ForumThreadCollection._acquire_update(self.forum, self)
+    @staticmethod
+    def acquire_all(category: "ForumCategory") -> "ForumThreadCollection":
+        threads = []
+
+        first_response = category.site.amc_request(
+            [
+                {
+                    "p": 1,
+                    "c": category.id,
+                    "moduleName": "forum/ForumViewCategoryModule",
+                }
+            ]
+        )[0]
+
+        first_body = first_response.json()["body"]
+        first_html = BeautifulSoup(first_body, "lxml")
+
+        threads.extend(ForumThreadCollection._parse(category, first_html))
+
+        # pager検索
+        pager = first_html.select_one("div.pager")
+        if pager is None:
+            return ForumThreadCollection(site=category.site, threads=threads)
+
+        last_page = int(pager.select("a")[-2].text)
+        if last_page == 1:
+            return ForumThreadCollection(site=category.site, threads=threads)
+
+        responses = category.site.amc_request(
+            [
+                {
+                    "p": page,
+                    "c": category.id,
+                    "moduleName": "forum/ForumViewCategoryModule",
+                }
+                for page in range(2, last_page + 1)
+            ]
+        )
+
+        for response in responses:
+            body = response.json()["body"]
+            html = BeautifulSoup(body, "lxml")
+            threads.extend(ForumThreadCollection._parse(category, html))
+
+        return ForumThreadCollection(site=category.site, threads=threads)
 
 
 @dataclass
 class ForumThread:
-    site: "Site"
     id: int
-    forum: "Forum"
-    category: "ForumCategory" = None
-    title: str = None
-    description: str = None
-    created_by: "AbstractUser" = None
-    created_at: datetime = None
-    posts_counts: int = None
-    page: "Page" = None
-    pagerno: int = None
-    _last_post_id: int = None
-    _last: "ForumPost" = None
+    title: str
+    description: str
+    created_by: "AbstractUser"
+    created_at: datetime
+    post_count: int
+    _category: Optional["ForumCategory"] = None
+
+    def __str__(self):
+        return (
+            f"ForumThread(id={self.id}, "
+            f"title={self.title}, description={self.description}, "
+            f"created_by={self.created_by}, created_at={self.created_at}, "
+            f"post_count={self.post_count})"
+        )
 
     @property
-    def last(self):
-        if self._last_post_id is not None:
-            if self._last is None:
-                self.update()
-                self._last = self.get(self._last_post_id)
-            return self._last
-
-    @last.setter
-    def last(self, value: "ForumPost"):
-        self._last = value
-
-    @property
-    def posts(self) -> ForumPostCollection:
-        client = self.site.client
-        responses = self.site.amc_request(
-            [
-                {
-                    "pagerNo": no + 1,
-                    "t": self.id,
-                    "order": "",
-                    "moduleName": "forum/ForumViewThreadPostsModule",
-                }
-                for no in range(self.pagerno)
-            ]
-        )
-
-        posts = []
-
-        for response in responses:
-            html = BeautifulSoup(response.json()["body"], "lxml")
-            for post in html.select("div.post"):
-                cuser = post.select_one("div.info span.printuser")
-                codate = post.select_one("div.info span.odate")
-                if (parent := post.parent.get("id")) != "thread-container-posts":
-                    parent_id = int(re.search(r"fpc-(\d+)", parent).group(1))
-                else:
-                    parent_id = None
-                euser = post.select_one("div.changes span.printuser")
-                eodate = post.select_one("div.changes span.odate a")
-
-                posts.append(
-                    ForumPost(
-                        site=self.site,
-                        id=int(re.search(r"post-(\d+)", post.get("id")).group(1)),
-                        forum=self.forum,
-                        thread=self,
-                        _title=post.select_one("div.title").text.strip(),
-                        parent_id=parent_id,
-                        created_by=user_parser(client, cuser),
-                        created_at=odate_parser(codate),
-                        edited_by=(
-                            client.user.get(euser.text) if euser is not None else None
-                        ),
-                        edited_at=odate_parser(eodate) if eodate is not None else None,
-                        source_ele=post.select_one("div.content"),
-                        source_text=post.select_one("div.content").text.strip(),
-                    )
-                )
-
-        return ForumPostCollection(self, posts)
-
-    def get_url(self) -> str:
-        return f"{self.site.get_url()}/forum/t-{self.id}"
-
-    def update(self) -> "ForumThread":
-        return ForumThreadCollection(self.forum, [self]).update()[0]
-
-    def edit(self, title: str = None, description: str = None):
-        self.site.client.login_check()
-        if title == "":
-            raise exceptions.UnexpectedException("Title can not be left empty.")
-
-        if self.page is not None:
-            raise exceptions.UnexpectedException("Page's discussion can not be edited.")
-
-        if title is None and description is None:
-            return self
-
-        self.site.amc_request(
-            [
-                {
-                    "threadId": self.id,
-                    "title": self.title if title is None else title,
-                    "description": (
-                        self.description if description is None else description
-                    ),
-                    "action": "ForumAction",
-                    "event": "saveThreadMeta",
-                    "moduleName": "Empty",
-                }
-            ]
-        )
-
-        self.title = self.title if title is None else title
-        self.description = self.description if description is None else description
-
-        return self
-
-    def move_to(self, category_id: int):
-        self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "categoryId": category_id,
-                    "threadId": self.id,
-                    "action": "ForumAction",
-                    "event": "moveThread",
-                    "moduleName": "Empty",
-                }
-            ]
-        )
-
-    def lock(self):
-        self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "threadId": self.id,
-                    "block": "true",
-                    "action": "ForumAction",
-                    "event": "saveBlock",
-                    "moduleName": "Empty",
-                }
-            ]
-        )
-
-        return self
-
-    def unlock(self):
-        self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "threadId": self.id,
-                    "action": "ForumAction",
-                    "event": "saveBlock",
-                    "moduleName": "Empty",
-                }
-            ]
-        )
-
-        return self
-
-    def is_locked(self):
-        self.site.client.login_check()
-        response = self.site.amc_request(
-            [
-                {
-                    "threadId": self.id,
-                    "moduleName": "forum/sub/ForumEditThreadBlockModule",
-                }
-            ]
-        )[0]
-
-        html = BeautifulSoup(response.json()["body"], "lxml")
-        checked = html.select_one("input.checkbox").get("checked")
-
-        return checked is not None
-
-    def stick(self):
-        self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "threadId": self.id,
-                    "sticky": "true",
-                    "action": "ForumAction",
-                    "event": "saveSticky",
-                    "moduleName": "Empty",
-                }
-            ]
-        )
-
-        return self
-
-    def unstick(self):
-        self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "threadId": self.id,
-                    "action": "ForumAction",
-                    "event": "saveSticky",
-                    "moduleName": "Empty",
-                }
-            ]
-        )
-
-        return self
-
-    def is_sticked(self):
-        self.site.client.login_check()
-        response = self.site.amc_request(
-            [
-                {
-                    "threadId": self.id,
-                    "moduleName": "forum/sub/ForumEditThreadStickinessModule",
-                }
-            ]
-        )[0]
-
-        html = BeautifulSoup(response.json()["body"], "lxml")
-        checked = html.select_one("input.checkbox").get("checked")
-
-        return checked is not None
-
-    def new_post(self, title: str = "", source: str = "", parent_id: int = ""):
-        client = self.site.client
-        client.login_check()
-        if source == "":
-            raise exceptions.UnexpectedException("Post body can not be left empty.")
-
-        response = self.site.amc_request(
-            [
-                {
-                    "parentId": parent_id,
-                    "title": title,
-                    "source": source,
-                    "action": "ForumAction",
-                    "event": "savePost",
-                }
-            ]
-        )
-        body = response.json()
-
-        return ForumPost(
-            site=self.site,
-            id=int(body["postId"]),
-            forum=self.forum,
-            title=title,
-            source=source,
-            thread=self,
-            parent_id=parent_id if parent_id == "" else None,
-            created_by=client.user.get(client.username),
-            created_at=datetime.fromtimestamp(body["CURRENT_TIMESTAMP"]),
-        )
-
-    def get(self, post_id: int):
-        return self.posts.find(post_id)
+    def category(self) -> "ForumCategory":
+        if self._category is None:
+            raise ValueError("Category is not set.")
+        return self._category

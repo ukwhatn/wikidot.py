@@ -4,12 +4,12 @@ from typing import TYPE_CHECKING
 
 from bs4 import BeautifulSoup
 
-from wikidot.common.exceptions import NotFoundException
-from wikidot.util.requestutil import RequestUtil
-from wikidot.util.stringutil import StringUtil
+from ..common.exceptions import NoElementException, NotFoundException
+from ..util.requestutil import RequestUtil
+from ..util.stringutil import StringUtil
 
 if TYPE_CHECKING:
-    from wikidot.module.client import Client
+    from .client import Client
 
 
 class UserCollection(list["AbstractUser"]):
@@ -64,12 +64,16 @@ class UserCollection(list["AbstractUser"]):
                     continue
 
             # id取得
-            user_id = int(
-                html.select_one("a.btn.btn-default.btn-xs")["href"].split("/")[-1]
-            )
+            user_id_elem = html.select_one("a.btn.btn-default.btn-xs")
+            if user_id_elem is None:
+                raise NoElementException("User ID element not found")
+            user_id = int(str(user_id_elem["href"]).split("/")[-1])
 
             # name取得
-            name = html.select_one("h1.profile-title").get_text(strip=True)
+            name_elem = html.select_one("h1.profile-title")
+            if name_elem is None:
+                raise NoElementException("User name element not found")
+            name = name_elem.get_text(strip=True)
 
             # avatar_url取得
             avatar_url = f"https://www.wikidot.com/avatar.php?userid={user_id}"
@@ -143,12 +147,12 @@ class User(AbstractUser):
     # name: str | None
     # unix_name: str | None
     # avatar_url: str | None
-    ip: None = None
+    ip: str | None = None
 
     @staticmethod
     def from_name(
         client: "Client", name: str, raise_when_not_found: bool = False
-    ) -> "User":
+    ) -> "AbstractUser":
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters
@@ -189,12 +193,11 @@ class DeletedUser(AbstractUser):
         ユーザーのIPアドレス（取得できないためNone）
     """
 
-    # client: 'Client'
-    # id: int | None
-    name: str = "account deleted"
-    unix_name: str = "account_deleted"
-    avatar_url: None = None
-    ip: None = None
+    id: int | None = None
+    name: str | None = "account deleted"
+    unix_name: str | None = "account_deleted"
+    avatar_url: str | None = None
+    ip: str | None = None
 
 
 @dataclass
@@ -217,12 +220,11 @@ class AnonymousUser(AbstractUser):
         ユーザーのIPアドレス
     """
 
-    # client: 'Client'
-    id: None = None
-    name: str = "Anonymous"
-    unix_name: str = "anonymous"
-    avatar_url: None = None
-    # ip: None = None
+    id: int | None = None
+    name: str | None = "Anonymous"
+    unix_name: str | None = "anonymous"
+    avatar_url: str | None = None
+    ip: str | None = None
 
 
 @dataclass
@@ -245,12 +247,11 @@ class GuestUser(AbstractUser):
         ユーザーのIPアドレス（取得できないためNone）
     """
 
-    # client: 'Client'
-    id: None = None
-    # name: str | None
-    unix_name: None = None
+    id: int | None = None
+    name: str | None = None
+    unix_name: str | None = None
     avatar_url: str | None = None
-    ip: None = None
+    ip: str | None = None
 
 
 @dataclass
@@ -273,9 +274,8 @@ class WikidotUser(AbstractUser):
         ユーザーのIPアドレス（取得できないためNone）
     """
 
-    # client: 'Client'
-    id: None = None
-    name: str = "Wikidot"
-    unix_name: str = "wikidot"
-    avatar_url: None = None
-    ip: None = None
+    id: int | None = None
+    name: str | None = "Wikidot"
+    unix_name: str | None = "wikidot"
+    avatar_url: str | None = None
+    ip: str | None = None
