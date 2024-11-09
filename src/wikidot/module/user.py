@@ -147,7 +147,7 @@ class User(AbstractUser):
     # name: str | None
     # unix_name: str | None
     # avatar_url: str | None
-    ip: None = None
+    ip: str | None = None
 
     @staticmethod
     def from_name(
@@ -193,12 +193,11 @@ class DeletedUser(AbstractUser):
         ユーザーのIPアドレス（取得できないためNone）
     """
 
-    # client: 'Client'
-    # id: int | None
-    name: str = "account deleted"
-    unix_name: str = "account_deleted"
-    avatar_url: None = None
-    ip: None = None
+    id: int | None = None
+    name: str | None = "account deleted"
+    unix_name: str | None = "account_deleted"
+    avatar_url: str | None = None
+    ip: str | None = None
 
 
 @dataclass
@@ -221,12 +220,11 @@ class AnonymousUser(AbstractUser):
         ユーザーのIPアドレス
     """
 
-    # client: 'Client'
-    id: None = None
-    name: str = "Anonymous"
-    unix_name: str = "anonymous"
-    avatar_url: None = None
-    # ip: None = None
+    id: int | None = None
+    name: str | None = "Anonymous"
+    unix_name: str | None = "anonymous"
+    avatar_url: str | None = None
+    ip: str | None = None
 
 
 @dataclass
@@ -249,12 +247,11 @@ class GuestUser(AbstractUser):
         ユーザーのIPアドレス（取得できないためNone）
     """
 
-    # client: 'Client'
-    id: None = None
-    # name: str | None
-    unix_name: None = None
+    id: int | None = None
+    name: str | None = None
+    unix_name: str | None = None
     avatar_url: str | None = None
-    ip: None = None
+    ip: str | None = None
 
 
 @dataclass
@@ -277,9 +274,8 @@ class WikidotUser(AbstractUser):
         ユーザーのIPアドレス（取得できないためNone）
     """
 
-    # client: 'Client'
-    id: None = None
-    name: str = "Wikidot"
-    unix_name: str = "wikidot"
-    avatar_url: None = None
-    ip: None = None
+    id: int | None = None
+    name: str | None = "Wikidot"
+    unix_name: str | None = "wikidot"
+    avatar_url: str | None = None
+    ip: str | None = None
