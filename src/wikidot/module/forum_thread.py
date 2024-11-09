@@ -6,13 +6,13 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
-from wikidot.util.parser import odate as odate_parser
-from wikidot.util.parser import user as user_parser
+from ..util.parser import odate as odate_parser
+from ..util.parser import user as user_parser
 
 if TYPE_CHECKING:
-    from wikidot.module.forum_category import ForumCategory
-    from wikidot.module.site import Site
-    from wikidot.module.user import AbstractUser
+    from .forum_category import ForumCategory
+    from .site import Site
+    from .user import AbstractUser
 
 
 class ForumThreadCollection(list["ForumThread"]):

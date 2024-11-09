@@ -3,12 +3,13 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from bs4 import BeautifulSoup
-from wikidot.common.exceptions import NoElementException, NotFoundException
-from wikidot.util.requestutil import RequestUtil
-from wikidot.util.stringutil import StringUtil
+
+from ..common.exceptions import NoElementException, NotFoundException
+from ..util.requestutil import RequestUtil
+from ..util.stringutil import StringUtil
 
 if TYPE_CHECKING:
-    from wikidot.module.client import Client
+    from .client import Client
 
 
 class UserCollection(list["AbstractUser"]):

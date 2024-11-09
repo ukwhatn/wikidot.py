@@ -1,7 +1,8 @@
 from typing import TYPE_CHECKING
 
 import bs4
-from wikidot.module import user
+
+from ...module import user
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client

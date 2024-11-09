@@ -4,15 +4,15 @@ from typing import TYPE_CHECKING, Optional
 
 import httpx
 
-from wikidot.common import exceptions
-from wikidot.common.decorators import login_required
-from wikidot.module.forum_category import ForumCategoryCollection
-from wikidot.module.page import Page, PageCollection, SearchPagesQuery
-from wikidot.module.site_application import SiteApplication
+from ..common import exceptions
+from ..common.decorators import login_required
+from .forum_category import ForumCategoryCollection
+from .page import Page, PageCollection, SearchPagesQuery
+from .site_application import SiteApplication
 
 if TYPE_CHECKING:
-    from wikidot.module.client import Client
-    from wikidot.module.user import User
+    from .client import Client
+    from .user import User
 
 
 class SitePagesMethods:

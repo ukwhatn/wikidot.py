@@ -5,10 +5,10 @@ from typing import TYPE_CHECKING
 
 from bs4 import BeautifulSoup
 
-from wikidot.module.forum_thread import ForumThreadCollection
+from .forum_thread import ForumThreadCollection
 
 if TYPE_CHECKING:
-    from wikidot.module.site import Site
+    from .site import Site
 
 
 class ForumCategoryCollection(list["ForumCategory"]):

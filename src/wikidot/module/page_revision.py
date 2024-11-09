@@ -4,12 +4,13 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
-from wikidot.common.exceptions import NoElementException
-from wikidot.module.page_source import PageSource
+
+from ..common.exceptions import NoElementException
+from .page_source import PageSource
 
 if TYPE_CHECKING:
-    from wikidot.module.page import Page
-    from wikidot.module.user import AbstractUser
+    from .page import Page
+    from .user import AbstractUser
 
 
 class PageRevisionCollection(list["PageRevision"]):

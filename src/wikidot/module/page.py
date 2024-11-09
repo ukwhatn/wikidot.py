@@ -5,17 +5,18 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from bs4 import BeautifulSoup
-from wikidot.common import exceptions
-from wikidot.module.page_revision import PageRevision, PageRevisionCollection
-from wikidot.module.page_source import PageSource
-from wikidot.module.page_votes import PageVote, PageVoteCollection
-from wikidot.util.parser import odate as odate_parser
-from wikidot.util.parser import user as user_parser
-from wikidot.util.requestutil import RequestUtil
+
+from ..common import exceptions
+from ..util.parser import odate as odate_parser
+from ..util.parser import user as user_parser
+from ..util.requestutil import RequestUtil
+from .page_revision import PageRevision, PageRevisionCollection
+from .page_source import PageSource
+from .page_votes import PageVote, PageVoteCollection
 
 if TYPE_CHECKING:
-    from wikidot.module.site import Site
-    from wikidot.module.user import User
+    from .site import Site
+    from .user import User
 
 DEFAULT_MODULE_BODY = [
     "fullname",  # ページのフルネーム(str)

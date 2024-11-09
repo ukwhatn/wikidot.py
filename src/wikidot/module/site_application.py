@@ -3,13 +3,13 @@ from typing import TYPE_CHECKING
 
 from bs4 import BeautifulSoup
 
-from wikidot.common import exceptions
-from wikidot.common.decorators import login_required
-from wikidot.util.parser import user as user_parser
+from ..common import exceptions
+from ..common.decorators import login_required
+from ..util.parser import user as user_parser
 
 if TYPE_CHECKING:
-    from wikidot.module.site import Site
-    from wikidot.module.user import AbstractUser
+    from ..module.site import Site
+    from ..module.user import AbstractUser
 
 
 @dataclass

@@ -3,8 +3,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from wikidot.module.page import Page
-    from wikidot.module.user import AbstractUser
+    from .page import Page
+    from .user import AbstractUser
 
 
 class PageVoteCollection(list["PageVote"]):
