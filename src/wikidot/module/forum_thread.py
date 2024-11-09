@@ -65,7 +65,7 @@ class ForumThreadCollection(list["ForumThread"]):
                 raise NoElementException("Posts count element is not found.")
 
             thread = ForumThread(
-                _category=category,
+                category=category,
                 id=int(thread_id),
                 title=title.text,
                 description=description_elem.text,
@@ -127,13 +127,13 @@ class ForumThreadCollection(list["ForumThread"]):
 
 @dataclass
 class ForumThread:
+    category: "ForumCategory"
     id: int
     title: str
     description: str
     created_by: "AbstractUser"
     created_at: datetime
     post_count: int
-    _category: Optional["ForumCategory"] = None
 
     def __str__(self):
         return (
@@ -142,9 +142,3 @@ class ForumThread:
             f"created_by={self.created_by}, created_at={self.created_at}, "
             f"post_count={self.post_count})"
         )
-
-    @property
-    def category(self) -> "ForumCategory":
-        if self._category is None:
-            raise ValueError("Category is not set.")
-        return self._category
