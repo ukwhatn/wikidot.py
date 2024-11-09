@@ -3,8 +3,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from bs4 import BeautifulSoup
-
-from wikidot.common.exceptions import NotFoundException
+from wikidot.common.exceptions import NoElementException, NotFoundException
 from wikidot.util.requestutil import RequestUtil
 from wikidot.util.stringutil import StringUtil
 
@@ -64,12 +63,16 @@ class UserCollection(list["AbstractUser"]):
                     continue
 
             # id取得
-            user_id = int(
-                html.select_one("a.btn.btn-default.btn-xs")["href"].split("/")[-1]
-            )
+            user_id_elem = html.select_one("a.btn.btn-default.btn-xs")
+            if user_id_elem is None:
+                raise NoElementException("User ID element not found")
+            user_id = int(str(user_id_elem["href"]).split("/")[-1])
 
             # name取得
-            name = html.select_one("h1.profile-title").get_text(strip=True)
+            name_elem = html.select_one("h1.profile-title")
+            if name_elem is None:
+                raise NoElementException("User name element not found")
+            name = name_elem.get_text(strip=True)
 
             # avatar_url取得
             avatar_url = f"https://www.wikidot.com/avatar.php?userid={user_id}"
@@ -148,7 +151,7 @@ class User(AbstractUser):
     @staticmethod
     def from_name(
         client: "Client", name: str, raise_when_not_found: bool = False
-    ) -> "User":
+    ) -> "AbstractUser":
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters

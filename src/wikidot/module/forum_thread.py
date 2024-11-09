@@ -2,7 +2,7 @@ import re
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
@@ -39,7 +39,7 @@ class ForumThreadCollection(list["ForumThread"]):
             posts_count = info.select_one("td.posts")
 
             thread = ForumThread(
-                category=category,
+                _category=category,
                 id=int(thread_id),
                 title=title.text,
                 description=description.text,
@@ -101,13 +101,13 @@ class ForumThreadCollection(list["ForumThread"]):
 
 @dataclass
 class ForumThread:
-    category: "ForumCategory"
     id: int
     title: str
     description: str
     created_by: "AbstractUser"
     created_at: datetime
     post_count: int
+    _category: Optional["ForumCategory"] = None
 
     def __str__(self):
         return (

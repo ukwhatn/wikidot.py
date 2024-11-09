@@ -32,6 +32,12 @@ format:
 lint:
 	pip install -e .[lint]
 	python -m flake8 $(FORMAT_DIR)
-	# python -m mypy $(FORMAT_DIR) --install-types --non-interactive
+	python -m mypy $(FORMAT_DIR) --install-types --non-interactive
+
+stubgen:
+	pip install -e .[stubgen]
+	python -m stubgen -p wikidot -o stubs/
+	mv stubs/wikidot/* wikidot/
+	rm -r stubs/
 
 PHONY: build release release_from-develop format commit

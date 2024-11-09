@@ -108,3 +108,15 @@ class ForbiddenException(WikidotException):
 
     def __init__(self, message):
         super().__init__(message)
+
+
+# ---
+# 処理エラー関連
+# ---
+
+
+class NoElementException(WikidotException):
+    """要素が存在しないときの例外"""
+
+    def __init__(self, message):
+        super().__init__(message)

@@ -37,7 +37,7 @@ class ClientUserMethods:
 
     def get_bulk(
         self, names: list[str], raise_when_not_found: bool = False
-    ) -> list[User]:
+    ) -> UserCollection:
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters

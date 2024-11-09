@@ -166,7 +166,7 @@ class AjaxModuleConnectorClient:
         return_exceptions: bool = False,
         site_name: str | None = None,
         site_ssl_supported: bool | None = None,
-    ) -> tuple[BaseException | Any]:
+    ) -> tuple[httpx.Response | Exception]:
         """ajax-module-connector.phpへのリクエストを行う
 
         Parameters
@@ -239,11 +239,13 @@ class AjaxModuleConnectorClient:
                     # リトライ回数上限に達した場合は例外送出
                     if retry_count > self.config.attempt_limit:
                         wd_logger.error(
-                            f"AMC is respond HTTP error code: {response.status_code} -> {_body}"
+                            f"AMC is respond HTTP error code: "
+                            f"{response.status_code if response is not None else 'timeout'} -> {_body}"
                         )
                         raise AMCHttpStatusCodeException(
-                            f"AMC is respond HTTP error code: {response.status_code}",
-                            response.status_code,
+                            f"AMC is respond HTTP error code: "
+                            f"{response.status_code if response is not None else 'timeout'} -> {_body}",
+                            response.status_code if response is not None else 999,
                         ) from e
 
                     # 間隔を空けてリトライ

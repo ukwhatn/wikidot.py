@@ -5,7 +5,6 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
 from bs4 import BeautifulSoup
-
 from wikidot.common import exceptions
 from wikidot.module.page_revision import PageRevision, PageRevisionCollection
 from wikidot.module.page_source import PageSource
@@ -78,7 +77,9 @@ class SearchPagesQuery:
 
 
 class PageCollection(list["Page"]):
-    def __init__(self, site: "Site" = None, pages: list["Page"] = None):
+    def __init__(
+        self, site: Optional["Site"] = None, pages: Optional[list["Page"]] = None
+    ):
         super().__init__(pages or [])
 
         if site is not None:
@@ -104,11 +105,14 @@ class PageCollection(list["Page"]):
 
             # 各値を取得
             for set_element in page_element.select("span.set"):
-                key = set_element.select_one("span.name").text.strip()
+                key_element = set_element.select_one("span.name")
+                if key_element is None:
+                    raise exceptions.NoElementException("Cannot find key element")
+                key = key_element.text.strip()
                 value_element = set_element.select_one("span.value")
 
                 if value_element is None:
-                    value = None
+                    value: Any = None
 
                 elif key in ["created_at", "updated_at", "commented_at"]:
                     odate_element = value_element.select_one("span.odate")

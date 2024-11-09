@@ -5,7 +5,6 @@ from typing import TYPE_CHECKING
 
 import httpx
 from bs4 import BeautifulSoup, ResultSet, Tag
-
 from wikidot.common import exceptions
 from wikidot.common.decorators import login_required
 from wikidot.util.parser import odate as odate_parser
@@ -52,7 +51,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                 }
             )
 
-        responses: [httpx.Response | Exception] = client.amc_client.request(
+        responses: tuple[httpx.Response] = client.amc_client.request(
             bodies, return_exceptions=True
         )
 
@@ -72,17 +71,23 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 
             sender, recipient = html.select("div.pmessage div.header span.printuser")
 
+            subject_element = html.select_one("div.pmessage div.header span.subject")
+            body_element = html.select_one("div.pmessage div.body")
+            odate_element = html.select_one("div.header span.odate")
+
             messages.append(
                 PrivateMessage(
                     client=client,
                     id=message_ids[index],
                     sender=user_parser(client, sender),
                     recipient=user_parser(client, recipient),
-                    subject=html.select_one(
-                        "div.pmessage div.header span.subject"
-                    ).get_text(),
-                    body=html.select_one("div.pmessage div.body").get_text(),
-                    created_at=odate_parser(html.select_one("div.header span.odate")),
+                    subject=subject_element.get_text() if subject_element else "",
+                    body=body_element.get_text() if body_element else "",
+                    created_at=(
+                        odate_parser(odate_element)
+                        if odate_element
+                        else datetime.fromtimestamp(0)
+                    ),
                 )
             )
 
@@ -121,11 +126,11 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                 for page in range(1, max_page + 1)
             ]
 
-            responses: [httpx.Response | Exception] = client.amc_client.request(
+            responses: tuple[httpx.Response] = client.amc_client.request(
                 bodies, return_exceptions=False
             )
         else:
-            responses = [response]
+            responses = (response,)
 
         message_ids = []
         for response in responses:
@@ -133,7 +138,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
             # tr.messageのdata-href末尾の数字を取得
             message_ids.extend(
                 [
-                    int(tr["data-href"].split("/")[-1])
+                    int(str(tr["data-href"]).split("/")[-1])
                     for tr in html.select("tr.message")
                 ]
             )
