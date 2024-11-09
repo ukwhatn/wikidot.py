@@ -9,14 +9,14 @@ from .private_message import (
     PrivateMessageSentBox,
 )
 from .site import Site
-from .user import User, UserCollection
+from .user import AbstractUser, User, UserCollection
 
 
 class ClientUserMethods:
     def __init__(self, client: "Client"):
         self.client = client
 
-    def get(self, name: str, raise_when_not_found: bool = False) -> User:
+    def get(self, name: str, raise_when_not_found: bool = False) -> "AbstractUser":
         """ユーザー名からユーザーオブジェクトを取得する
 
         Parameters

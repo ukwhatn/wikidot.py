@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
+from ..common.exceptions import NoElementException
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -16,7 +17,11 @@ if TYPE_CHECKING:
 
 
 class ForumThreadCollection(list["ForumThread"]):
-    def __init__(self, site: "Site" = None, threads: list["ForumThread"] = None):
+    def __init__(
+        self,
+        site: Optional["Site"] = None,
+        threads: Optional[list["ForumThread"]] = None,
+    ):
         super().__init__(threads or [])
 
         if site is not None:
@@ -32,20 +37,41 @@ class ForumThreadCollection(list["ForumThread"]):
         threads = []
         for info in html.select("table.table tr.head~tr"):
             title = info.select_one("div.title a")
-            thread_id = re.search(r"t-(\d+)", title.get("href")).group(1)
-            description = info.select_one("div.description")
-            user = info.select_one("span.printuser")
-            odate = info.select_one("span.odate")
-            posts_count = info.select_one("td.posts")
+            if title is None:
+                raise NoElementException("Title element is not found.")
+
+            title_href = title.get("href")
+            if title_href is None:
+                raise NoElementException("Title href is not found.")
+
+            thread_id_match = re.search(r"t-(\d+)", str(title_href))
+            if thread_id_match is None:
+                raise NoElementException("Thread ID is not found.")
+
+            thread_id = int(thread_id_match.group(1))
+
+            description_elem = info.select_one("div.description")
+            user_elem = info.select_one("span.printuser")
+            odate_elem = info.select_one("span.odate")
+            posts_count_elem = info.select_one("td.posts")
+
+            if description_elem is None:
+                raise NoElementException("Description element is not found.")
+            if user_elem is None:
+                raise NoElementException("User element is not found.")
+            if odate_elem is None:
+                raise NoElementException("Odate element is not found.")
+            if posts_count_elem is None:
+                raise NoElementException("Posts count element is not found.")
 
             thread = ForumThread(
                 _category=category,
                 id=int(thread_id),
                 title=title.text,
-                description=description.text,
-                created_by=user_parser(category.site.client, user),
-                created_at=odate_parser(odate),
-                post_count=int(posts_count.text),
+                description=description_elem.text,
+                created_by=user_parser(category.site.client, user_elem),
+                created_at=odate_parser(odate_elem),
+                post_count=int(posts_count_elem.text),
             )
 
             threads.append(thread)
@@ -116,3 +142,9 @@ class ForumThread:
             f"created_by={self.created_by}, created_at={self.created_at}, "
             f"post_count={self.post_count})"
         )
+
+    @property
+    def category(self) -> "ForumCategory":
+        if self._category is None:
+            raise ValueError("Category is not set.")
+        return self._category

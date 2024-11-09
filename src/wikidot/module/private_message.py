@@ -1,7 +1,7 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import httpx
 from bs4 import BeautifulSoup, ResultSet, Tag
@@ -52,7 +52,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                 }
             )
 
-        responses: tuple[httpx.Response] = client.amc_client.request(
+        responses: tuple[httpx.Response | Exception] = client.amc_client.request(
             bodies, return_exceptions=True
         )
 
@@ -112,7 +112,9 @@ class PrivateMessageCollection(list["PrivateMessage"]):
             受信箱のメッセージ
         """
         # pager取得
-        response = client.amc_client.request([{"moduleName": module_name}])[0]
+        response: httpx.Response = cast(
+            httpx.Response, client.amc_client.request([{"moduleName": module_name}])[0]
+        )
 
         html = BeautifulSoup(response.json()["body"], "lxml")
         # pagerの最後から2番目の要素を取得
@@ -127,8 +129,9 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                 for page in range(1, max_page + 1)
             ]
 
-            responses: tuple[httpx.Response] = client.amc_client.request(
-                bodies, return_exceptions=False
+            responses: tuple[httpx.Response] = cast(
+                tuple[httpx.Response],
+                client.amc_client.request(bodies, return_exceptions=False),
             )
         else:
             responses = (response,)

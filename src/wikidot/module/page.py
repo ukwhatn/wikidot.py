@@ -4,6 +4,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
+import httpx
 from bs4 import BeautifulSoup
 
 from ..common import exceptions
@@ -214,17 +215,19 @@ class PageCollection(list["Page"]):
         # pagerが存在する
         if first_page_html_body.select_one("div.pager") is not None:
             # span.target[-2] > a から最大ページ数を取得
-            total = int(
-                first_page_html_body.select("div.pager span.target")[-2]
-                .select_one("a")
-                .text
-            )
+            last_pager_element = first_page_html_body.select("div.pager span.target")[
+                -2
+            ]
+            last_pager_link_element = last_pager_element.select_one("a")
+            if last_pager_link_element is None:
+                raise exceptions.NoElementException("Cannot find last pager link")
+            total = int(last_pager_link_element.text.strip())
 
         if total > 1:
             request_bodies = []
             for i in range(1, total):
                 _query_dict = query_dict.copy()
-                _query_dict["offset"] = i * query.perPage
+                _query_dict["offset"] = i * (query.perPage or 250)
                 request_bodies.append(_query_dict)
 
             responses = site.amc_request(request_bodies)
@@ -262,6 +265,10 @@ class PageCollection(list["Page"]):
 
         # "WIKIREQUEST.info.pageId = xxx;"の値をidに設定
         for index, response in enumerate(responses):
+            if not isinstance(response, httpx.Response):
+                raise exceptions.UnexpectedException(
+                    f"Unexpected response type: {type(response)}"
+                )
             source = response.text
 
             id_match = re.search(r"WIKIREQUEST\.info\.pageId = (\d+);", source)
@@ -290,12 +297,11 @@ class PageCollection(list["Page"]):
 
         for page, responses in zip(pages, responses):
             body = responses.json()["body"]
-            source = (
-                BeautifulSoup(body, "lxml")
-                .select_one("div.page-source")
-                .text.strip()
-                .removeprefix("\t")
-            )
+            html = BeautifulSoup(body, "lxml")
+            source_element = html.select_one("div.page-source")
+            if source_element is None:
+                raise exceptions.NoElementException("Cannot find source element")
+            source = source_element.text.strip().removeprefix("\t")
             page.source = PageSource(page, source)
         return pages
 
@@ -326,14 +332,24 @@ class PageCollection(list["Page"]):
             for rev_element in body_html.select(
                 "table.page-history > tr[id^=revision-row-]"
             ):
-                rev_id = int(rev_element["id"].removeprefix("revision-row-"))
+                rev_id = int(str(rev_element["id"]).removeprefix("revision-row-"))
 
                 tds = rev_element.select("td")
                 rev_no = int(tds[0].text.strip().removesuffix("."))
-                created_by = user_parser(
-                    page.site.client, tds[4].select_one("span.printuser")
-                )
-                created_at = odate_parser(tds[5].select_one("span.odate"))
+                created_by_elem = tds[4].select_one("span.printuser")
+                if created_by_elem is None:
+                    raise exceptions.NoElementException(
+                        "Cannot find created by element"
+                    )
+                created_by = user_parser(page.site.client, created_by_elem)
+
+                created_at_elem = tds[5].select_one("span.odate")
+                if created_at_elem is None:
+                    raise exceptions.NoElementException(
+                        "Cannot find created at element"
+                    )
+                created_at = odate_parser(created_at_elem)
+
                 comment = tds[6].text.strip()
 
                 revs.append(
@@ -346,7 +362,7 @@ class PageCollection(list["Page"]):
                         comment=comment,
                     )
                 )
-            page.revisions = revs
+            page.revisions = PageRevisionCollection(page, revs)
 
         return pages
 
@@ -377,16 +393,16 @@ class PageCollection(list["Page"]):
             users = [user_parser(site.client, user_elem) for user_elem in user_elems]
             values = []
             for value in value_elems:
-                value = value.text.strip()
-                if value == "+":
+                _v = value.text.strip()
+                if _v == "+":
                     values.append(1)
-                elif value == "-":
+                elif _v == "-":
                     values.append(-1)
                 else:
-                    values.append(int(value))
+                    values.append(int(_v))
 
             votes = [PageVote(page, user, vote) for user, vote in zip(users, values)]
-            page._votes = PageVoteCollection(page.site, votes)
+            page._votes = PageVoteCollection(page, votes)
 
         return pages
 
@@ -463,12 +479,12 @@ class Page:
     updated_by: "User"
     updated_at: datetime
     commented_by: Optional["User"]
-    commented_at: datetime
-    _id: int = None
+    commented_at: Optional[datetime]
+    _id: Optional[int] = None
     _source: Optional[PageSource] = None
-    _revisions: list["PageRevision"] = None
-    _votes: PageVoteCollection = None
-    _metas: dict[str, str] = None
+    _revisions: Optional[PageRevisionCollection] = None
+    _votes: Optional[PageVoteCollection] = None
+    _metas: Optional[dict[str, str]] = None
 
     def get_url(self) -> str:
         return f"{self.site.get_url()}/{self.fullname}"
@@ -484,6 +500,10 @@ class Page:
         """
         if not self.is_id_acquired():
             PageCollection(self.site, [self]).get_page_ids()
+
+        if self._id is None:
+            raise exceptions.NotFoundException("Cannot find page id")
+
         return self._id
 
     @id.setter
@@ -497,6 +517,10 @@ class Page:
     def source(self) -> PageSource:
         if self._source is None:
             PageCollection(self.site, [self]).get_page_sources()
+
+        if self._source is None:
+            raise exceptions.NotFoundException("Cannot find page source")
+
         return self._source
 
     @source.setter
@@ -504,16 +528,17 @@ class Page:
         self._source = value
 
     @property
-    def revisions(self) -> PageRevisionCollection["PageRevision"]:
+    def revisions(self) -> PageRevisionCollection:
         if self._revisions is None:
             PageCollection(self.site, [self]).get_page_revisions()
         return PageRevisionCollection(self, self._revisions)
 
     @revisions.setter
-    def revisions(
-        self, value: list["PageRevision"] | PageRevisionCollection["PageRevision"]
-    ):
-        self._revisions = value
+    def revisions(self, value: list["PageRevision"] | PageRevisionCollection):
+        if isinstance(value, list):
+            self._revisions = PageRevisionCollection(self, value)
+        else:
+            self._revisions = value
 
     @property
     def latest_revision(self) -> PageRevision:
@@ -528,6 +553,10 @@ class Page:
     def votes(self) -> PageVoteCollection:
         if self._votes is None:
             PageCollection(self.site, [self]).get_page_votes()
+
+        if self._votes is None:
+            raise exceptions.NotFoundException("Cannot find page votes")
+
         return self._votes
 
     @votes.setter
@@ -686,9 +715,9 @@ class Page:
 
     def edit(
         self,
-        title: str = None,
-        source: str = None,
-        comment: str = None,
+        title: Optional[str] = None,
+        source: Optional[str] = None,
+        comment: Optional[str] = None,
         force_edit: bool = False,
     ) -> "Page":
         # Noneならそのままにする
