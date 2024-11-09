@@ -197,7 +197,7 @@ class DeletedUser(AbstractUser):
     name: str | None = "account deleted"
     unix_name: str | None = "account_deleted"
     avatar_url: str | None = None
-    ip: str | None =  None
+    ip: str | None = None
 
 
 @dataclass
