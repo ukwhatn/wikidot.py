@@ -1,7 +1,7 @@
 name: Check Code Quality
 
 on:
-  pull_request_target:  # pull_requestの代わりにpull_request_targetを使用
+  pull_request:
     branches:
       - develop
       - main
@@ -9,14 +9,10 @@ on:
 jobs:
   format:
     runs-on: ubuntu-latest
-    permissions:  # 明示的に権限を設定
-      contents: write
-      pull-requests: write
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.ref }}
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.head_ref }}
 
     - name: Set up Python
       uses: actions/setup-python@v5
@@ -26,33 +22,22 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
 
     - name: Run formatter
-      id: format
-      run: |
-        make format
-        echo "FORMAT_CHANGED=$(git status --porcelain | wc -l)" >> $GITHUB_OUTPUT
+      run: make format
 
     - name: Commit changes
-      if: steps.format.outputs.FORMAT_CHANGED != '0'
       run: |
-        git config --local user.email "github-actions[bot]@users.noreply.github.com"
-        git config --local user.name "github-actions[bot]"
-        git add .
-        git commit -m "🎨 Format code with isort and black"
-        git push
-        echo "FORMATTED=true" >> $GITHUB_OUTPUT
-
-    - name: Skip remaining workflow
-      if: steps.format.outputs.FORMAT_CHANGED != '0'
-      run: |
-        echo "Formatting changes were pushed. Skipping remaining steps as a new workflow will be triggered."
-        exit 0
+        if [ -n "$(git status --porcelain)" ]; then
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add .
+          git commit -m "🎨 Format code with isort and black"
+          git push
+        fi
 
   lint:
-    needs: format
-    if: ${{ !contains(needs.format.result, 'skipped') }}  # formatジョブがskipされていない場合のみ実行
+    needs: format  # formatジョブの完了後に実行
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -62,8 +47,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
       with:
-        ref: ${{ github.event.pull_request.head.ref }}
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
+        ref: ${{ github.head_ref }}
 
     - name: Set up Python ${{ matrix.python-version }}
       uses: actions/setup-python@v5
@@ -73,7 +57,6 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -e ".[dev]"
 
     - name: Run linter
       run: make lint
