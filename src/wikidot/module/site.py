@@ -6,7 +6,7 @@ import httpx
 
 from ..common import exceptions
 from ..common.decorators import login_required
-from ..util.quick_module import QuickModule
+from ..util.quick_module import QMCUser, QuickModule
 from .forum_category import ForumCategoryCollection
 from .page import Page, PageCollection, SearchPagesQuery
 from .site_application import SiteApplication
@@ -296,16 +296,13 @@ class Site:
         return self._admins
 
     def member_lookup(self, user_name: str, user_id: int | None = None):
-        result = QuickModule.member_lookup(self.id, user_name)
-        if not isinstance(result, dict):
-            raise exceptions.UnexpectedException("Invalid response")
-        users = result["users"]
-        if users is False:
+        users: list["QMCUser"] = QuickModule.member_lookup(self.id, user_name)
+
+        if len(users) == 0:
             return False
 
         for user in users:
-            if user["name"] == user_name and (
-                user_id is None or user["user_id"] == user_id
-            ):
+            if user.name == user_name and (user_id is None or user.id == user_id):
                 return True
+
         return False
