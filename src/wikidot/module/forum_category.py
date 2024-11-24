@@ -100,7 +100,7 @@ class ForumCategory:
     @property
     def threads(self) -> ForumThreadCollection:
         if self._threads is None:
-            self._threads = ForumThreadCollection.acquire_all(self)
+            self._threads = ForumThreadCollection.acquire_all_in_category(self)
         return self._threads
 
     @threads.setter
@@ -108,5 +108,5 @@ class ForumCategory:
         self._threads = value
 
     def reload_threads(self):
-        self._threads = ForumThreadCollection.acquire_all(self)
+        self._threads = ForumThreadCollection.acquire_all_in_category(self)
         return self._threads

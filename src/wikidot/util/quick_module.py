@@ -64,6 +64,8 @@ class QuickModule:
             ユーザーのリスト
         """
         users = QuickModule._request("MemberLookupQModule", site_id, query)["users"]
+        if users is False:
+            return []
         return [QMCUser(id=int(user["user_id"]), name=user["name"]) for user in users]
 
     @staticmethod

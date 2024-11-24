@@ -6,9 +6,11 @@ import httpx
 
 from ..common import exceptions
 from ..common.decorators import login_required
+from ..util.quick_module import QMCUser, QuickModule
 from .forum_category import ForumCategoryCollection
 from .page import Page, PageCollection, SearchPagesQuery
 from .site_application import SiteApplication
+from .site_member import SiteMember
 
 if TYPE_CHECKING:
     from .client import Client
@@ -143,6 +145,10 @@ class Site:
     domain: str
     ssl_supported: bool
 
+    _members = None
+    _moderators = None
+    _admins = None
+
     def __post_init__(self):
         self.pages = SitePagesMethods(self)
         self.page = SitePageMethods(self)
@@ -270,3 +276,33 @@ class Site:
     def get_url(self):
         """サイトのURLを取得する"""
         return f'http{"s" if self.ssl_supported else ""}://{self.domain}'
+
+    @property
+    def members(self):
+        if self._members is None:
+            self._members = SiteMember.get(self)
+        return self._members
+
+    @property
+    def moderators(self):
+        if self._moderators is None:
+            self._moderators = SiteMember.get(self, "moderators")
+        return self._moderators
+
+    @property
+    def admins(self):
+        if self._admins is None:
+            self._admins = SiteMember.get(self, "admins")
+        return self._admins
+
+    def member_lookup(self, user_name: str, user_id: int | None = None):
+        users: list["QMCUser"] = QuickModule.member_lookup(self.id, user_name)
+
+        if len(users) == 0:
+            return False
+
+        for user in users:
+            if user.name == user_name and (user_id is None or user.id == user_id):
+                return True
+
+        return False
