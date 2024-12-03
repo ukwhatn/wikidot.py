@@ -302,7 +302,9 @@ class Site:
             return False
 
         for user in users:
-            if user.name == user_name and (user_id is None or user.id == user_id):
+            if user.name.strip() == user_name and (
+                user_id is None or user.id == user_id
+            ):
                 return True
 
         return False

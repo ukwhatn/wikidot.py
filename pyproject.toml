@@ -1,6 +1,6 @@
 [project]
 name = "wikidot"
-version = "3.1.0dev8"
+version = "3.1.0dev9"
 authors = [{ name = "ukwhatn", email = "ukwhatn@gmail.com" }]
 description = "Wikidot Utility Library"
 readme = "README.md"
@@ -14,7 +14,7 @@ classifiers = [
 ]
 
 dependencies = [
-    "httpx >= 0.25,< 0.28",
+    "httpx >= 0.25,< 0.29",
     "beautifulsoup4 ~= 4.12.2",
     "lxml >= 4.9.3,< 5.4.0",
 ]
