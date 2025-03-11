@@ -5,12 +5,30 @@ import httpx
 
 @dataclass
 class QMCUser:
+    """QuickModuleから返されるユーザー情報を格納するクラス
+    
+    Attributes
+    ----------
+    id: int
+        ユーザーID
+    name: str
+        ユーザー名
+    """
     id: int
     name: str
 
 
 @dataclass
 class QMCPage:
+    """QuickModuleから返されるページ情報を格納するクラス
+    
+    Attributes
+    ----------
+    title: str
+        ページタイトル
+    unix_name: str
+        ページのUNIX名
+    """
     title: str
     unix_name: str
 
