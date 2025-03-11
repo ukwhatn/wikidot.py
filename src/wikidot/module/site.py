@@ -18,47 +18,90 @@ if TYPE_CHECKING:
 
 
 class SitePagesMethods:
+    """
+    サイト内のページコレクションに対する操作を提供するクラス
+    
+    ページの検索機能など、複数のページに対する操作を提供する。
+    Site.pagesプロパティを通じてアクセスする。
+    """
+    
     def __init__(self, site: "Site"):
+        """
+        初期化メソッド
+        
+        Parameters
+        ----------
+        site : Site
+            親サイトインスタンス
+        """
         self.site = site
 
     def search(self, **kwargs) -> "PageCollection":
-        """ページを検索する
-
+        """
+        サイト内のページを検索する
+        
+        キーワード引数を受け取り、SearchPagesQueryオブジェクトに変換して検索を実行する。
+        
         Parameters
         ----------
-        site: Site
-            サイト
-        query: SearchPagesQuery
-            検索クエリ
-
+        **kwargs
+            SearchPagesQueryに渡す検索条件。以下のパラメータが利用可能:
+            - q: str - 検索キーワード
+            - fullname: str - 完全一致するページ名
+            - tags: list[str] - タグリスト
+            - category: str - カテゴリ名
+            - created_by: User - 作成者
+            - parent: str - 親ページ名
+            
         Returns
         -------
         PageCollection
-            ページのコレクション
+            検索結果のページコレクション
         """
-
         query = SearchPagesQuery(**kwargs)
         return PageCollection.search_pages(self.site, query)
 
 
 class SitePageMethods:
+    """
+    サイト内の個別ページに対する操作を提供するクラス
+    
+    ページの取得や作成などの個別ページ操作を提供する。
+    Site.pageプロパティを通じてアクセスする。
+    """
+    
     def __init__(self, site: "Site"):
+        """
+        初期化メソッド
+        
+        Parameters
+        ----------
+        site : Site
+            親サイトインスタンス
+        """
         self.site = site
 
     def get(self, fullname: str, raise_when_not_found: bool = True) -> Optional["Page"]:
-        """フルネームからページを取得する
-
+        """
+        フルネームからページを取得する
+        
         Parameters
         ----------
-        fullname: str
-            ページのフルネーム
-        raise_when_not_found: bool
-            ページが見つからなかった場合に例外を発生させるかどうか させない場合はNoneを返す
-
+        fullname : str
+            ページのフルネーム（例: "コンポーネント:scp-173"）
+        raise_when_not_found : bool, default True
+            ページが見つからなかった場合に例外を発生させるかどうか
+            Falseの場合、ページが見つからなければNoneを返す
+            
         Returns
         -------
-        Page
-            ページオブジェクト
+        Page | None
+            ページオブジェクト、または見つからない場合はNone
+            
+        Raises
+        ------
+        NotFoundException
+            raise_when_not_foundがTrueでページが見つからない場合
         """
         res = PageCollection.search_pages(
             self.site, SearchPagesQuery(fullname=fullname)
@@ -77,20 +120,31 @@ class SitePageMethods:
         comment: str = "",
         force_edit: bool = False,
     ) -> "Page":
-        """ページを作成する
-
+        """
+        ページを新規作成する
+        
         Parameters
         ----------
-        fullname: str
-            ページのフルネーム
-        title: str
+        fullname : str
+            ページのフルネーム（例: "scp-173"）
+        title : str, default ""
             ページのタイトル
-        source: str
-            ページのソース
-        comment: str
-            コメント
-        force_edit: bool
-            ページが存在する場合に上書きするかどうか
+        source : str, default ""
+            ページのソースコード（Wikidot記法）
+        comment : str, default ""
+            編集コメント
+        force_edit : bool, default False
+            ページが既に存在する場合に上書きするかどうか
+            
+        Returns
+        -------
+        Page
+            作成されたページオブジェクト
+            
+        Raises
+        ------
+        TargetErrorException
+            ページが既に存在し、force_editがFalseの場合
         """
         return Page.create_or_edit(
             site=self.site,
@@ -104,37 +158,58 @@ class SitePageMethods:
 
 
 class SiteForumMethods:
+    """
+    サイト内のフォーラム機能に対する操作を提供するクラス
+    
+    フォーラムカテゴリの取得などのフォーラム関連機能を提供する。
+    Site.forumプロパティを通じてアクセスする。
+    """
+    
     def __init__(self, site: "Site"):
+        """
+        初期化メソッド
+        
+        Parameters
+        ----------
+        site : Site
+            親サイトインスタンス
+        """
         self.site = site
 
     def categories(self) -> "ForumCategoryCollection":
-        """フォーラムのカテゴリを取得する"""
+        """
+        サイト内のフォーラムカテゴリ一覧を取得する
+        
+        Returns
+        -------
+        ForumCategoryCollection
+            フォーラムカテゴリのコレクション
+        """
         return ForumCategoryCollection.acquire_all(self.site)
 
 
 @dataclass
 class Site:
-    """サイトオブジェクト
+    """
+    Wikidotサイトを表すクラス
+    
+    サイトの基本情報とサイトに対する様々な操作機能を提供する。
+    ページ、フォーラム、メンバー管理などの機能にアクセスするための起点となる。
 
     Attributes
     ----------
-    id: int
+    client : Client
+        クライアントインスタンス
+    id : int
         サイトID
-    title: str
+    title : str
         サイトのタイトル
-    unix_name: str
-        サイトのUNIX名
-    domain: str
-        サイトのドメイン
-    ssl_supported: bool
-        SSL対応しているかどうか
-
-    Raises
-    ------
-    NotFoundException
-        サイトが存在しない場合
-    UnexpectedException
-        予期しないエラーが発生した場合
+    unix_name : str
+        サイトのUNIX名（URLの一部として使用される）
+    domain : str
+        サイトのドメイン（完全修飾ドメイン名）
+    ssl_supported : bool
+        サイトがSSL/HTTPS対応しているかどうか
     """
 
     client: "Client"
@@ -150,28 +225,51 @@ class Site:
     _admins = None
 
     def __post_init__(self):
+        """
+        初期化後の処理
+        
+        サイト関連の機能を提供する各サブクラスのインスタンスを初期化する。
+        """
         self.pages = SitePagesMethods(self)
         self.page = SitePageMethods(self)
         self.forum = SiteForumMethods(self)
 
     def __str__(self):
+        """
+        オブジェクトの文字列表現
+        
+        Returns
+        -------
+        str
+            サイトオブジェクトの文字列表現
+        """
         return f"Site(id={self.id}, title={self.title}, unix_name={self.unix_name})"
 
     @staticmethod
     def from_unix_name(client: "Client", unix_name: str) -> "Site":
-        """UNIX名からサイトオブジェクトを取得する
-
+        """
+        UNIX名からサイトオブジェクトを取得する
+        
+        指定されたUNIX名のサイトにアクセスし、サイト情報を解析してSiteオブジェクトを生成する。
+        
         Parameters
         ----------
-        client: Client
-            クライアント
-        unix_name: str
-            サイトのUNIX名
-
+        client : Client
+            クライアントインスタンス
+        unix_name : str
+            サイトのUNIX名（例: "fondation"）
+            
         Returns
         -------
         Site
             サイトオブジェクト
+            
+        Raises
+        ------
+        NotFoundException
+            指定されたUNIX名のサイトが存在しない場合
+        UnexpectedException
+            サイト情報の解析中にエラーが発生した場合
         """
         # サイト情報を取得
         # リダイレクトには従う
@@ -237,18 +335,57 @@ class Site:
         )
 
     def amc_request(self, bodies: list[dict], return_exceptions: bool = False):
-        """このサイトに対してAMCリクエストを実行する"""
+        """
+        このサイトに対してAjax Module Connectorリクエストを実行する
+        
+        Parameters
+        ----------
+        bodies : list[dict]
+            リクエストボディのリスト
+        return_exceptions : bool, default False
+            例外を返すか送出するか（True: 返す, False: 送出する）
+            
+        Returns
+        -------
+        list | Exception
+            レスポンスのリスト、またはreturn_exceptionsがTrueの場合は例外
+        """
         return self.client.amc_client.request(
             bodies, return_exceptions, self.unix_name, self.ssl_supported
         )
 
     def get_applications(self):
-        """サイトへの未処理の参加申請を取得する"""
+        """
+        サイトへの未処理の参加申請を取得する
+        
+        Returns
+        -------
+        list[SiteApplication]
+            参加申請のリスト
+        """
         return SiteApplication.acquire_all(self)
 
     @login_required
     def invite_user(self, user: "User", text: str):
-        """ユーザーをサイトに招待する"""
+        """
+        ユーザーをサイトに招待する
+        
+        Parameters
+        ----------
+        user : User
+            招待するユーザー
+        text : str
+            招待メッセージ
+            
+        Raises
+        ------
+        TargetErrorException
+            ユーザーが既に招待済み、または既にメンバーの場合
+        WikidotStatusCodeException
+            その他のWikidot APIエラーが発生した場合
+        LoginRequiredException
+            ログインしていない場合（@login_required装飾子による）
+        """
         try:
             self.amc_request(
                 [
@@ -274,28 +411,74 @@ class Site:
                 raise e
 
     def get_url(self):
-        """サイトのURLを取得する"""
+        """
+        サイトのURLを取得する
+        
+        Returns
+        -------
+        str
+            サイトの完全なURL
+        """
         return f'http{"s" if self.ssl_supported else ""}://{self.domain}'
 
     @property
     def members(self):
+        """
+        サイトのメンバー一覧を取得する
+        
+        Returns
+        -------
+        list[SiteMember]
+            サイトメンバーのリスト
+        """
         if self._members is None:
             self._members = SiteMember.get(self)
         return self._members
 
     @property
     def moderators(self):
+        """
+        サイトのモデレーター一覧を取得する
+        
+        Returns
+        -------
+        list[SiteMember]
+            サイトモデレーターのリスト
+        """
         if self._moderators is None:
             self._moderators = SiteMember.get(self, "moderators")
         return self._moderators
 
     @property
     def admins(self):
+        """
+        サイトの管理者一覧を取得する
+        
+        Returns
+        -------
+        list[SiteMember]
+            サイト管理者のリスト
+        """
         if self._admins is None:
             self._admins = SiteMember.get(self, "admins")
         return self._admins
 
     def member_lookup(self, user_name: str, user_id: int | None = None):
+        """
+        指定されたユーザーがサイトのメンバーかどうかを確認する
+        
+        Parameters
+        ----------
+        user_name : str
+            確認するユーザー名
+        user_id : int | None, default None
+            確認するユーザーID（指定した場合はIDも一致する必要がある）
+            
+        Returns
+        -------
+        bool
+            ユーザーがサイトメンバーである場合はTrue、そうでない場合はFalse
+        """
         users: list["QMCUser"] = QuickModule.member_lookup(self.id, user_name)
 
         if len(users) == 0:

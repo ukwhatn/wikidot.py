@@ -13,31 +13,52 @@ if TYPE_CHECKING:
 
 
 class UserCollection(list["AbstractUser"]):
-    """ユーザーオブジェクトのリスト"""
+    """
+    ユーザーオブジェクトのコレクションを表すクラス
+    
+    複数のユーザーオブジェクトを格納・操作するためのリスト拡張クラス。
+    イテレーション操作やユーザー名からの一括取得などの機能を提供する。
+    """
 
     def __iter__(self) -> Iterator["AbstractUser"]:
+        """
+        コレクション内のユーザーオブジェクトを順に返すイテレータ
+        
+        Returns
+        -------
+        Iterator[AbstractUser]
+            ユーザーオブジェクトのイテレータ
+        """
         return super().__iter__()
 
     @staticmethod
     def from_names(
         client: "Client", names: list[str], raise_when_not_found: bool = False
     ) -> "UserCollection":
-        """ユーザー名のリストからユーザーオブジェクトのリストを取得する
-
+        """
+        ユーザー名のリストからユーザーオブジェクトのコレクションを取得する
+        
         Parameters
         ----------
-        client: Client
-            クライアント
-        names: list[str]
-            ユーザー名のリスト
-        raise_when_not_found: bool
+        client : Client
+            クライアントインスタンス
+        names : list[str]
+            検索対象のユーザー名リスト
+        raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
-            デフォルトでは送出しない
-
+            デフォルトでは送出せず、該当ユーザーは結果に含めない
+            
         Returns
         -------
         UserCollection
-            ユーザーオブジェクトのリスト
+            ユーザーオブジェクトのコレクション
+            
+        Raises
+        ------
+        NotFoundException
+            raise_when_not_foundがTrueで、ユーザーが見つからない場合
+        NoElementException
+            ユーザーページの解析中に必要な要素が見つからない場合
         """
         responses = RequestUtil.request(
             client,
@@ -93,22 +114,26 @@ class UserCollection(list["AbstractUser"]):
 
 @dataclass
 class AbstractUser:
-    """ユーザーオブジェクトの抽象クラス
+    """
+    ユーザーオブジェクトの抽象基底クラス
+    
+    すべてのユーザータイプの共通属性と機能を定義する。
+    このクラスを直接インスタンス化せず、派生クラスを使用する。
 
     Attributes
     ----------
-    client: Client
-        クライアントクラスのインスタンス
-    id: int | None
+    client : Client
+        クライアントインスタンス
+    id : int | None
         ユーザーID
-    name: str | None
+    name : str | None
         ユーザー名
-    unix_name: str | None
-        ユーザーのUNIX名
-    avatar_url: str | None
-        ユーザーアバターのURL
-    ip: str | None
-        ユーザーのIPアドレス
+    unix_name : str | None
+        ユーザーのURLで使用されるUNIX形式の名前
+    avatar_url : str | None
+        ユーザーアバター画像のURL
+    ip : str | None
+        ユーザーのIPアドレス（匿名ユーザーの場合のみ設定される）
     """
 
     client: "Client"
@@ -119,27 +144,38 @@ class AbstractUser:
     ip: str | None = None
 
     def __str__(self):
+        """
+        オブジェクトの文字列表現
+        
+        Returns
+        -------
+        str
+            ユーザーオブジェクトの文字列表現
+        """
         return f"{self.__class__.__name__}(id={self.id}, name={self.name}, unix_name={self.unix_name})"
 
 
 @dataclass
 class User(AbstractUser):
-    """一般のユーザーオブジェクト
+    """
+    一般のWikidotユーザーを表すクラス
+    
+    登録済みの通常Wikidotユーザーを表現する。ユーザーIDやユーザー名などの基本情報を保持する。
 
     Attributes
     ----------
-    client: Client
-        クライアントクラスのインスタンス
-    id: int | None
+    client : Client
+        クライアントインスタンス
+    id : int | None
         ユーザーID
-    name: str | None
+    name : str | None
         ユーザー名
-    unix_name: str | None
-        ユーザーのUNIX名
-    avatar_url: str | None
-        ユーザーアバターのURL
-    ip: None
-        ユーザーのIPアドレス（取得できないためNone）
+    unix_name : str | None
+        ユーザーのURLで使用されるUNIX形式の名前
+    avatar_url : str | None
+        ユーザーアバター画像のURL
+    ip : None
+        ユーザーのIPアドレス（通常ユーザーでは取得できないためNone）
     """
 
     # client: 'Client'
@@ -153,43 +189,57 @@ class User(AbstractUser):
     def from_name(
         client: "Client", name: str, raise_when_not_found: bool = False
     ) -> "AbstractUser":
-        """ユーザー名からユーザーオブジェクトを取得する
-
+        """
+        ユーザー名からユーザーオブジェクトを取得する
+        
         Parameters
         ----------
-        client: Client
-            クライアント
-        name: str
-            ユーザー名
-        raise_when_not_found: bool
+        client : Client
+            クライアントインスタンス
+        name : str
+            検索対象のユーザー名
+        raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
-            デフォルトでは送出しない
-
+            デフォルトでは送出せずにNoneを返す
+            
         Returns
         -------
-        User
+        AbstractUser
             ユーザーオブジェクト
+            
+        Raises
+        ------
+        NotFoundException
+            raise_when_not_foundがTrueで、ユーザーが見つからない場合
+        NoElementException
+            ユーザーページの解析中に必要な要素が見つからない場合
+        IndexError
+            ユーザーが見つからない場合（raise_when_not_foundがFalseの場合）
         """
         return UserCollection.from_names(client, [name], raise_when_not_found)[0]
 
 
 @dataclass
 class DeletedUser(AbstractUser):
-    """削除されたユーザーオブジェクト
+    """
+    削除されたWikidotユーザーを表すクラス
+    
+    すでに削除されたユーザーアカウントを表現する。
+    削除されたユーザーには固定の「account deleted」という名前が割り当てられる。
 
     Attributes
     ----------
-    client: Client
-        クライアントクラスのインスタンス
-    id: int | None
+    client : Client
+        クライアントインスタンス
+    id : int | None
         ユーザーID
-    name: str
-        ユーザー名（削除されたため"account deleted"）
-    unix_name: str
-        ユーザーのUNIX名（削除されたため"account_deleted"）
-    avatar_url: None
-        ユーザーアバターのURL（削除されたためNone）
-    ip: None
+    name : str
+        ユーザー名（削除されたため"account deleted"固定）
+    unix_name : str
+        ユーザーのUNIX名（削除されたため"account_deleted"固定）
+    avatar_url : None
+        ユーザーアバターのURL（削除されたユーザーのためNone）
+    ip : None
         ユーザーのIPアドレス（取得できないためNone）
     """
 
@@ -202,21 +252,25 @@ class DeletedUser(AbstractUser):
 
 @dataclass
 class AnonymousUser(AbstractUser):
-    """匿名ユーザーオブジェクト
+    """
+    匿名（非登録）のWikidotユーザーを表すクラス
+    
+    登録せずに投稿した匿名ユーザーを表現する。
+    IPアドレスのみを識別情報として持つ。
 
     Attributes
     ----------
-    client: Client
-        クライアントクラスのインスタンス
-    id: None
+    client : Client
+        クライアントインスタンス
+    id : None
         ユーザーID（匿名ユーザーのためNone）
-    name: str
-        ユーザー名（匿名ユーザーのため"Anonymous"）
-    unix_name: str
-        ユーザーのUNIX名（匿名ユーザーのため"anonymous"）
-    avatar_url: None
+    name : str
+        ユーザー名（匿名ユーザーのため"Anonymous"固定）
+    unix_name : str
+        ユーザーのUNIX名（匿名ユーザーのため"anonymous"固定）
+    avatar_url : None
         ユーザーアバターのURL（匿名ユーザーのためNone）
-    ip: str
+    ip : str
         ユーザーのIPアドレス
     """
 
@@ -229,21 +283,25 @@ class AnonymousUser(AbstractUser):
 
 @dataclass
 class GuestUser(AbstractUser):
-    """ゲストユーザーオブジェクト
+    """
+    ゲスト投稿したWikidotユーザーを表すクラス
+    
+    名前とメールアドレスのみを入力して投稿したゲストユーザーを表現する。
+    ユーザー名は任意だが、IDやUNIX名は持たない。
 
     Attributes
     ----------
-    client: Client
-        クライアントクラスのインスタンス
-    id: None
+    client : Client
+        クライアントインスタンス
+    id : None
         ユーザーID（ゲストユーザーのためNone）
-    name: str
-        ユーザー名
-    unix_name: None
+    name : str | None
+        ユーザー名（ゲスト投稿時に指定した名前）
+    unix_name : None
         ユーザーのUNIX名（ゲストユーザーのためNone）
-    avatar_url: str | None
-        ユーザーアバターのURL (Gravatar URL)
-    ip: None
+    avatar_url : str | None
+        ユーザーアバターのURL（Gravatarの場合あり）
+    ip : None
         ユーザーのIPアドレス（取得できないためNone）
     """
 
@@ -256,21 +314,25 @@ class GuestUser(AbstractUser):
 
 @dataclass
 class WikidotUser(AbstractUser):
-    """Wikidotシステムユーザーオブジェクト
+    """
+    Wikidotシステムユーザーを表すクラス
+    
+    Wikidotシステムによる自動投稿や通知を表現するための特殊ユーザー。
+    "Wikidot"という固定の名前を持つ。
 
     Attributes
     ----------
-    client: Client
-        クライアントクラスのインスタンス
-    id: None
-        ユーザーID（WikidotシステムユーザーのためNone）
-    name: str
-        ユーザー名（Wikidotシステムユーザーのため"Wikidot"）
-    unix_name: str
-        ユーザーのUNIX名（Wikidotシステムユーザーのため"wikidot"）
-    avatar_url: None
-        ユーザーアバターのURL（WikidotシステムユーザーのためNone）
-    ip: None
+    client : Client
+        クライアントインスタンス
+    id : None
+        ユーザーID（システムユーザーのためNone）
+    name : str
+        ユーザー名（システムユーザーのため"Wikidot"固定）
+    unix_name : str
+        ユーザーのUNIX名（システムユーザーのため"wikidot"固定）
+    avatar_url : None
+        ユーザーアバターのURL（システムユーザーのためNone）
+    ip : None
         ユーザーのIPアドレス（取得できないためNone）
     """
 

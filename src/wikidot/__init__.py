@@ -1,3 +1,10 @@
+"""
+Wikidotサイトとの対話を行うためのPythonライブラリ
+
+このパッケージはWikidotサイトのAPI操作を抽象化し、直感的なインターフェースを提供する。
+ユーザー、サイト、ページなどのWikidotの主要要素にアクセスするための各種クラスが含まれている。
+"""
+
 import importlib
 import inspect
 import os
@@ -8,6 +15,17 @@ from .module.client import Client
 
 # 全クラス・モジュールを公開する
 def _import_submodules():
+    """
+    パッケージ内の全サブモジュールからクラスをインポートしトップレベルで公開する関数
+    
+    各サブディレクトリ内のPythonファイルを走査し、含まれるクラスをトップレベルの名前空間に
+    インポートする。これにより、`wikidot.ClassName`のような形式でクラスにアクセスできる。
+    
+    Notes
+    -----
+    '_'で始まるファイル名は無視される。
+    インポートに失敗した場合は静かに無視される。
+    """
     current_module = sys.modules[__name__]
     package_dir = os.path.dirname(__file__)
 
