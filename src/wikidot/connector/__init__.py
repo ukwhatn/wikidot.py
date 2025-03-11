@@ -1,7 +1,7 @@
 """
-Wikidot���hn��SY��ͯ�����
+Wikidotサイトとの通信を担当するコネクタモジュール
 
-Sn�ñ��oWikidot APIJ�sAjax_�hn�LF
-N���j�餢�ȒЛY������ñ��n��o
-S��n�ͯ���WfWikidot���hn�LF
+このパッケージは、Wikidot APIおよびAjax機能との通信を行う
+低レベルなクライアントを提供する。モジュールパッケージのクラスは、
+これらのコネクタを介してWikidotサイトとの通信を行う。
 """

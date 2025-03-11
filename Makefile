@@ -1,4 +1,6 @@
 FORMAT_DIR = src
+DOCS_SOURCE = docs/source
+DOCS_BUILD = docs/build
 
 release_from-develop:
 	gh pr create --base main --head develop --title "Release v$(version)"
@@ -34,4 +36,24 @@ lint:
 	python -m flake8 $(FORMAT_DIR)
 	python -m mypy $(FORMAT_DIR) --install-types --non-interactive
 
-PHONY: build release release_from-develop format commit
+# ドキュメント関連のコマンド
+docs-install:
+	pip install -e .[docs]
+
+docs-build:
+	make docs-install
+	sphinx-build -b html $(DOCS_SOURCE) $(DOCS_BUILD)
+
+docs-clean:
+	rm -rf $(DOCS_BUILD)
+
+docs-serve:
+	cd $(DOCS_BUILD) && python -m http.server
+
+docs-github:
+	make docs-clean
+	make docs-build
+	touch $(DOCS_BUILD)/.nojekyll
+	@echo "GitHub Pages用のドキュメントが生成されました。docs/buildディレクトリの内容をgh-pagesブランチにプッシュしてください。"
+
+PHONY: build release release_from-develop format commit docs-install docs-build docs-clean docs-serve docs-github

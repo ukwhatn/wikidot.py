@@ -12,6 +12,8 @@ import sys
 
 from .module.client import Client
 
+__version__ = "3.1.0.dev9"
+
 
 # 全クラス・モジュールを公開する
 def _import_submodules():

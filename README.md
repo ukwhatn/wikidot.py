@@ -1,82 +1,63 @@
-# wikidot.py - A Python library for making requests to the Wikidot sites.
+# wikidot.py
 
-## Installation
+[![Documentation Status](https://github.com/ukwhatn/wikidot.py/actions/workflows/docs.yml/badge.svg)](https://ukwhatn.github.io/wikidot.py/)
+
+Pythonで簡単にWikidotサイトと対話するためのライブラリです。
+
+## 主な機能
+
+- サイト、ページ、ユーザー、フォーラムなどの情報取得と操作
+- ページの作成、編集、削除
+- フォーラムスレッドの取得、作成、返信
+- ユーザー管理とサイトメンバーシップ
+- プライベートメッセージの送受信
+- ログイン不要の機能と認証が必要な機能両方をサポート
+
+## インストール
+
 ```bash
 pip install wikidot
 ```
 
-## Usage
-> [!NOTE]
-> You can use this library without logging in, but you can only use the features that do not require logging in.
+## 使用例（基本）
+
 ```python
 import wikidot
 
-# Create a new Client class and logging in with the credentials of your wikidot account
-# If you don't want to log in : with wikidot.Client() as client:
-with wikidot.Client(username='input-your-name', password='input-your-password') as client:
-    # ------
-    # user features
-    # ------
-    # Get the user object of the user
-    user = client.user.get('input-a-username')
-    # Bulk execution by asynchronous request
-    users = client.user.get_bulk(['input-a-username', 'input-another-username'])
+# ログインなしでの使用
+client = wikidot.Client()
 
-    # ------
-    # site features
-    # ------
-    # Get the site object of the SCP Foundation
-    site = client.site.get('scp-wiki')
+# サイトとページの情報取得
+site = client.site.get("scp-jp")
+page = site.page.get("scp-173")
 
-    # invite a user to the site
-    site.invite_user(user)
+print(f"タイトル: {page.title}")
+print(f"評価: {page.rating}")
+print(f"作成者: {page.created_by.name}")
+```
 
-    # Get all unprocessed applications for the site
-    applications = site.get_applications()
+## ドキュメント
 
-    # process an application
-    for application in applications:
-        application.accept()
-        # or 
-        application.reject()
+詳細な使用方法、APIリファレンス、例は公式ドキュメントをご覧ください：
 
-    # ------
-    # page features
-    # ------
-    # Search pages by some criteria
-    # NOTE: The search criteria are the same as in the ListPages module
-    pages = site.pages.search(
-        category="_default",
-        tags=["tag1", "tag2"],  # You can also use the "tag1 -tag2" syntax
-        order="created_at desc desc",
-        limit=10,
-    )
+📚 **[公式ドキュメント](https://ukwhatn.github.io/wikidot.py/)**
 
-    # Get the page object of the SCP-001
-    page = site.page.get('scp-001')
+- [インストール方法](https://ukwhatn.github.io/wikidot.py/installation.html)
+- [クイックスタート](https://ukwhatn.github.io/wikidot.py/quickstart.html)
+- [使用例](https://ukwhatn.github.io/wikidot.py/examples.html)
+- [APIリファレンス](https://ukwhatn.github.io/wikidot.py/reference/index.html)
 
-    # destroy a page
-    page.destroy()
+## ドキュメント構築
 
-    # ------
-    # private message features
-    # ------
-    # Get messages in your inbox
-    received_messages = client.private_message.get_inbox()
+ローカルでドキュメントを構築するには:
 
-    # Get messages in your sent box
-    sent_messages = client.private_message.get_sentbox()
+```bash
+# ドキュメント生成に必要なパッケージをインストール
+make docs-install
 
-    # Get message by id
-    # NOTE: You can only get the message that you have received or sent
-    message = client.private_message.get(123456)
-    # Bulk execution by asynchronous request
-    messages = client.private_message.get_messages([123456, 123457])
+# ドキュメントをビルド
+make docs-build
 
-    # Send a message to a user
-    client.private_message.send(
-        recipient=user,
-        subject='Hello',
-        body='Hello, world!'
-    )
+# ローカルサーバーでドキュメントを確認（オプション）
+make docs-serve
 ```
