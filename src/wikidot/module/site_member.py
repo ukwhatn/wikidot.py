@@ -214,7 +214,7 @@ class SiteMember:
 
             if e.status_code in ("already_admin", "already_moderator"):
                 raise TargetErrorException(
-                    f"User is already {e.status_code.removeprefix("already_")}: {self.user.name}"
+                    f"User is already {e.status_code.removeprefix('already_')}: {self.user.name}"
                 ) from e
 
             raise e
