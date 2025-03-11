@@ -4,6 +4,11 @@ from typing import TYPE_CHECKING
 
 from bs4 import BeautifulSoup
 
+from ..common.exceptions import (
+    ForbiddenException,
+    TargetErrorException,
+    WikidotStatusCodeException,
+)
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -95,3 +100,53 @@ class SiteMember:
             members.extend(SiteMember._parse(site, html))
 
         return members
+
+    def _change_group(self, event: str):
+        if event not in [
+            "toModerators",
+            "removeModerators",
+            "toAdmins",
+            "removeAdmins",
+        ]:
+            raise ValueError("Invalid event")
+
+        try:
+            self.site.amc_request(
+                [
+                    {
+                        "action": "ManageSiteMembershipAction",
+                        "event": event,
+                        "user_id": self.user.id,
+                        "moduleName": "",
+                    }
+                ]
+            )
+        except WikidotStatusCodeException as e:
+            if e.status_code == "no_permission":
+                raise ForbiddenException(
+                    f"You don't have permission to do {event} event"
+                ) from e
+
+            if e.status_code == "not_already":
+                raise TargetErrorException(
+                    f"User is not moderator/admin: {self.user.name}"
+                ) from e
+
+            if e.status_code in ("already_admin", "already_moderator"):
+                raise TargetErrorException(
+                    f"User is already {e.status_code.removeprefix("already_")}: {self.user.name}"
+                ) from e
+
+            raise e
+
+    def to_moderator(self):
+        self._change_group("toModerators")
+
+    def remove_moderator(self):
+        self._change_group("removeModerators")
+
+    def to_admin(self):
+        self._change_group("toAdmins")
+
+    def remove_admin(self):
+        self._change_group("removeAdmins")
