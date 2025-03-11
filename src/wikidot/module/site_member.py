@@ -104,9 +104,9 @@ class SiteMember:
     def _change_group(self, event: str):
         if event not in [
             "toModerators",
-            "removeModerators",
+            "removeModerator",
             "toAdmins",
-            "removeAdmins",
+            "removeAdmin",
         ]:
             raise ValueError("Invalid event")
 
@@ -143,10 +143,10 @@ class SiteMember:
         self._change_group("toModerators")
 
     def remove_moderator(self):
-        self._change_group("removeModerators")
+        self._change_group("removeModerator")
 
     def to_admin(self):
         self._change_group("toAdmins")
 
     def remove_admin(self):
-        self._change_group("removeAdmins")
+        self._change_group("removeAdmin")
