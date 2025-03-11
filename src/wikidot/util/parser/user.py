@@ -58,10 +58,12 @@ def user_parse(client: "Client", elem: bs4.Tag) -> user.AbstractUser:
         return user.WikidotUser(client=client)
 
     _user = elem.find_all("a")[-1]
+    if not isinstance(_user, bs4.Tag):
+        raise ValueError("link element is not found")
     user_name = _user.get_text()
-    user_unix = str(_user["href"]).replace("http://www.wikidot.com/user:info/", "")
+    user_unix = str(_user.get("href")).replace("http://www.wikidot.com/user:info/", "")
     user_id = int(
-        str(_user["onclick"])
+        str(_user.get("onclick"))
         .replace("WIKIDOT.page.listeners.userInfo(", "")
         .replace("); return false;", "")
     )

@@ -13,24 +13,39 @@ from .user import AbstractUser, User, UserCollection
 
 
 class ClientUserMethods:
-    def __init__(self, client: "Client"):
-        self.client = client
+    """
+    ユーザー関連の操作を提供するクラス
 
-    def get(self, name: str, raise_when_not_found: bool = False) -> "AbstractUser":
-        """ユーザー名からユーザーオブジェクトを取得する
+    クライアントインスタンスに関連付けられ、Wikidotユーザーの取得や操作を行うメソッドを提供する。
+    Client.userプロパティを通じてアクセスする。
+    """
+
+    def __init__(self, client: "Client"):
+        """
+        初期化メソッド
 
         Parameters
         ----------
-        name: str
-            ユーザー名
+        client : Client
+            親クライアントインスタンス
+        """
+        self.client = client
 
-        raise_when_not_found: bool
+    def get(self, name: str, raise_when_not_found: bool = False) -> "AbstractUser":
+        """
+        ユーザー名からユーザーオブジェクトを取得する
+
+        Parameters
+        ----------
+        name : str
+            ユーザー名
+        raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
             デフォルトでは送出せずにNoneを返す
 
         Returns
         -------
-        User
+        AbstractUser
             ユーザーオブジェクト
         """
         return User.from_name(self.client, name, raise_when_not_found)
@@ -38,104 +53,141 @@ class ClientUserMethods:
     def get_bulk(
         self, names: list[str], raise_when_not_found: bool = False
     ) -> UserCollection:
-        """ユーザー名からユーザーオブジェクトを取得する
+        """
+        複数のユーザー名からユーザーオブジェクトのコレクションを取得する
 
         Parameters
         ----------
-        names: list[str]
+        names : list[str]
             ユーザー名のリスト
-        raise_when_not_found: bool
+        raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
             デフォルトでは送出せずにNoneを返す
 
         Returns
         -------
-        list[User]
-            ユーザーオブジェクトのリスト
+        UserCollection
+            ユーザーオブジェクトのコレクション
         """
         return UserCollection.from_names(self.client, names, raise_when_not_found)
 
 
 class ClientPrivateMessageMethods:
-    def __init__(self, client: "Client"):
-        self.client = client
+    """
+    プライベートメッセージ関連の操作を提供するクラス
 
-    def send(self, recipient: User, subject: str, body: str) -> None:
-        """メッセージを送信する
+    クライアントインスタンスに関連付けられ、Wikidotプライベートメッセージの送信や取得を行うメソッドを提供する。
+    Client.private_messageプロパティを通じてアクセスする。
+    """
+
+    def __init__(self, client: "Client"):
+        """
+        初期化メソッド
 
         Parameters
         ----------
-        recipient: User
+        client : Client
+            親クライアントインスタンス
+        """
+        self.client = client
+
+    def send(self, recipient: User, subject: str, body: str) -> None:
+        """
+        プライベートメッセージを送信する
+
+        Parameters
+        ----------
+        recipient : User
             受信者
-        subject: str
+        subject : str
             件名
-        body: str
+        body : str
             本文
         """
         PrivateMessage.send(self.client, recipient, subject, body)
 
     def get_inbox(self) -> PrivateMessageInbox:
-        """受信箱を取得する
+        """
+        受信箱を取得する
 
         Returns
         -------
         PrivateMessageInbox
-            受信箱
+            受信箱オブジェクト
         """
         return PrivateMessageInbox.acquire(self.client)
 
     def get_sentbox(self) -> PrivateMessageSentBox:
-        """送信箱を取得する
+        """
+        送信箱を取得する
 
         Returns
         -------
         PrivateMessageSentBox
-            送信箱
+            送信箱オブジェクト
         """
         return PrivateMessageSentBox.acquire(self.client)
 
     def get_messages(self, message_ids: list[int]) -> PrivateMessageCollection:
-        """メッセージを取得する
+        """
+        複数のメッセージIDからメッセージのコレクションを取得する
 
         Parameters
         ----------
-        message_ids: list[int]
+        message_ids : list[int]
             メッセージIDのリスト
 
         Returns
         -------
-        list[PrivateMessage]
-            メッセージのリスト
+        PrivateMessageCollection
+            メッセージのコレクション
         """
         return PrivateMessageCollection.from_ids(self.client, message_ids)
 
     def get_message(self, message_id: int) -> PrivateMessage:
-        """メッセージを取得する
+        """
+        メッセージIDからメッセージを取得する
 
         Parameters
         ----------
-        message_id: int
+        message_id : int
             メッセージID
 
         Returns
         -------
         PrivateMessage
-            メッセージ
+            メッセージオブジェクト
         """
         return PrivateMessage.from_id(self.client, message_id)
 
 
 class ClientSiteMethods:
-    def __init__(self, client: "Client"):
-        self.client = client
+    """
+    サイト関連の操作を提供するクラス
 
-    def get(self, unix_name: str) -> "Site":
-        """UNIX名からサイトオブジェクトを取得する
+    クライアントインスタンスに関連付けられ、Wikidotサイトの取得や操作を行うメソッドを提供する。
+    Client.siteプロパティを通じてアクセスする。
+    """
+
+    def __init__(self, client: "Client"):
+        """
+        初期化メソッド
 
         Parameters
         ----------
-        unix_name: str
-            サイトのUNIX名
+        client : Client
+            親クライアントインスタンス
+        """
+        self.client = client
+
+    def get(self, unix_name: str) -> "Site":
+        """
+        UNIX名からサイトオブジェクトを取得する
+
+        Parameters
+        ----------
+        unix_name : str
+            サイトのUNIX名（例: 'fondation'）
 
         Returns
         -------
@@ -146,7 +198,12 @@ class ClientSiteMethods:
 
 
 class Client:
-    """基幹クライアント"""
+    """
+    Wikidot APIへの接続とインタラクションを管理する基幹クライアント
+
+    このクラスは、Wikidot APIとの全てのインタラクションの基盤となる。
+    ユーザー認証、サイト操作、ページ管理などすべての機能はこのクライアントを通じて提供される。
+    """
 
     def __init__(
         self,
@@ -155,17 +212,18 @@ class Client:
         amc_config: AjaxModuleConnectorConfig | None = None,
         logging_level: str = "WARNING",
     ):
-        """Wikidot Client
+        """
+        クライアントの初期化とオプションでの認証を行う
 
         Parameters
         ----------
-        username: str | None
-            ユーザー名
-        password: str | None
-            パスワード
-        amc_config: dict | None
-            AMCの設定
-        logging_level: str
+        username : str | None, default None
+            ユーザー名。設定すると認証試行を行う
+        password : str | None, default None
+            パスワード。設定すると認証試行を行う
+        amc_config : AjaxModuleConnectorConfig | None, default None
+            AjaxModuleConnectorの設定
+        logging_level : str, default "WARNING"
             ロギングレベル
         """
         # 最初にロギングレベルを決定する
@@ -197,7 +255,11 @@ class Client:
         # ------------
 
     def __del__(self):
-        """デストラクタ"""
+        """
+        デストラクタ - クライアントの使用終了時の後処理
+
+        ログイン中であればログアウト処理を行い、リソースを解放する。
+        """
         if self.is_logged_in:
             HTTPAuthentication.logout(self)
             self.is_logged_in = False
@@ -205,16 +267,59 @@ class Client:
         del self
 
     def __enter__(self):
+        """
+        コンテキストマネージャプロトコルのエントリーポイント
+
+        with文でクライアントを使用する際に呼び出される。
+
+        Returns
+        -------
+        Client
+            自身のインスタンス
+        """
         return self
 
     def __exit__(self, exc_type, exc_value, traceback):
+        """
+        コンテキストマネージャプロトコルの終了処理
+
+        with文の終了時に呼び出され、自動的にログアウト処理を行う。
+
+        Parameters
+        ----------
+        exc_type : type
+            発生した例外の型
+        exc_value : Exception
+            発生した例外
+        traceback : traceback
+            例外のトレースバック
+        """
         self.__del__()
         return
 
     def __str__(self):
+        """
+        オブジェクトの文字列表現
+
+        Returns
+        -------
+        str
+            クライアントの文字列表現
+        """
         return f"Client(username={self.username}, is_logged_in={self.is_logged_in})"
 
     def login_check(self) -> None:
+        """
+        ログイン状態の確認
+
+        ログインが必要な操作を実行する前に呼び出される。
+        ログインしていない場合は例外を送出する。
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        """
         if not self.is_logged_in:
             raise LoginRequiredException("Login is required to execute this function")
         return

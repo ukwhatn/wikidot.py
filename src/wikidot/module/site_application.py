@@ -1,3 +1,10 @@
+"""
+Wikidotサイトへの参加申請を扱うモジュール
+
+このモジュールは、Wikidotサイトへの参加申請に関連するクラスや機能を提供する。
+申請の取得、承認、拒否などの操作が可能。
+"""
+
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -14,27 +21,61 @@ if TYPE_CHECKING:
 
 @dataclass
 class SiteApplication:
+    """
+    Wikidotサイトへの参加申請を表すクラス
+
+    ユーザーからサイトへの参加申請情報を保持し、申請の承認や拒否などの
+    処理機能を提供する。
+
+    Attributes
+    ----------
+    site : Site
+        申請先のサイト
+    user : AbstractUser
+        申請者
+    text : str
+        申請メッセージ
+    """
+
     site: "Site"
     user: "AbstractUser"
     text: str
 
     def __str__(self):
+        """
+        オブジェクトの文字列表現
+
+        Returns
+        -------
+        str
+            申請の文字列表現
+        """
         return f"SiteApplication(user={self.user}, site={self.site}, text={self.text})"
 
     @staticmethod
     @login_required
     def acquire_all(site: "Site") -> list["SiteApplication"]:
-        """サイトへの未処理の申請を取得する
+        """
+        サイトへの未処理の参加申請をすべて取得する
 
         Parameters
         ----------
-        site: Site
-            サイト
+        site : Site
+            参加申請を取得するサイト
 
         Returns
         -------
         list[SiteApplication]
-            申請のリスト
+            参加申請のリスト
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        ForbiddenException
+            サイトの参加申請を管理する権限がない場合
+        UnexpectedException
+            応答の解析に失敗した場合
         """
         response = site.amc_request(
             [{"moduleName": "managesite/ManageSiteMembersApplicationsModule"}]
@@ -72,12 +113,26 @@ class SiteApplication:
 
     @login_required
     def _process(self, action: str):
-        """申請を処理する
+        """
+        参加申請を処理する内部メソッド
+
+        承認または拒否の処理を行う共通メソッド。
 
         Parameters
         ----------
-        action: str
-            処理の種類
+        action : str
+            処理の種類 ("accept" または "decline")
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        ValueError
+            無効なアクションが指定された場合
+        NotFoundException
+            指定された申請が見つからない場合
+        WikidotStatusCodeException
+            その他のエラーが発生した場合
         """
         if action not in ["accept", "decline"]:
             raise ValueError(f"Invalid action: {action}")
@@ -104,9 +159,35 @@ class SiteApplication:
                 raise e
 
     def accept(self):
-        """申請を承認する"""
+        """
+        参加申請を承認する
+
+        申請者をサイトのメンバーとして追加する。
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        NotFoundException
+            指定された申請が見つからない場合
+        WikidotStatusCodeException
+            その他のエラーが発生した場合
+        """
         self._process("accept")
 
     def decline(self):
-        """申請を拒否する"""
+        """
+        参加申請を拒否する
+
+        申請者の参加を拒否し、申請を削除する。
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        NotFoundException
+            指定された申請が見つからない場合
+        WikidotStatusCodeException
+            その他のエラーが発生した場合
+        """
         self._process("decline")

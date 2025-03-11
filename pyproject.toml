@@ -15,7 +15,7 @@ classifiers = [
 
 dependencies = [
     "httpx >= 0.25,< 0.29",
-    "beautifulsoup4 ~= 4.12.2",
+    "beautifulsoup4 >= 4.12.2,< 4.14.0",
     "lxml >= 4.9.3,< 5.4.0",
 ]
 
@@ -32,6 +32,13 @@ lint = [
 format = [
     "black",
     "isort",
+]
+docs = [
+    "sphinx>=7.2.6",
+    "sphinx-rtd-theme>=2.0.0",
+    "sphinx-intl>=2.1.0",
+    "myst-parser>=2.0.0",
+    "sphinx-autodoc-typehints>=1.25.3",
 ]
 
 [project.urls]

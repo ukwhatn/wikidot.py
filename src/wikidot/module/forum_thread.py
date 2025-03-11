@@ -1,3 +1,10 @@
+"""
+Wikidotフォーラムのスレッドを扱うモジュール
+
+このモジュールは、Wikidotサイトのフォーラムスレッドに関連するクラスや機能を提供する。
+スレッドの情報取得や閲覧などの操作が可能。
+"""
+
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -17,11 +24,28 @@ if TYPE_CHECKING:
 
 
 class ForumThreadCollection(list["ForumThread"]):
+    """
+    フォーラムスレッドのコレクションを表すクラス
+
+    複数のフォーラムスレッドを格納し、一括して操作するためのリスト拡張クラス。
+    特定のカテゴリ内のスレッド一覧を取得する機能などを提供する。
+    """
+
     def __init__(
         self,
         site: Optional["Site"] = None,
         threads: Optional[list["ForumThread"]] = None,
     ):
+        """
+        初期化メソッド
+
+        Parameters
+        ----------
+        site : Site | None, default None
+            スレッドが属するサイト。Noneの場合は最初のスレッドから推測する
+        threads : list[ForumThread] | None, default None
+            格納するスレッドのリスト
+        """
         super().__init__(threads or [])
 
         if site is not None:
@@ -30,12 +54,45 @@ class ForumThreadCollection(list["ForumThread"]):
             self.site = self[0].site
 
     def __iter__(self) -> Iterator["ForumThread"]:
+        """
+        コレクション内のスレッドを順に返すイテレータ
+
+        Returns
+        -------
+        Iterator[ForumThread]
+            スレッドオブジェクトのイテレータ
+        """
         return super().__iter__()
 
     @staticmethod
     def _parse(
         site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
     ) -> list["ForumThread"]:
+        """
+        フォーラムページのHTMLからスレッド情報を抽出する内部メソッド
+
+        HTMLからスレッドのタイトル、説明、作成者、作成日時などの情報を抽出し、
+        ForumThreadオブジェクトのリストを生成する。
+
+        Parameters
+        ----------
+        site : Site
+            スレッドが属するサイト
+        html : BeautifulSoup
+            パース対象のHTML
+        category : ForumCategory | None, default None
+            スレッドが属するカテゴリ（オプション）
+
+        Returns
+        -------
+        list[ForumThread]
+            抽出されたスレッドオブジェクトのリスト
+
+        Raises
+        ------
+        NoElementException
+            必要なHTML要素が見つからない場合
+        """
         threads = []
         for info in html.select("table.table tr.head~tr"):
             title = info.select_one("div.title a")
@@ -83,6 +140,27 @@ class ForumThreadCollection(list["ForumThread"]):
 
     @staticmethod
     def acquire_all_in_category(category: "ForumCategory") -> "ForumThreadCollection":
+        """
+        特定のカテゴリ内のすべてのスレッドを取得する
+
+        カテゴリページの各ページにアクセスし、すべてのスレッド情報を収集する。
+        ページネーションが存在する場合は、すべてのページを巡回する。
+
+        Parameters
+        ----------
+        category : ForumCategory
+            スレッドを取得するカテゴリ
+
+        Returns
+        -------
+        ForumThreadCollection
+            カテゴリ内のすべてのスレッドを含むコレクション
+
+        Raises
+        ------
+        NoElementException
+            HTML要素の解析に失敗した場合
+        """
         threads = []
 
         first_response = category.site.amc_request(
@@ -130,6 +208,32 @@ class ForumThreadCollection(list["ForumThread"]):
 
 @dataclass
 class ForumThread:
+    """
+    Wikidotフォーラムのスレッドを表すクラス
+
+    フォーラムスレッドの基本情報を保持する。スレッドのタイトル、説明、
+    作成者、作成日時、投稿数などの情報を提供する。
+
+    Attributes
+    ----------
+    site : Site
+        スレッドが属するサイト
+    id : int
+        スレッドID
+    title : str
+        スレッドのタイトル
+    description : str
+        スレッドの説明または抜粋
+    created_by : AbstractUser
+        スレッドの作成者
+    created_at : datetime
+        スレッドの作成日時
+    post_count : int
+        スレッド内の投稿数
+    category : ForumCategory | None, default None
+        スレッドが属するフォーラムカテゴリ
+    """
+
     site: "Site"
     id: int
     title: str
@@ -140,6 +244,14 @@ class ForumThread:
     category: Optional["ForumCategory"] = None
 
     def __str__(self):
+        """
+        オブジェクトの文字列表現
+
+        Returns
+        -------
+        str
+            スレッドの文字列表現
+        """
         return (
             f"ForumThread(id={self.id}, "
             f"title={self.title}, description={self.description}, "

@@ -1,3 +1,10 @@
+"""
+Wikidotフォーラムのカテゴリを扱うモジュール
+
+このモジュールは、Wikidotサイトのフォーラムカテゴリに関連するクラスや機能を提供する。
+フォーラムカテゴリの情報取得やスレッド一覧の取得などの操作が可能。
+"""
+
 import re
 from collections.abc import Iterator
 from dataclasses import dataclass
@@ -13,11 +20,27 @@ if TYPE_CHECKING:
 
 
 class ForumCategoryCollection(list["ForumCategory"]):
+    """
+    フォーラムカテゴリのコレクションを表すクラス
+
+    複数のフォーラムカテゴリを格納し、一括して操作するためのリスト拡張クラス。
+    """
+
     def __init__(
         self,
         site: Optional["Site"] = None,
         categories: Optional[list["ForumCategory"]] = None,
     ):
+        """
+        初期化メソッド
+
+        Parameters
+        ----------
+        site : Site | None, default None
+            カテゴリが属するサイト。Noneの場合は最初のカテゴリから推測する
+        categories : list[ForumCategory] | None, default None
+            格納するカテゴリのリスト
+        """
         super().__init__(categories or [])
 
         if site is not None:
@@ -26,10 +49,39 @@ class ForumCategoryCollection(list["ForumCategory"]):
             self.site = self[0].site
 
     def __iter__(self) -> Iterator["ForumCategory"]:
+        """
+        コレクション内のカテゴリを順に返すイテレータ
+
+        Returns
+        -------
+        Iterator[ForumCategory]
+            カテゴリオブジェクトのイテレータ
+        """
         return super().__iter__()
 
     @staticmethod
     def acquire_all(site: "Site"):
+        """
+        サイトのすべてのフォーラムカテゴリを取得する
+
+        指定されたサイトのフォーラムページにアクセスし、
+        利用可能なすべてのカテゴリ情報を取得する。
+
+        Parameters
+        ----------
+        site : Site
+            カテゴリを取得するサイト
+
+        Returns
+        -------
+        ForumCategoryCollection
+            取得したフォーラムカテゴリのコレクション
+
+        Raises
+        ------
+        NoElementException
+            必要なHTML要素が見つからない場合
+        """
         categories = []
 
         response = site.amc_request(
@@ -82,6 +134,29 @@ class ForumCategoryCollection(list["ForumCategory"]):
 
 @dataclass
 class ForumCategory:
+    """
+    Wikidotフォーラムのカテゴリを表すクラス
+
+    フォーラムカテゴリの基本情報とスレッド一覧へのアクセス機能を提供する。
+
+    Attributes
+    ----------
+    site : Site
+        カテゴリが属するサイト
+    id : int
+        カテゴリID
+    title : str
+        カテゴリのタイトル
+    description : str
+        カテゴリの説明文
+    threads_count : int
+        カテゴリ内のスレッド数
+    posts_count : int
+        カテゴリ内の投稿数
+    _threads : ForumThreadCollection | None
+        カテゴリ内のスレッドコレクション（内部キャッシュ用）
+    """
+
     site: "Site"
     id: int
     title: str
@@ -91,6 +166,14 @@ class ForumCategory:
     _threads: Optional[ForumThreadCollection] = None
 
     def __str__(self):
+        """
+        オブジェクトの文字列表現
+
+        Returns
+        -------
+        str
+            カテゴリの文字列表現
+        """
         return (
             f"ForumCategory(id={self.id}, "
             f"title={self.title}, description={self.description}, "
@@ -99,14 +182,42 @@ class ForumCategory:
 
     @property
     def threads(self) -> ForumThreadCollection:
+        """
+        カテゴリ内のスレッド一覧を取得する
+
+        スレッドリストが未取得の場合は自動的に取得処理を行う。
+
+        Returns
+        -------
+        ForumThreadCollection
+            カテゴリ内のスレッドコレクション
+        """
         if self._threads is None:
             self._threads = ForumThreadCollection.acquire_all_in_category(self)
         return self._threads
 
     @threads.setter
     def threads(self, value):
+        """
+        カテゴリ内のスレッド一覧を設定する
+
+        Parameters
+        ----------
+        value : ForumThreadCollection
+            設定するスレッドコレクション
+        """
         self._threads = value
 
     def reload_threads(self):
+        """
+        カテゴリ内のスレッド一覧を再取得する
+
+        キャッシュを無視して最新のスレッド一覧を取得する。
+
+        Returns
+        -------
+        ForumThreadCollection
+            最新のスレッドコレクション
+        """
         self._threads = ForumThreadCollection.acquire_all_in_category(self)
         return self._threads
