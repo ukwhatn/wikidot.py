@@ -15,10 +15,10 @@ if TYPE_CHECKING:
 class PageSource:
     """
     ページのソースコード（Wikidot記法）を表すクラス
-    
+
     Wikidotページのソースコード（Wikidot記法）を保持し、基本的な操作を提供する。
     ページの現在または特定リビジョンのソースコードを表現する。
-    
+
     Attributes
     ----------
     page : Page
@@ -26,6 +26,6 @@ class PageSource:
     wiki_text : str
         ページのソースコード（Wikidot記法）
     """
-    
+
     page: "Page"
     wiki_text: str

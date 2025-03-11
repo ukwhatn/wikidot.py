@@ -28,9 +28,9 @@ if TYPE_CHECKING:
 class SiteMember:
     """
     Wikidotサイトのメンバーを表すクラス
-    
+
     サイトのメンバー情報を保持し、権限変更などの操作機能を提供する。
-    
+
     Attributes
     ----------
     site : Site
@@ -40,7 +40,7 @@ class SiteMember:
     joined_at : datetime | None
         サイトへの参加日時（取得できない場合はNone）
     """
-    
+
     site: "Site"
     user: "AbstractUser"
     joined_at: datetime | None
@@ -49,14 +49,14 @@ class SiteMember:
     def _parse(site: "Site", html: BeautifulSoup) -> list["SiteMember"]:
         """
         メンバーリストページのHTMLからメンバー情報を抽出する内部メソッド
-        
+
         Parameters
         ----------
         site : Site
             メンバーが所属するサイト
         html : BeautifulSoup
             解析対象のHTML
-            
+
         Returns
         -------
         list[SiteMember]
@@ -91,21 +91,21 @@ class SiteMember:
     def get(site: "Site", group: str | None = None) -> list["SiteMember"]:
         """
         サイトのメンバーリストを取得する
-        
+
         指定したグループ（管理者、モデレーターなど）のメンバー一覧を取得する。
-        
+
         Parameters
         ----------
         site : Site
             メンバーリストを取得するサイト
         group : str | None, default None
             取得するメンバーのグループ（"admins", "moderators", または "" で全メンバー）
-            
+
         Returns
         -------
         list[SiteMember]
             メンバーのリスト
-            
+
         Raises
         ------
         ValueError
@@ -163,14 +163,14 @@ class SiteMember:
     def _change_group(self, event: str):
         """
         メンバーのグループ（権限）を変更する内部メソッド
-        
+
         モデレーターや管理者への昇格、または降格を行う共通メソッド。
-        
+
         Parameters
         ----------
         event : str
             変更イベント（"toModerators", "removeModerator", "toAdmins", "removeAdmin"）
-            
+
         Raises
         ------
         ValueError
@@ -222,7 +222,7 @@ class SiteMember:
     def to_moderator(self):
         """
         メンバーをモデレーターに昇格させる
-        
+
         Raises
         ------
         ForbiddenException
@@ -237,7 +237,7 @@ class SiteMember:
     def remove_moderator(self):
         """
         メンバーのモデレーター権限を削除する
-        
+
         Raises
         ------
         ForbiddenException
@@ -252,7 +252,7 @@ class SiteMember:
     def to_admin(self):
         """
         メンバーを管理者に昇格させる
-        
+
         Raises
         ------
         ForbiddenException
@@ -267,7 +267,7 @@ class SiteMember:
     def remove_admin(self):
         """
         メンバーの管理者権限を削除する
-        
+
         Raises
         ------
         ForbiddenException

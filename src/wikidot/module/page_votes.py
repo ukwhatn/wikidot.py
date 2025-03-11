@@ -17,15 +17,15 @@ if TYPE_CHECKING:
 class PageVoteCollection(list["PageVote"]):
     """
     ページ投票のコレクションを表すクラス
-    
+
     ページに対する複数の投票（レーティング）を格納し、一括して操作するための
     リスト拡張クラス。
     """
-    
+
     def __init__(self, page: "Page", votes: list["PageVote"]):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         page : Page
@@ -39,7 +39,7 @@ class PageVoteCollection(list["PageVote"]):
     def __iter__(self) -> Iterator["PageVote"]:
         """
         コレクション内の投票を順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[PageVote]
@@ -52,9 +52,9 @@ class PageVoteCollection(list["PageVote"]):
 class PageVote:
     """
     ページへの投票（レーティング）を表すクラス
-    
+
     ユーザーがページに対して行った投票（評価）の情報を保持する。
-    
+
     Attributes
     ----------
     page : Page
@@ -64,7 +64,7 @@ class PageVote:
     value : int
         投票値（+1/-1 または 数値）
     """
-    
+
     page: "Page"
     user: "AbstractUser"
     value: int

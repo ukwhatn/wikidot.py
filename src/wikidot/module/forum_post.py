@@ -20,10 +20,10 @@ if TYPE_CHECKING:
 class ForumPostCollection(list["ForumPost"]):
     """
     フォーラム投稿のコレクションを表すクラス
-    
+
     フォーラムスレッド内の複数の投稿を格納し、一括して操作するためのリスト拡張クラス。
     """
-    
+
     def __init__(
         self,
         thread: Optional["ForumThread"] = None,
@@ -31,7 +31,7 @@ class ForumPostCollection(list["ForumPost"]):
     ):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         thread : ForumThread | None, default None
@@ -49,7 +49,7 @@ class ForumPostCollection(list["ForumPost"]):
     def __iter__(self) -> Iterator["ForumPost"]:
         """
         コレクション内の投稿を順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[ForumPost]
@@ -66,10 +66,10 @@ class ForumPostCollection(list["ForumPost"]):
 class ForumPost:
     """
     Wikidotフォーラムの投稿を表すクラス
-    
+
     フォーラムスレッド内の個別の投稿（メッセージ）に関する情報を保持する。
     投稿のタイトル、本文、作成者、作成日時などの情報を提供する。
-    
+
     Attributes
     ----------
     thread : ForumThread
@@ -95,7 +95,7 @@ class ForumPost:
     _source : str | None, default None
         投稿のソース（Wikidot記法）
     """
-    
+
     thread: "ForumThread"
     id: int
     title: str
@@ -111,7 +111,7 @@ class ForumPost:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str

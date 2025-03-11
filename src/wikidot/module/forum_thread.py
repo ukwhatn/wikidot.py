@@ -26,11 +26,11 @@ if TYPE_CHECKING:
 class ForumThreadCollection(list["ForumThread"]):
     """
     フォーラムスレッドのコレクションを表すクラス
-    
+
     複数のフォーラムスレッドを格納し、一括して操作するためのリスト拡張クラス。
     特定のカテゴリ内のスレッド一覧を取得する機能などを提供する。
     """
-    
+
     def __init__(
         self,
         site: Optional["Site"] = None,
@@ -38,7 +38,7 @@ class ForumThreadCollection(list["ForumThread"]):
     ):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         site : Site | None, default None
@@ -56,7 +56,7 @@ class ForumThreadCollection(list["ForumThread"]):
     def __iter__(self) -> Iterator["ForumThread"]:
         """
         コレクション内のスレッドを順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[ForumThread]
@@ -70,10 +70,10 @@ class ForumThreadCollection(list["ForumThread"]):
     ) -> list["ForumThread"]:
         """
         フォーラムページのHTMLからスレッド情報を抽出する内部メソッド
-        
+
         HTMLからスレッドのタイトル、説明、作成者、作成日時などの情報を抽出し、
         ForumThreadオブジェクトのリストを生成する。
-        
+
         Parameters
         ----------
         site : Site
@@ -82,12 +82,12 @@ class ForumThreadCollection(list["ForumThread"]):
             パース対象のHTML
         category : ForumCategory | None, default None
             スレッドが属するカテゴリ（オプション）
-            
+
         Returns
         -------
         list[ForumThread]
             抽出されたスレッドオブジェクトのリスト
-            
+
         Raises
         ------
         NoElementException
@@ -142,20 +142,20 @@ class ForumThreadCollection(list["ForumThread"]):
     def acquire_all_in_category(category: "ForumCategory") -> "ForumThreadCollection":
         """
         特定のカテゴリ内のすべてのスレッドを取得する
-        
+
         カテゴリページの各ページにアクセスし、すべてのスレッド情報を収集する。
         ページネーションが存在する場合は、すべてのページを巡回する。
-        
+
         Parameters
         ----------
         category : ForumCategory
             スレッドを取得するカテゴリ
-            
+
         Returns
         -------
         ForumThreadCollection
             カテゴリ内のすべてのスレッドを含むコレクション
-            
+
         Raises
         ------
         NoElementException
@@ -210,10 +210,10 @@ class ForumThreadCollection(list["ForumThread"]):
 class ForumThread:
     """
     Wikidotフォーラムのスレッドを表すクラス
-    
+
     フォーラムスレッドの基本情報を保持する。スレッドのタイトル、説明、
     作成者、作成日時、投稿数などの情報を提供する。
-    
+
     Attributes
     ----------
     site : Site
@@ -233,7 +233,7 @@ class ForumThread:
     category : ForumCategory | None, default None
         スレッドが属するフォーラムカテゴリ
     """
-    
+
     site: "Site"
     id: int
     title: str
@@ -246,7 +246,7 @@ class ForumThread:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str

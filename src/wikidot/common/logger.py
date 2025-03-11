@@ -11,17 +11,17 @@ import logging
 def setup_logger(name: str = "wikidot", level=logging.INFO):
     """
     ロガーを設定する関数
-    
+
     指定された名前とログレベルでロガーを設定し、適切なフォーマットのハンドラを追加する。
     デフォルトでは、時刻、ロガー名、ログレベル、メッセージを表示する形式となる。
-    
+
     Parameters
     ----------
     name : str, default "wikidot"
         ロガーの名前
     level : int, default logging.INFO
         初期ログレベル
-        
+
     Returns
     -------
     logging.Logger

@@ -23,11 +23,11 @@ if TYPE_CHECKING:
 class PageRevisionCollection(list["PageRevision"]):
     """
     ページリビジョンのコレクションを表すクラス
-    
+
     ページの編集履歴（リビジョン）の複数バージョンを格納し、一括して操作するための
     リスト拡張クラス。ソースコードやHTMLの一括取得など、便利な機能を提供する。
     """
-    
+
     def __init__(
         self,
         page: Optional["Page"] = None,
@@ -35,7 +35,7 @@ class PageRevisionCollection(list["PageRevision"]):
     ):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         page : Page | None, default None
@@ -49,7 +49,7 @@ class PageRevisionCollection(list["PageRevision"]):
     def __iter__(self) -> Iterator["PageRevision"]:
         """
         コレクション内のリビジョンを順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[PageRevision]
@@ -61,21 +61,21 @@ class PageRevisionCollection(list["PageRevision"]):
     def _acquire_sources(page, revisions: list["PageRevision"]):
         """
         複数のリビジョンのソースコードを一括取得する内部メソッド
-        
+
         未取得のリビジョンソースコードを一括でリクエストし、取得する。
-        
+
         Parameters
         ----------
         page : Page
             リビジョンが属するページ
         revisions : list[PageRevision]
             ソースコードを取得するリビジョンのリスト
-            
+
         Returns
         -------
         list[PageRevision]
             ソースコード情報が更新されたリビジョンのリスト
-            
+
         Raises
         ------
         NoElementException
@@ -111,7 +111,7 @@ class PageRevisionCollection(list["PageRevision"]):
     def get_sources(self):
         """
         コレクション内のすべてのリビジョンのソースコードを取得する
-        
+
         Returns
         -------
         PageRevisionCollection
@@ -123,16 +123,16 @@ class PageRevisionCollection(list["PageRevision"]):
     def _acquire_htmls(page, revisions: list["PageRevision"]):
         """
         複数のリビジョンのHTML表示を一括取得する内部メソッド
-        
+
         未取得のリビジョンHTMLを一括でリクエストし、取得する。
-        
+
         Parameters
         ----------
         page : Page
             リビジョンが属するページ
         revisions : list[PageRevision]
             HTMLを取得するリビジョンのリスト
-            
+
         Returns
         -------
         list[PageRevision]
@@ -168,7 +168,7 @@ class PageRevisionCollection(list["PageRevision"]):
     def get_htmls(self):
         """
         コレクション内のすべてのリビジョンのHTML表示を取得する
-        
+
         Returns
         -------
         PageRevisionCollection
@@ -181,10 +181,10 @@ class PageRevisionCollection(list["PageRevision"]):
 class PageRevision:
     """
     ページのリビジョン（編集履歴のバージョン）を表すクラス
-    
+
     ページの特定のバージョンに関する情報を保持する。リビジョン番号、作成者、作成日時、
     編集コメントなどの基本情報に加え、ソースコードやHTML表示へのアクセス機能を提供する。
-    
+
     Attributes
     ----------
     page : Page
@@ -204,7 +204,7 @@ class PageRevision:
     _html : str | None, default None
         リビジョンのHTML表示（内部キャッシュ用）
     """
-    
+
     page: "Page"
     id: int
     rev_no: int
@@ -217,7 +217,7 @@ class PageRevision:
     def is_source_acquired(self) -> bool:
         """
         ソースコードが既に取得済みかどうかを確認する
-        
+
         Returns
         -------
         bool
@@ -228,7 +228,7 @@ class PageRevision:
     def is_html_acquired(self) -> bool:
         """
         HTML表示が既に取得済みかどうかを確認する
-        
+
         Returns
         -------
         bool
@@ -240,9 +240,9 @@ class PageRevision:
     def source(self) -> Optional["PageSource"]:
         """
         リビジョンのソースコードを取得する
-        
+
         ソースコードが未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         PageSource | None
@@ -256,7 +256,7 @@ class PageRevision:
     def source(self, value: "PageSource"):
         """
         リビジョンのソースコードを設定する
-        
+
         Parameters
         ----------
         value : PageSource
@@ -268,9 +268,9 @@ class PageRevision:
     def html(self) -> Optional[str]:
         """
         リビジョンのHTML表示を取得する
-        
+
         HTML表示が未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         str | None
@@ -284,7 +284,7 @@ class PageRevision:
     def html(self, value: str):
         """
         リビジョンのHTML表示を設定する
-        
+
         Parameters
         ----------
         value : str

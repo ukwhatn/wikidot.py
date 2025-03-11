@@ -26,15 +26,15 @@ if TYPE_CHECKING:
 class PrivateMessageCollection(list["PrivateMessage"]):
     """
     プライベートメッセージのコレクションを表す基底クラス
-    
+
     複数のプライベートメッセージを格納し、一括して操作するためのリスト拡張クラス。
     受信箱や送信箱など、特定のメッセージグループを表現するために継承される。
     """
-    
+
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str
@@ -45,7 +45,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
     def __iter__(self) -> Iterator["PrivateMessage"]:
         """
         コレクション内のメッセージを順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[PrivateMessage]
@@ -60,21 +60,21 @@ class PrivateMessageCollection(list["PrivateMessage"]):
     ) -> "PrivateMessageCollection":
         """
         メッセージIDのリストからメッセージオブジェクトのコレクションを取得する
-        
+
         指定されたIDのメッセージを一括で取得し、コレクションとして返す。
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
         message_ids : list[int]
             取得するメッセージIDのリスト
-            
+
         Returns
         -------
         PrivateMessageCollection
             取得したメッセージのコレクション
-            
+
         Raises
         ------
         LoginRequiredException
@@ -139,22 +139,22 @@ class PrivateMessageCollection(list["PrivateMessage"]):
     def _acquire(client: "Client", module_name: str):
         """
         特定のモジュールからプライベートメッセージを取得する内部メソッド
-        
+
         受信箱や送信箱などのメッセージ一覧を取得するための共通メソッド。
         ページネーションが存在する場合は、すべてのページから取得する。
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
         module_name : str
             メッセージを取得するモジュール名
-            
+
         Returns
         -------
         PrivateMessageCollection
             取得したメッセージのコレクション
-            
+
         Raises
         ------
         LoginRequiredException
@@ -202,23 +202,23 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 class PrivateMessageInbox(PrivateMessageCollection):
     """
     受信したプライベートメッセージのコレクションを表すクラス
-    
+
     受信箱内のプライベートメッセージを格納し、操作するための
     PrivateMessageCollectionの特殊化クラス。
     """
-    
+
     @staticmethod
     def from_ids(client: "Client", message_ids: list[int]) -> "PrivateMessageInbox":
         """
         メッセージIDのリストから受信箱のメッセージコレクションを取得する
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
         message_ids : list[int]
             取得するメッセージIDのリスト
-            
+
         Returns
         -------
         PrivateMessageInbox
@@ -232,17 +232,17 @@ class PrivateMessageInbox(PrivateMessageCollection):
     def acquire(client: "Client"):
         """
         ログイン中のユーザーの受信箱メッセージをすべて取得する
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
-            
+
         Returns
         -------
         PrivateMessageInbox
             受信箱メッセージのコレクション
-            
+
         Raises
         ------
         LoginRequiredException
@@ -258,23 +258,23 @@ class PrivateMessageInbox(PrivateMessageCollection):
 class PrivateMessageSentBox(PrivateMessageCollection):
     """
     送信したプライベートメッセージのコレクションを表すクラス
-    
+
     送信箱内のプライベートメッセージを格納し、操作するための
     PrivateMessageCollectionの特殊化クラス。
     """
-    
+
     @staticmethod
     def from_ids(client: "Client", message_ids: list[int]) -> "PrivateMessageSentBox":
         """
         メッセージIDのリストから送信箱のメッセージコレクションを取得する
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
         message_ids : list[int]
             取得するメッセージIDのリスト
-            
+
         Returns
         -------
         PrivateMessageSentBox
@@ -288,17 +288,17 @@ class PrivateMessageSentBox(PrivateMessageCollection):
     def acquire(client: "Client") -> "PrivateMessageSentBox":
         """
         ログイン中のユーザーの送信箱メッセージをすべて取得する
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
-            
+
         Returns
         -------
         PrivateMessageSentBox
             送信箱メッセージのコレクション
-            
+
         Raises
         ------
         LoginRequiredException
@@ -313,7 +313,7 @@ class PrivateMessageSentBox(PrivateMessageCollection):
 class PrivateMessage:
     """
     Wikidotプライベートメッセージを表すクラス
-    
+
     ユーザー間でやりとりされるプライベートメッセージの情報を保持する。
     メッセージの送信者、受信者、件名、本文などの基本情報を提供する。
 
@@ -346,7 +346,7 @@ class PrivateMessage:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str
@@ -358,19 +358,19 @@ class PrivateMessage:
     def from_id(client: "Client", message_id: int) -> "PrivateMessage":
         """
         メッセージIDからメッセージオブジェクトを取得する
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
         message_id : int
             取得するメッセージID
-            
+
         Returns
         -------
         PrivateMessage
             取得したメッセージオブジェクト
-            
+
         Raises
         ------
         LoginRequiredException
@@ -387,7 +387,7 @@ class PrivateMessage:
     def send(client: "Client", recipient: "User", subject: str, body: str) -> None:
         """
         プライベートメッセージを送信する
-        
+
         Parameters
         ----------
         client : Client
@@ -398,7 +398,7 @@ class PrivateMessage:
             メッセージの件名
         body : str
             メッセージの本文
-            
+
         Raises
         ------
         LoginRequiredException

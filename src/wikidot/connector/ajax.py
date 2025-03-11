@@ -24,7 +24,7 @@ from ..common.exceptions import (
 class AjaxRequestHeader:
     """
     Ajax Module Connector通信時に使用するリクエストヘッダを管理するクラス
-    
+
     Content-Type、User-Agent、Referer、Cookieなどを管理し、
     適切なHTTPヘッダを生成する機能を提供する。
     """
@@ -38,7 +38,7 @@ class AjaxRequestHeader:
     ):
         """
         AjaxRequestHeaderの初期化
-        
+
         Parameters
         ----------
         content_type : str | None, default None
@@ -65,7 +65,7 @@ class AjaxRequestHeader:
     def set_cookie(self, name, value) -> None:
         """
         Cookieを設定する
-        
+
         Parameters
         ----------
         name : str
@@ -79,7 +79,7 @@ class AjaxRequestHeader:
     def delete_cookie(self, name) -> None:
         """
         Cookieを削除する
-        
+
         Parameters
         ----------
         name : str
@@ -91,7 +91,7 @@ class AjaxRequestHeader:
     def get_header(self) -> dict:
         """
         構築されたHTTPヘッダを取得する
-        
+
         Returns
         -------
         dict
@@ -111,10 +111,10 @@ class AjaxRequestHeader:
 class AjaxModuleConnectorConfig:
     """
     Ajax Module Connector通信の設定を保持するデータクラス
-    
+
     リクエストのタイムアウト、リトライ回数、並行通信数などの
     設定を管理する。
-    
+
     Attributes
     ----------
     request_timeout : int, default 20
@@ -136,7 +136,7 @@ class AjaxModuleConnectorConfig:
 class AjaxModuleConnectorClient:
     """
     WikidotのAjax Module Connectorと通信するクライアントクラス
-    
+
     ajax-module-connector.phpへのHTTPリクエストを行い、レスポンスを処理する。
     非同期通信、リトライ処理、エラーハンドリングなどの機能を備えている。
     """
@@ -148,7 +148,7 @@ class AjaxModuleConnectorClient:
     ):
         """
         AjaxModuleConnectorClientの初期化
-        
+
         Parameters
         ----------
         site_name : str | None, default None
@@ -170,15 +170,15 @@ class AjaxModuleConnectorClient:
     def _check_existence_and_ssl(self):
         """
         サイトの存在とSSL対応状況を確認する
-        
+
         実際にHTTPリクエストを送信し、サイトの存在を確認するとともに、
         HTTPSにリダイレクトされるかどうかでSSL対応状況を判断する。
-        
+
         Returns
         -------
         bool
             サイトがSSL対応している場合はTrue、そうでない場合はFalse
-            
+
         Raises
         ------
         NotFoundException
@@ -211,9 +211,9 @@ class AjaxModuleConnectorClient:
     ) -> tuple[httpx.Response | Exception]:
         """
         Ajax Module Connectorにリクエストを送信し、レスポンスを取得する
-        
+
         複数のリクエストを非同期で並行処理し、エラー発生時には自動的にリトライを行う。
-        
+
         Parameters
         ----------
         bodies : list[dict[str, Any]]
@@ -224,12 +224,12 @@ class AjaxModuleConnectorClient:
             接続先サイト名。Noneの場合は初期化時に指定したサイト名が使用される
         site_ssl_supported : bool | None, default None
             サイトのSSL対応状況。Noneの場合は初期化時に確認した結果が使用される
-            
+
         Returns
         -------
         tuple[httpx.Response | Exception]
             レスポンスまたは例外のタプル（リクエストと同じ順序）
-            
+
         Raises
         ------
         AMCHttpStatusCodeException

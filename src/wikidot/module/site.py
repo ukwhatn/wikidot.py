@@ -20,15 +20,15 @@ if TYPE_CHECKING:
 class SitePagesMethods:
     """
     サイト内のページコレクションに対する操作を提供するクラス
-    
+
     ページの検索機能など、複数のページに対する操作を提供する。
     Site.pagesプロパティを通じてアクセスする。
     """
-    
+
     def __init__(self, site: "Site"):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         site : Site
@@ -39,14 +39,14 @@ class SitePagesMethods:
     def search(self, **kwargs) -> "PageCollection":
         """
         サイト内のページを検索する
-        
+
         キーワード引数を受け取り、SearchPagesQueryオブジェクトに変換して検索を実行する。
-        
+
         Parameters
         ----------
         **kwargs
             SearchPagesQueryに渡す検索条件。以下のパラメータが利用可能:
-            
+
             ページ選択パラメータ:
             - pagetype: str - ページタイプ（例: "normal", "admin"等）
             - category: str - カテゴリ名
@@ -61,19 +61,19 @@ class SitePagesMethods:
             - name: str - ページ名による絞り込み
             - fullname: str - フルネームによる絞り込み（完全一致）
             - range: str - 範囲指定
-            
+
             ソートパラメータ:
             - order: str - ソート順（例: "created_at desc", "title asc"）
-            
+
             ページネーションパラメータ:
             - offset: int - 取得開始位置
             - limit: int - 取得件数制限
             - perPage: int - 1ページあたりの表示件数
-            
+
             レイアウトパラメータ:
             - separate: str - 個別表示するかどうか
             - wrapper: str - ラッパー要素を表示するかどうか
-            
+
         Returns
         -------
         PageCollection
@@ -86,15 +86,15 @@ class SitePagesMethods:
 class SitePageMethods:
     """
     サイト内の個別ページに対する操作を提供するクラス
-    
+
     ページの取得や作成などの個別ページ操作を提供する。
     Site.pageプロパティを通じてアクセスする。
     """
-    
+
     def __init__(self, site: "Site"):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         site : Site
@@ -105,7 +105,7 @@ class SitePageMethods:
     def get(self, fullname: str, raise_when_not_found: bool = True) -> Optional["Page"]:
         """
         フルネームからページを取得する
-        
+
         Parameters
         ----------
         fullname : str
@@ -113,12 +113,12 @@ class SitePageMethods:
         raise_when_not_found : bool, default True
             ページが見つからなかった場合に例外を発生させるかどうか
             Falseの場合、ページが見つからなければNoneを返す
-            
+
         Returns
         -------
         Page | None
             ページオブジェクト、または見つからない場合はNone
-            
+
         Raises
         ------
         NotFoundException
@@ -143,7 +143,7 @@ class SitePageMethods:
     ) -> "Page":
         """
         ページを新規作成する
-        
+
         Parameters
         ----------
         fullname : str
@@ -156,12 +156,12 @@ class SitePageMethods:
             編集コメント
         force_edit : bool, default False
             ページが既に存在する場合に上書きするかどうか
-            
+
         Returns
         -------
         Page
             作成されたページオブジェクト
-            
+
         Raises
         ------
         TargetErrorException
@@ -181,15 +181,15 @@ class SitePageMethods:
 class SiteForumMethods:
     """
     サイト内のフォーラム機能に対する操作を提供するクラス
-    
+
     フォーラムカテゴリの取得などのフォーラム関連機能を提供する。
     Site.forumプロパティを通じてアクセスする。
     """
-    
+
     def __init__(self, site: "Site"):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         site : Site
@@ -200,7 +200,7 @@ class SiteForumMethods:
     def categories(self) -> "ForumCategoryCollection":
         """
         サイト内のフォーラムカテゴリ一覧を取得する
-        
+
         Returns
         -------
         ForumCategoryCollection
@@ -213,7 +213,7 @@ class SiteForumMethods:
 class Site:
     """
     Wikidotサイトを表すクラス
-    
+
     サイトの基本情報とサイトに対する様々な操作機能を提供する。
     ページ、フォーラム、メンバー管理などの機能にアクセスするための起点となる。
 
@@ -248,7 +248,7 @@ class Site:
     def __post_init__(self):
         """
         初期化後の処理
-        
+
         サイト関連の機能を提供する各サブクラスのインスタンスを初期化する。
         """
         self.pages = SitePagesMethods(self)
@@ -258,7 +258,7 @@ class Site:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str
@@ -270,21 +270,21 @@ class Site:
     def from_unix_name(client: "Client", unix_name: str) -> "Site":
         """
         UNIX名からサイトオブジェクトを取得する
-        
+
         指定されたUNIX名のサイトにアクセスし、サイト情報を解析してSiteオブジェクトを生成する。
-        
+
         Parameters
         ----------
         client : Client
             クライアントインスタンス
         unix_name : str
             サイトのUNIX名（例: "fondation"）
-            
+
         Returns
         -------
         Site
             サイトオブジェクト
-            
+
         Raises
         ------
         NotFoundException
@@ -358,14 +358,14 @@ class Site:
     def amc_request(self, bodies: list[dict], return_exceptions: bool = False):
         """
         このサイトに対してAjax Module Connectorリクエストを実行する
-        
+
         Parameters
         ----------
         bodies : list[dict]
             リクエストボディのリスト
         return_exceptions : bool, default False
             例外を返すか送出するか（True: 返す, False: 送出する）
-            
+
         Returns
         -------
         list | Exception
@@ -378,7 +378,7 @@ class Site:
     def get_applications(self):
         """
         サイトへの未処理の参加申請を取得する
-        
+
         Returns
         -------
         list[SiteApplication]
@@ -390,14 +390,14 @@ class Site:
     def invite_user(self, user: "User", text: str):
         """
         ユーザーをサイトに招待する
-        
+
         Parameters
         ----------
         user : User
             招待するユーザー
         text : str
             招待メッセージ
-            
+
         Raises
         ------
         TargetErrorException
@@ -434,7 +434,7 @@ class Site:
     def get_url(self):
         """
         サイトのURLを取得する
-        
+
         Returns
         -------
         str
@@ -446,7 +446,7 @@ class Site:
     def members(self):
         """
         サイトのメンバー一覧を取得する
-        
+
         Returns
         -------
         list[SiteMember]
@@ -460,7 +460,7 @@ class Site:
     def moderators(self):
         """
         サイトのモデレーター一覧を取得する
-        
+
         Returns
         -------
         list[SiteMember]
@@ -474,7 +474,7 @@ class Site:
     def admins(self):
         """
         サイトの管理者一覧を取得する
-        
+
         Returns
         -------
         list[SiteMember]
@@ -487,14 +487,14 @@ class Site:
     def member_lookup(self, user_name: str, user_id: int | None = None):
         """
         指定されたユーザーがサイトのメンバーかどうかを確認する
-        
+
         Parameters
         ----------
         user_name : str
             確認するユーザー名
         user_id : int | None, default None
             確認するユーザーID（指定した場合はIDも一致する必要がある）
-            
+
         Returns
         -------
         bool

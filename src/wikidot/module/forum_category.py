@@ -22,10 +22,10 @@ if TYPE_CHECKING:
 class ForumCategoryCollection(list["ForumCategory"]):
     """
     フォーラムカテゴリのコレクションを表すクラス
-    
+
     複数のフォーラムカテゴリを格納し、一括して操作するためのリスト拡張クラス。
     """
-    
+
     def __init__(
         self,
         site: Optional["Site"] = None,
@@ -33,7 +33,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
     ):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         site : Site | None, default None
@@ -51,7 +51,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
     def __iter__(self) -> Iterator["ForumCategory"]:
         """
         コレクション内のカテゴリを順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[ForumCategory]
@@ -63,20 +63,20 @@ class ForumCategoryCollection(list["ForumCategory"]):
     def acquire_all(site: "Site"):
         """
         サイトのすべてのフォーラムカテゴリを取得する
-        
+
         指定されたサイトのフォーラムページにアクセスし、
         利用可能なすべてのカテゴリ情報を取得する。
-        
+
         Parameters
         ----------
         site : Site
             カテゴリを取得するサイト
-            
+
         Returns
         -------
         ForumCategoryCollection
             取得したフォーラムカテゴリのコレクション
-            
+
         Raises
         ------
         NoElementException
@@ -136,9 +136,9 @@ class ForumCategoryCollection(list["ForumCategory"]):
 class ForumCategory:
     """
     Wikidotフォーラムのカテゴリを表すクラス
-    
+
     フォーラムカテゴリの基本情報とスレッド一覧へのアクセス機能を提供する。
-    
+
     Attributes
     ----------
     site : Site
@@ -156,7 +156,7 @@ class ForumCategory:
     _threads : ForumThreadCollection | None
         カテゴリ内のスレッドコレクション（内部キャッシュ用）
     """
-    
+
     site: "Site"
     id: int
     title: str
@@ -168,7 +168,7 @@ class ForumCategory:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str
@@ -184,9 +184,9 @@ class ForumCategory:
     def threads(self) -> ForumThreadCollection:
         """
         カテゴリ内のスレッド一覧を取得する
-        
+
         スレッドリストが未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         ForumThreadCollection
@@ -200,7 +200,7 @@ class ForumCategory:
     def threads(self, value):
         """
         カテゴリ内のスレッド一覧を設定する
-        
+
         Parameters
         ----------
         value : ForumThreadCollection
@@ -211,9 +211,9 @@ class ForumCategory:
     def reload_threads(self):
         """
         カテゴリ内のスレッド一覧を再取得する
-        
+
         キャッシュを無視して最新のスレッド一覧を取得する。
-        
+
         Returns
         -------
         ForumThreadCollection

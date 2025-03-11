@@ -6,7 +6,7 @@ import httpx
 @dataclass
 class QMCUser:
     """QuickModuleから返されるユーザー情報を格納するクラス
-    
+
     Attributes
     ----------
     id: int
@@ -14,6 +14,7 @@ class QMCUser:
     name: str
         ユーザー名
     """
+
     id: int
     name: str
 
@@ -21,7 +22,7 @@ class QMCUser:
 @dataclass
 class QMCPage:
     """QuickModuleから返されるページ情報を格納するクラス
-    
+
     Attributes
     ----------
     title: str
@@ -29,6 +30,7 @@ class QMCPage:
     unix_name: str
         ページのUNIX名
     """
+
     title: str
     unix_name: str
 

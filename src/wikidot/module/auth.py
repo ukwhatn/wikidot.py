@@ -11,10 +11,10 @@ if TYPE_CHECKING:
 class HTTPAuthentication:
     """
     WikidotへのHTTP認証を提供するクラス
-    
+
     ログインおよびログアウト処理を管理するための静的メソッドを提供する。
     """
-    
+
     @staticmethod
     def login(
         client: "Client",
@@ -23,7 +23,7 @@ class HTTPAuthentication:
     ):
         """
         ユーザー名とパスワードでWikidotにログインする
-        
+
         Parameters
         ----------
         client : Client
@@ -32,7 +32,7 @@ class HTTPAuthentication:
             ログインするユーザー名
         password : str
             ユーザーのパスワード
-            
+
         Raises
         ------
         SessionCreateException
@@ -79,12 +79,12 @@ class HTTPAuthentication:
     def logout(client: "Client"):
         """
         Wikidotからログアウトする
-        
+
         Parameters
         ----------
         client : Client
             ログアウトするクライアントインスタンス
-            
+
         Notes
         -----
         ログアウト処理でエラーが発生しても無視され、Cookieの削除は常に行われる。

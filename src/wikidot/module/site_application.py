@@ -23,10 +23,10 @@ if TYPE_CHECKING:
 class SiteApplication:
     """
     Wikidotサイトへの参加申請を表すクラス
-    
+
     ユーザーからサイトへの参加申請情報を保持し、申請の承認や拒否などの
     処理機能を提供する。
-    
+
     Attributes
     ----------
     site : Site
@@ -36,7 +36,7 @@ class SiteApplication:
     text : str
         申請メッセージ
     """
-    
+
     site: "Site"
     user: "AbstractUser"
     text: str
@@ -44,7 +44,7 @@ class SiteApplication:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str
@@ -57,17 +57,17 @@ class SiteApplication:
     def acquire_all(site: "Site") -> list["SiteApplication"]:
         """
         サイトへの未処理の参加申請をすべて取得する
-        
+
         Parameters
         ----------
         site : Site
             参加申請を取得するサイト
-            
+
         Returns
         -------
         list[SiteApplication]
             参加申請のリスト
-            
+
         Raises
         ------
         LoginRequiredException
@@ -115,14 +115,14 @@ class SiteApplication:
     def _process(self, action: str):
         """
         参加申請を処理する内部メソッド
-        
+
         承認または拒否の処理を行う共通メソッド。
-        
+
         Parameters
         ----------
         action : str
             処理の種類 ("accept" または "decline")
-            
+
         Raises
         ------
         LoginRequiredException
@@ -161,9 +161,9 @@ class SiteApplication:
     def accept(self):
         """
         参加申請を承認する
-        
+
         申請者をサイトのメンバーとして追加する。
-        
+
         Raises
         ------
         LoginRequiredException
@@ -178,9 +178,9 @@ class SiteApplication:
     def decline(self):
         """
         参加申請を拒否する
-        
+
         申請者の参加を拒否し、申請を削除する。
-        
+
         Raises
         ------
         LoginRequiredException

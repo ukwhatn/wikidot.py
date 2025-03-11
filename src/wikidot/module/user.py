@@ -15,7 +15,7 @@ if TYPE_CHECKING:
 class UserCollection(list["AbstractUser"]):
     """
     ユーザーオブジェクトのコレクションを表すクラス
-    
+
     複数のユーザーオブジェクトを格納・操作するためのリスト拡張クラス。
     イテレーション操作やユーザー名からの一括取得などの機能を提供する。
     """
@@ -23,7 +23,7 @@ class UserCollection(list["AbstractUser"]):
     def __iter__(self) -> Iterator["AbstractUser"]:
         """
         コレクション内のユーザーオブジェクトを順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[AbstractUser]
@@ -37,7 +37,7 @@ class UserCollection(list["AbstractUser"]):
     ) -> "UserCollection":
         """
         ユーザー名のリストからユーザーオブジェクトのコレクションを取得する
-        
+
         Parameters
         ----------
         client : Client
@@ -47,12 +47,12 @@ class UserCollection(list["AbstractUser"]):
         raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
             デフォルトでは送出せず、該当ユーザーは結果に含めない
-            
+
         Returns
         -------
         UserCollection
             ユーザーオブジェクトのコレクション
-            
+
         Raises
         ------
         NotFoundException
@@ -116,7 +116,7 @@ class UserCollection(list["AbstractUser"]):
 class AbstractUser:
     """
     ユーザーオブジェクトの抽象基底クラス
-    
+
     すべてのユーザータイプの共通属性と機能を定義する。
     このクラスを直接インスタンス化せず、派生クラスを使用する。
 
@@ -146,7 +146,7 @@ class AbstractUser:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str
@@ -159,7 +159,7 @@ class AbstractUser:
 class User(AbstractUser):
     """
     一般のWikidotユーザーを表すクラス
-    
+
     登録済みの通常Wikidotユーザーを表現する。ユーザーIDやユーザー名などの基本情報を保持する。
 
     Attributes
@@ -191,7 +191,7 @@ class User(AbstractUser):
     ) -> "AbstractUser":
         """
         ユーザー名からユーザーオブジェクトを取得する
-        
+
         Parameters
         ----------
         client : Client
@@ -201,12 +201,12 @@ class User(AbstractUser):
         raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
             デフォルトでは送出せずにNoneを返す
-            
+
         Returns
         -------
         AbstractUser
             ユーザーオブジェクト
-            
+
         Raises
         ------
         NotFoundException
@@ -223,7 +223,7 @@ class User(AbstractUser):
 class DeletedUser(AbstractUser):
     """
     削除されたWikidotユーザーを表すクラス
-    
+
     すでに削除されたユーザーアカウントを表現する。
     削除されたユーザーには固定の「account deleted」という名前が割り当てられる。
 
@@ -254,7 +254,7 @@ class DeletedUser(AbstractUser):
 class AnonymousUser(AbstractUser):
     """
     匿名（非登録）のWikidotユーザーを表すクラス
-    
+
     登録せずに投稿した匿名ユーザーを表現する。
     IPアドレスのみを識別情報として持つ。
 
@@ -285,7 +285,7 @@ class AnonymousUser(AbstractUser):
 class GuestUser(AbstractUser):
     """
     ゲスト投稿したWikidotユーザーを表すクラス
-    
+
     名前とメールアドレスのみを入力して投稿したゲストユーザーを表現する。
     ユーザー名は任意だが、IDやUNIX名は持たない。
 
@@ -316,7 +316,7 @@ class GuestUser(AbstractUser):
 class WikidotUser(AbstractUser):
     """
     Wikidotシステムユーザーを表すクラス
-    
+
     Wikidotシステムによる自動投稿や通知を表現するための特殊ユーザー。
     "Wikidot"という固定の名前を持つ。
 

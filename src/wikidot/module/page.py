@@ -47,10 +47,10 @@ DEFAULT_MODULE_BODY = [
 class SearchPagesQuery:
     """
     ページ検索クエリを表すクラス
-    
+
     Wikidotのページ検索に使用される各種検索条件を定義する。
     ListPagesModuleに渡すためのクエリパラメータをカプセル化している。
-    
+
     Attributes
     ----------
     pagetype : str, default "*"
@@ -122,9 +122,9 @@ class SearchPagesQuery:
     def as_dict(self) -> dict[str, Any]:
         """
         クエリパラメータを辞書形式に変換する
-        
+
         タグがリスト形式の場合は空白区切りの文字列に変換する。
-        
+
         Returns
         -------
         dict[str, Any]
@@ -139,17 +139,17 @@ class SearchPagesQuery:
 class PageCollection(list["Page"]):
     """
     ページオブジェクトのコレクションを表すクラス
-    
+
     複数のページオブジェクトを格納し、一括して操作するための機能を提供する。
     ページの検索、一括取得、一括操作などの機能を集約している。
     """
-    
+
     def __init__(
         self, site: Optional["Site"] = None, pages: Optional[list["Page"]] = None
     ):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         site : Site | None, default None
@@ -167,7 +167,7 @@ class PageCollection(list["Page"]):
     def __iter__(self) -> Iterator["Page"]:
         """
         コレクション内のページを順に返すイテレータ
-        
+
         Returns
         -------
         Iterator[Page]
@@ -179,19 +179,19 @@ class PageCollection(list["Page"]):
     def _parse(site: "Site", html_body: BeautifulSoup):
         """
         ListPagesModuleのレスポンスをパースしてページオブジェクトのリストを生成する
-        
+
         Parameters
         ----------
         site : Site
             ページが属するサイト
         html_body : BeautifulSoup
             パース対象のHTML
-            
+
         Returns
         -------
         PageCollection
             パース結果のページコレクション
-            
+
         Raises
         ------
         NoElementException
@@ -285,22 +285,22 @@ class PageCollection(list["Page"]):
     def search_pages(site: "Site", query: SearchPagesQuery = SearchPagesQuery()):
         """
         サイト内のページを検索する
-        
+
         指定されたクエリに基づいてサイト内のページを検索し、結果を返す。
         Wikidotの「ListPagesModule」を使用して検索を実行する。
-        
+
         Parameters
         ----------
         site : Site
             検索対象のサイト
         query : SearchPagesQuery, default SearchPagesQuery()
             検索条件
-            
+
         Returns
         -------
         PageCollection
             検索結果のページコレクション
-            
+
         Raises
         ------
         ForbiddenException
@@ -378,22 +378,22 @@ class PageCollection(list["Page"]):
     def _acquire_page_ids(site: "Site", pages: list["Page"]):
         """
         ページIDを取得する内部メソッド
-        
+
         未取得のページIDを一括で取得する。norender/noredirectオプション付きで
         ページにアクセスし、ページソースからIDを抽出する。
-        
+
         Parameters
         ----------
         site : Site
             ページが属するサイト
         pages : list[Page]
             対象ページのリスト
-            
+
         Returns
         -------
         list[Page]
             ID情報が更新されたページのリスト
-            
+
         Raises
         ------
         UnexpectedException
@@ -436,9 +436,9 @@ class PageCollection(list["Page"]):
     def get_page_ids(self):
         """
         コレクション内の全ページのIDを取得する
-        
+
         IDが設定されていないページについて、一括でIDを取得する。
-        
+
         Returns
         -------
         PageCollection
@@ -450,21 +450,21 @@ class PageCollection(list["Page"]):
     def _acquire_page_sources(site: "Site", pages: list["Page"]):
         """
         ページソースを取得する内部メソッド
-        
+
         指定されたページのソースコード（Wikidot記法）を一括で取得する。
-        
+
         Parameters
         ----------
         site : Site
             ページが属するサイト
         pages : list[Page]
             対象ページのリスト
-            
+
         Returns
         -------
         list[Page]
             ソース情報が更新されたページのリスト
-            
+
         Raises
         ------
         NoElementException
@@ -493,9 +493,9 @@ class PageCollection(list["Page"]):
     def get_page_sources(self):
         """
         コレクション内の全ページのソースコードを取得する
-        
+
         ページのソースコード（Wikidot記法）を一括で取得し、各ページのsourceプロパティに設定する。
-        
+
         Returns
         -------
         PageCollection
@@ -507,21 +507,21 @@ class PageCollection(list["Page"]):
     def _acquire_page_revisions(site: "Site", pages: list["Page"]):
         """
         ページリビジョン履歴を取得する内部メソッド
-        
+
         指定されたページのリビジョン（編集履歴）を一括で取得する。
-        
+
         Parameters
         ----------
         site : Site
             ページが属するサイト
         pages : list[Page]
             対象ページのリスト
-            
+
         Returns
         -------
         list[Page]
             リビジョン情報が更新されたページのリスト
-            
+
         Raises
         ------
         NoElementException
@@ -586,9 +586,9 @@ class PageCollection(list["Page"]):
     def get_page_revisions(self):
         """
         コレクション内の全ページのリビジョン履歴を取得する
-        
+
         ページのリビジョン（編集履歴）を一括で取得し、各ページのrevisionsプロパティに設定する。
-        
+
         Returns
         -------
         PageCollection
@@ -600,21 +600,21 @@ class PageCollection(list["Page"]):
     def _acquire_page_votes(site: "Site", pages: list["Page"]):
         """
         ページへの投票情報を取得する内部メソッド
-        
+
         指定されたページへの投票（レーティング）情報を一括で取得する。
-        
+
         Parameters
         ----------
         site : Site
             ページが属するサイト
         pages : list[Page]
             対象ページのリスト
-            
+
         Returns
         -------
         list[Page]
             投票情報が更新されたページのリスト
-            
+
         Raises
         ------
         UnexpectedException
@@ -658,9 +658,9 @@ class PageCollection(list["Page"]):
     def get_page_votes(self):
         """
         コレクション内の全ページの投票情報を取得する
-        
+
         ページへの投票（レーティング）情報を一括で取得し、各ページのvotesプロパティに設定する。
-        
+
         Returns
         -------
         PageCollection
@@ -673,10 +673,10 @@ class PageCollection(list["Page"]):
 class Page:
     """
     Wikidotページを表すクラス
-    
+
     Wikidotサイト内の単一ページに関する情報と操作機能を提供する。
     ページの基本情報、メタデータ、履歴、評価などを管理する。
-    
+
     Attributes
     ----------
     site : Site
@@ -760,9 +760,9 @@ class Page:
     def get_url(self) -> str:
         """
         ページの完全なURLを取得する
-        
+
         サイトのURLとページ名から完全なページURLを生成する。
-        
+
         Returns
         -------
         str
@@ -774,14 +774,14 @@ class Page:
     def id(self) -> int:
         """
         ページIDを取得する
-        
+
         IDが未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         int
             ページID
-            
+
         Raises
         ------
         NotFoundException
@@ -799,7 +799,7 @@ class Page:
     def id(self, value: int):
         """
         ページIDを設定する
-        
+
         Parameters
         ----------
         value : int
@@ -810,7 +810,7 @@ class Page:
     def is_id_acquired(self) -> bool:
         """
         ページIDが既に取得済みかどうかを確認する
-        
+
         Returns
         -------
         bool
@@ -822,14 +822,14 @@ class Page:
     def source(self) -> PageSource:
         """
         ページのソースコードを取得する
-        
+
         ソースコードが未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         PageSource
             ページのソースコードオブジェクト
-            
+
         Raises
         ------
         NotFoundException
@@ -847,7 +847,7 @@ class Page:
     def source(self, value: PageSource):
         """
         ページのソースコードを設定する
-        
+
         Parameters
         ----------
         value : PageSource
@@ -859,14 +859,14 @@ class Page:
     def revisions(self) -> PageRevisionCollection:
         """
         ページのリビジョン履歴を取得する
-        
+
         リビジョン履歴が未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         PageRevisionCollection
             ページのリビジョン履歴コレクション
-            
+
         Raises
         ------
         NotFoundException
@@ -880,7 +880,7 @@ class Page:
     def revisions(self, value: list["PageRevision"] | PageRevisionCollection):
         """
         ページのリビジョン履歴を設定する
-        
+
         Parameters
         ----------
         value : list[PageRevision] | PageRevisionCollection
@@ -895,14 +895,14 @@ class Page:
     def latest_revision(self) -> PageRevision:
         """
         ページの最新リビジョンを取得する
-        
+
         revision_countとrev_noが一致するリビジョンを最新として返す。
-        
+
         Returns
         -------
         PageRevision
             最新のリビジョンオブジェクト
-            
+
         Raises
         ------
         NotFoundException
@@ -919,14 +919,14 @@ class Page:
     def votes(self) -> PageVoteCollection:
         """
         ページへの投票情報を取得する
-        
+
         投票情報が未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         PageVoteCollection
             ページへの投票情報コレクション
-            
+
         Raises
         ------
         NotFoundException
@@ -944,7 +944,7 @@ class Page:
     def votes(self, value: PageVoteCollection):
         """
         ページへの投票情報を設定する
-        
+
         Parameters
         ----------
         value : PageVoteCollection
@@ -955,9 +955,9 @@ class Page:
     def destroy(self):
         """
         ページを削除する
-        
+
         ログイン状態でのみ実行可能。ページの完全削除を行う。
-        
+
         Raises
         ------
         LoginRequiredException
@@ -981,9 +981,9 @@ class Page:
     def metas(self) -> dict[str, str]:
         """
         ページのメタタグ情報を取得する
-        
+
         メタタグ情報が未取得の場合は自動的に取得処理を行う。
-        
+
         Returns
         -------
         dict[str, str]
@@ -1017,14 +1017,14 @@ class Page:
     def metas(self, value: dict[str, str]):
         """
         ページのメタタグ情報を設定する
-        
+
         現在のメタタグと比較し、削除されたものは削除、追加されたものは追加する。
-        
+
         Parameters
         ----------
         value : dict[str, str]
             設定するメタタグ名とその内容の辞書
-            
+
         Raises
         ------
         LoginRequiredException
@@ -1079,10 +1079,10 @@ class Page:
     ) -> "Page":
         """
         ページを作成または編集する
-        
+
         新規ページの作成または既存ページの編集を行う。
         編集の場合はページロックの取得とページ保存の処理を行う。
-        
+
         Parameters
         ----------
         site : Site
@@ -1101,12 +1101,12 @@ class Page:
             他のユーザーによるロックを強制的に解除するかどうか
         raise_on_exists : bool, default False
             ページが既に存在する場合に例外を送出するかどうか
-            
+
         Returns
         -------
         Page
             作成または編集されたページオブジェクト
-            
+
         Raises
         ------
         LoginRequiredException
@@ -1195,9 +1195,9 @@ class Page:
     ) -> "Page":
         """
         このページを編集する
-        
+
         既存ページの内容を更新する。指定されていないパラメータは現在の値を維持する。
-        
+
         Parameters
         ----------
         title : str | None, default None
@@ -1208,12 +1208,12 @@ class Page:
             編集コメント
         force_edit : bool, default False
             他のユーザーによるロックを強制的に解除するかどうか
-            
+
         Returns
         -------
         Page
             編集後のページオブジェクト
-            
+
         Raises
         ------
         同上（create_or_editメソッドと同様）
@@ -1236,14 +1236,14 @@ class Page:
     def commit_tags(self):
         """
         ページのタグ情報を保存する
-        
+
         現在のtagsプロパティの内容をWikidotに保存する。
-        
+
         Returns
         -------
         Page
             自身（メソッドチェーン用）
-            
+
         Raises
         ------
         LoginRequiredException

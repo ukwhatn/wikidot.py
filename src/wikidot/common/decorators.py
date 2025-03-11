@@ -11,25 +11,25 @@ from functools import wraps
 def login_required(func):
     """
     ログインが必要なメソッドや関数に適用するデコレータ
-    
+
     このデコレータを適用したメソッドや関数は、実行前に自動的にログイン状態をチェックする。
     ログインしていない場合はLoginRequiredExceptionが送出される。
-    
+
     クライアントインスタンスは以下の優先順位で検索される：
     1. client という名前の引数
     2. Client クラスのインスタンスである引数
     3. self.client（呼び出し元オブジェクトの属性）
-    
+
     Parameters
     ----------
     func : callable
         デコレートする関数またはメソッド
-        
+
     Returns
     -------
     callable
         ラップされた関数またはメソッド
-        
+
     Raises
     ------
     ValueError

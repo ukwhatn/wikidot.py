@@ -15,14 +15,15 @@ from .user import AbstractUser, User, UserCollection
 class ClientUserMethods:
     """
     ユーザー関連の操作を提供するクラス
-    
+
     クライアントインスタンスに関連付けられ、Wikidotユーザーの取得や操作を行うメソッドを提供する。
     Client.userプロパティを通じてアクセスする。
     """
+
     def __init__(self, client: "Client"):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         client : Client
@@ -33,7 +34,7 @@ class ClientUserMethods:
     def get(self, name: str, raise_when_not_found: bool = False) -> "AbstractUser":
         """
         ユーザー名からユーザーオブジェクトを取得する
-        
+
         Parameters
         ----------
         name : str
@@ -41,7 +42,7 @@ class ClientUserMethods:
         raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
             デフォルトでは送出せずにNoneを返す
-            
+
         Returns
         -------
         AbstractUser
@@ -54,7 +55,7 @@ class ClientUserMethods:
     ) -> UserCollection:
         """
         複数のユーザー名からユーザーオブジェクトのコレクションを取得する
-        
+
         Parameters
         ----------
         names : list[str]
@@ -62,7 +63,7 @@ class ClientUserMethods:
         raise_when_not_found : bool, default False
             ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
             デフォルトでは送出せずにNoneを返す
-            
+
         Returns
         -------
         UserCollection
@@ -74,14 +75,15 @@ class ClientUserMethods:
 class ClientPrivateMessageMethods:
     """
     プライベートメッセージ関連の操作を提供するクラス
-    
+
     クライアントインスタンスに関連付けられ、Wikidotプライベートメッセージの送信や取得を行うメソッドを提供する。
     Client.private_messageプロパティを通じてアクセスする。
     """
+
     def __init__(self, client: "Client"):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         client : Client
@@ -92,7 +94,7 @@ class ClientPrivateMessageMethods:
     def send(self, recipient: User, subject: str, body: str) -> None:
         """
         プライベートメッセージを送信する
-        
+
         Parameters
         ----------
         recipient : User
@@ -107,7 +109,7 @@ class ClientPrivateMessageMethods:
     def get_inbox(self) -> PrivateMessageInbox:
         """
         受信箱を取得する
-        
+
         Returns
         -------
         PrivateMessageInbox
@@ -118,7 +120,7 @@ class ClientPrivateMessageMethods:
     def get_sentbox(self) -> PrivateMessageSentBox:
         """
         送信箱を取得する
-        
+
         Returns
         -------
         PrivateMessageSentBox
@@ -129,12 +131,12 @@ class ClientPrivateMessageMethods:
     def get_messages(self, message_ids: list[int]) -> PrivateMessageCollection:
         """
         複数のメッセージIDからメッセージのコレクションを取得する
-        
+
         Parameters
         ----------
         message_ids : list[int]
             メッセージIDのリスト
-        
+
         Returns
         -------
         PrivateMessageCollection
@@ -145,12 +147,12 @@ class ClientPrivateMessageMethods:
     def get_message(self, message_id: int) -> PrivateMessage:
         """
         メッセージIDからメッセージを取得する
-        
+
         Parameters
         ----------
         message_id : int
             メッセージID
-        
+
         Returns
         -------
         PrivateMessage
@@ -162,14 +164,15 @@ class ClientPrivateMessageMethods:
 class ClientSiteMethods:
     """
     サイト関連の操作を提供するクラス
-    
+
     クライアントインスタンスに関連付けられ、Wikidotサイトの取得や操作を行うメソッドを提供する。
     Client.siteプロパティを通じてアクセスする。
     """
+
     def __init__(self, client: "Client"):
         """
         初期化メソッド
-        
+
         Parameters
         ----------
         client : Client
@@ -180,12 +183,12 @@ class ClientSiteMethods:
     def get(self, unix_name: str) -> "Site":
         """
         UNIX名からサイトオブジェクトを取得する
-        
+
         Parameters
         ----------
         unix_name : str
             サイトのUNIX名（例: 'fondation'）
-        
+
         Returns
         -------
         Site
@@ -197,7 +200,7 @@ class ClientSiteMethods:
 class Client:
     """
     Wikidot APIへの接続とインタラクションを管理する基幹クライアント
-    
+
     このクラスは、Wikidot APIとの全てのインタラクションの基盤となる。
     ユーザー認証、サイト操作、ページ管理などすべての機能はこのクライアントを通じて提供される。
     """
@@ -211,7 +214,7 @@ class Client:
     ):
         """
         クライアントの初期化とオプションでの認証を行う
-        
+
         Parameters
         ----------
         username : str | None, default None
@@ -254,7 +257,7 @@ class Client:
     def __del__(self):
         """
         デストラクタ - クライアントの使用終了時の後処理
-        
+
         ログイン中であればログアウト処理を行い、リソースを解放する。
         """
         if self.is_logged_in:
@@ -266,9 +269,9 @@ class Client:
     def __enter__(self):
         """
         コンテキストマネージャプロトコルのエントリーポイント
-        
+
         with文でクライアントを使用する際に呼び出される。
-        
+
         Returns
         -------
         Client
@@ -279,9 +282,9 @@ class Client:
     def __exit__(self, exc_type, exc_value, traceback):
         """
         コンテキストマネージャプロトコルの終了処理
-        
+
         with文の終了時に呼び出され、自動的にログアウト処理を行う。
-        
+
         Parameters
         ----------
         exc_type : type
@@ -297,7 +300,7 @@ class Client:
     def __str__(self):
         """
         オブジェクトの文字列表現
-        
+
         Returns
         -------
         str
@@ -308,10 +311,10 @@ class Client:
     def login_check(self) -> None:
         """
         ログイン状態の確認
-        
+
         ログインが必要な操作を実行する前に呼び出される。
         ログインしていない場合は例外を送出する。
-        
+
         Raises
         ------
         LoginRequiredException

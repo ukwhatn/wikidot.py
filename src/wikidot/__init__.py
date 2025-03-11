@@ -19,10 +19,10 @@ __version__ = "3.1.0.dev9"
 def _import_submodules():
     """
     パッケージ内の全サブモジュールからクラスをインポートしトップレベルで公開する関数
-    
+
     各サブディレクトリ内のPythonファイルを走査し、含まれるクラスをトップレベルの名前空間に
     インポートする。これにより、`wikidot.ClassName`のような形式でクラスにアクセスできる。
-    
+
     Notes
     -----
     '_'で始まるファイル名は無視される。
@@ -32,13 +32,13 @@ def _import_submodules():
     package_dir = os.path.dirname(__file__)
 
     # 公開対象のディレクトリを走査
-    for base_dir in ['common', 'connector', 'module', 'util']:
+    for base_dir in ["common", "connector", "module", "util"]:
         base_path = os.path.join(package_dir, base_dir)
         if not os.path.isdir(base_path):
             continue
 
         for filename in os.listdir(base_path):
-            if filename.startswith('_') or not filename.endswith('.py'):
+            if filename.startswith("_") or not filename.endswith(".py"):
                 continue
 
             module_name = filename[:-3]  # .py を除去
