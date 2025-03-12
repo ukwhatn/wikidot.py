@@ -15,9 +15,10 @@ import httpx
 from ..common import wd_logger
 from ..common.exceptions import (
     AMCHttpStatusCodeException,
+    ForbiddenException,
     NotFoundException,
     ResponseDataException,
-    WikidotStatusCodeException, ForbiddenException,
+    WikidotStatusCodeException,
 )
 
 
@@ -30,11 +31,11 @@ class AjaxRequestHeader:
     """
 
     def __init__(
-            self,
-            content_type: str | None = None,
-            user_agent: str | None = None,
-            referer: str | None = None,
-            cookie: dict | None = None,
+        self,
+        content_type: str | None = None,
+        user_agent: str | None = None,
+        referer: str | None = None,
+        cookie: dict | None = None,
     ):
         """
         AjaxRequestHeaderの初期化
@@ -138,9 +139,9 @@ class AjaxModuleConnectorClient:
     """
 
     def __init__(
-            self,
-            site_name: str | None = None,
-            config: AjaxModuleConnectorConfig | None = None,
+        self,
+        site_name: str | None = None,
+        config: AjaxModuleConnectorConfig | None = None,
     ):
         """
         AjaxModuleConnectorClientの初期化
@@ -191,17 +192,17 @@ class AjaxModuleConnectorClient:
 
         # httpsにリダイレクトされているかどうかで判断
         return (
-                response.status_code == httpx.codes.MOVED_PERMANENTLY
-                and "Location" in response.headers
-                and response.headers["Location"].startswith("https")
+            response.status_code == httpx.codes.MOVED_PERMANENTLY
+            and "Location" in response.headers
+            and response.headers["Location"].startswith("https")
         )
 
     def request(
-            self,
-            bodies: list[dict[str, Any]],
-            return_exceptions: bool = False,
-            site_name: str | None = None,
-            site_ssl_supported: bool | None = None,
+        self,
+        bodies: list[dict[str, Any]],
+        return_exceptions: bool = False,
+        site_name: str | None = None,
+        site_ssl_supported: bool | None = None,
     ) -> tuple[httpx.Response | Exception]:
         """
         Ajax Module Connectorにリクエストを送信し、レスポンスを取得する

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 from bs4 import BeautifulSoup
 
 from ..common.exceptions import (
-    ForbiddenException,
     TargetErrorException,
     WikidotStatusCodeException,
 )
