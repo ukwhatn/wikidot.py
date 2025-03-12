@@ -81,18 +81,13 @@ class PageRevisionCollection(list["PageRevision"]):
         NoElementException
             ソース要素が見つからない場合
         """
-        target_revisions = [
-            revision for revision in revisions if not revision.is_source_acquired()
-        ]
+        target_revisions = [revision for revision in revisions if not revision.is_source_acquired()]
 
         if len(target_revisions) == 0:
             return revisions
 
         responses = page.site.amc_request(
-            [
-                {"moduleName": "history/PageSourceModule", "revision_id": revision.id}
-                for revision in target_revisions
-            ]
+            [{"moduleName": "history/PageSourceModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
         for revision, response in zip(target_revisions, responses):
@@ -138,18 +133,13 @@ class PageRevisionCollection(list["PageRevision"]):
         list[PageRevision]
             HTML情報が更新されたリビジョンのリスト
         """
-        target_revisions = [
-            revision for revision in revisions if not revision.is_html_acquired()
-        ]
+        target_revisions = [revision for revision in revisions if not revision.is_html_acquired()]
 
         if len(target_revisions) == 0:
             return revisions
 
         responses = page.site.amc_request(
-            [
-                {"moduleName": "history/PageVersionModule", "revision_id": revision.id}
-                for revision in target_revisions
-            ]
+            [{"moduleName": "history/PageVersionModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
         for revision, response in zip(target_revisions, responses):

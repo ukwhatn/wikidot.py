@@ -51,9 +51,7 @@ class AjaxRequestHeader:
             設定するCookie。Noneの場合は空の辞書が使用される
         """
         self.content_type: str = (
-            "application/x-www-form-urlencoded; charset=UTF-8"
-            if content_type is None
-            else content_type
+            "application/x-www-form-urlencoded; charset=UTF-8" if content_type is None else content_type
         )
         self.user_agent: str = "WikidotPy" if user_agent is None else user_agent
         self.referer: str = "https://www.wikidot.com/" if referer is None else referer
@@ -101,9 +99,7 @@ class AjaxRequestHeader:
             "Content-Type": self.content_type,
             "User-Agent": self.user_agent,
             "Referer": self.referer,
-            "Cookie": "".join(
-                [f"{name}={value};" for name, value in self.cookie.items()]
-            ),
+            "Cookie": "".join([f"{name}={value};" for name, value in self.cookie.items()]),
         }
 
 
@@ -157,9 +153,7 @@ class AjaxModuleConnectorClient:
             通信設定。Noneの場合はデフォルト値が使用される
         """
         self.site_name: str = site_name if site_name is not None else "www"
-        self.config: AjaxModuleConnectorConfig = (
-            config if config is not None else AjaxModuleConnectorConfig()
-        )
+        self.config: AjaxModuleConnectorConfig = config if config is not None else AjaxModuleConnectorConfig()
 
         # ssl対応チェック
         self.ssl_supported: bool = self._check_existence_and_ssl()
@@ -242,9 +236,7 @@ class AjaxModuleConnectorClient:
         semaphore_instance = asyncio.Semaphore(self.config.semaphore_limit)
 
         site_name = site_name if site_name is not None else self.site_name
-        site_ssl_supported = (
-            site_ssl_supported if site_ssl_supported is not None else self.ssl_supported
-        )
+        site_ssl_supported = site_ssl_supported if site_ssl_supported is not None else self.ssl_supported
 
         async def _request(_body: dict[str, Any]) -> httpx.Response:
             retry_count = 0
@@ -298,12 +290,8 @@ class AjaxModuleConnectorClient:
                     _response_body = response.json()
                 except json.decoder.JSONDecodeError as e:
                     # パースできなかったらエラーとして扱う
-                    wd_logger.error(
-                        f'AMC is respond non-json data: "{response.text}" -> {_body}'
-                    )
-                    raise ResponseDataException(
-                        f'AMC is respond non-json data: "{response.text}"'
-                    ) from e
+                    wd_logger.error(f'AMC is respond non-json data: "{response.text}" -> {_body}')
+                    raise ResponseDataException(f'AMC is respond non-json data: "{response.text}"') from e
 
                 # レスポンスが空だったらエラーとして扱う
                 if _response_body is None or len(_response_body) == 0:
@@ -316,24 +304,16 @@ class AjaxModuleConnectorClient:
                     if _response_body["status"] == "try_again":
                         retry_count += 1
                         if retry_count >= self.config.attempt_limit:
-                            wd_logger.error(
-                                f'AMC is respond status: "try_again" -> {_body}'
-                            )
-                            raise WikidotStatusCodeException(
-                                'AMC is respond status: "try_again"', "try_again"
-                            )
+                            wd_logger.error(f'AMC is respond status: "try_again" -> {_body}')
+                            raise WikidotStatusCodeException('AMC is respond status: "try_again"', "try_again")
 
-                        wd_logger.info(
-                            f'AMC is respond status: "try_again" (retry: {retry_count})'
-                        )
+                        wd_logger.info(f'AMC is respond status: "try_again" (retry: {retry_count})')
                         await asyncio.sleep(self.config.retry_interval)
                         continue
 
                     # それ以外でstatusがokでない場合はエラーとして扱う
                     elif _response_body["status"] != "ok":
-                        wd_logger.error(
-                            f'AMC is respond error status: "{_response_body["status"]}" -> {_body}'
-                        )
+                        wd_logger.error(f'AMC is respond error status: "{_response_body["status"]}" -> {_body}')
                         raise WikidotStatusCodeException(
                             f'AMC is respond error status: "{_response_body["status"]}"',
                             _response_body["status"],

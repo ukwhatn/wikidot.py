@@ -12,6 +12,7 @@ import sys
 
 from .module.client import Client
 
+__all__ = ["Client"]
 __version__ = "3.1.0.dev9"
 
 

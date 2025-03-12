@@ -84,9 +84,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
         """
         categories = []
 
-        response = site.amc_request(
-            [{"moduleName": "forum/ForumStartModule", "hidden": "true"}]
-        )[0]
+        response = site.amc_request([{"moduleName": "forum/ForumStartModule", "hidden": "true"}])[0]
 
         body = response.json()["body"]
         html = BeautifulSoup(body, "lxml")

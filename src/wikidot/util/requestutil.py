@@ -46,13 +46,9 @@ class RequestUtil:
 
         async def _execute():
             if method == "GET":
-                return await asyncio.gather(
-                    *[_get(url) for url in urls], return_exceptions=return_exceptions
-                )
+                return await asyncio.gather(*[_get(url) for url in urls], return_exceptions=return_exceptions)
             elif method == "POST":
-                return await asyncio.gather(
-                    *[_post(url) for url in urls], return_exceptions=return_exceptions
-                )
+                return await asyncio.gather(*[_post(url) for url in urls], return_exceptions=return_exceptions)
             else:
                 raise ValueError("Invalid method")
 

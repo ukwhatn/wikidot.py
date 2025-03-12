@@ -65,9 +65,7 @@ class ForumThreadCollection(list["ForumThread"]):
         return super().__iter__()
 
     @staticmethod
-    def _parse(
-        site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
-    ) -> list["ForumThread"]:
+    def _parse(site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None) -> list["ForumThread"]:
         """
         フォーラムページのHTMLからスレッド情報を抽出する内部メソッド
 

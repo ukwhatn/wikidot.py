@@ -77,16 +77,12 @@ class SiteApplication:
         UnexpectedException
             応答の解析に失敗した場合
         """
-        response = site.amc_request(
-            [{"moduleName": "managesite/ManageSiteMembersApplicationsModule"}]
-        )[0]
+        response = site.amc_request([{"moduleName": "managesite/ManageSiteMembersApplicationsModule"}])[0]
 
         body = response.json()["body"]
 
         if "WIKIDOT.page.listeners.loginClick(event)" in body:
-            raise exceptions.ForbiddenException(
-                "You are not allowed to access this page"
-            )
+            raise exceptions.ForbiddenException("You are not allowed to access this page")
 
         html = BeautifulSoup(response.json()["body"], "lxml")
 
@@ -96,9 +92,7 @@ class SiteApplication:
         text_wrapper_elements = html.select("table")
 
         if len(user_elements) != len(text_wrapper_elements):
-            raise exceptions.UnexpectedException(
-                "Length of user_elements and text_wrapper_elements are different"
-            )
+            raise exceptions.UnexpectedException("Length of user_elements and text_wrapper_elements are different")
 
         for i in range(len(user_elements)):
             user_element = user_elements[i]
@@ -152,9 +146,7 @@ class SiteApplication:
             )
         except exceptions.WikidotStatusCodeException as e:
             if e.status_code == "no_application":
-                raise exceptions.NotFoundException(
-                    f"Application not found: {self.user}"
-                ) from e
+                raise exceptions.NotFoundException(f"Application not found: {self.user}") from e
             else:
                 raise e
 

@@ -144,9 +144,7 @@ class PageCollection(list["Page"]):
     ページの検索、一括取得、一括操作などの機能を集約している。
     """
 
-    def __init__(
-        self, site: Optional["Site"] = None, pages: Optional[list["Page"]] = None
-    ):
+    def __init__(self, site: Optional["Site"] = None, pages: Optional[list["Page"]] = None):
         """
         初期化メソッド
 
@@ -203,10 +201,7 @@ class PageCollection(list["Page"]):
             page_params = {}
 
             # レーティング方式を判定
-            is_5star_rating = (
-                page_element.select_one("span.rating span.page-rate-list-pages-start")
-                is not None
-            )
+            is_5star_rating = page_element.select_one("span.rating span.page-rate-list-pages-start") is not None
 
             # 各値を取得
             for set_element in page_element.select("span.set"):
@@ -331,9 +326,7 @@ class PageCollection(list["Page"]):
             response = site.amc_request([query_dict])[0]
         except exceptions.WikidotStatusCodeException as e:
             if e.status_code == "not_ok":
-                raise exceptions.ForbiddenException(
-                    "Failed to get pages, target site may be private"
-                ) from e
+                raise exceptions.ForbiddenException("Failed to get pages, target site may be private") from e
             raise e
 
         body = response.json()["body"]
@@ -345,9 +338,7 @@ class PageCollection(list["Page"]):
         # pagerが存在する
         if first_page_html_body.select_one("div.pager") is not None:
             # span.target[-2] > a から最大ページ数を取得
-            last_pager_element = first_page_html_body.select("div.pager span.target")[
-                -2
-            ]
+            last_pager_element = first_page_html_body.select("div.pager span.target")[-2]
             last_pager_link_element = last_pager_element.select_one("a")
             if last_pager_link_element is None:
                 raise exceptions.NoElementException("Cannot find last pager link")
@@ -361,12 +352,7 @@ class PageCollection(list["Page"]):
                 request_bodies.append(_query_dict)
 
             responses = site.amc_request(request_bodies)
-            html_bodies.extend(
-                [
-                    BeautifulSoup(response.json()["body"], "lxml")
-                    for response in responses
-                ]
-            )
+            html_bodies.extend([BeautifulSoup(response.json()["body"], "lxml") for response in responses])
 
         pages = []
         for html_body in html_bodies:
@@ -410,25 +396,18 @@ class PageCollection(list["Page"]):
         responses = RequestUtil.request(
             site.client,
             "GET",
-            [
-                f"{page.get_url()}/norender/true/noredirect/true"
-                for page in target_pages
-            ],
+            [f"{page.get_url()}/norender/true/noredirect/true" for page in target_pages],
         )
 
         # "WIKIREQUEST.info.pageId = xxx;"の値をidに設定
         for index, response in enumerate(responses):
             if not isinstance(response, httpx.Response):
-                raise exceptions.UnexpectedException(
-                    f"Unexpected response type: {type(response)}"
-                )
+                raise exceptions.UnexpectedException(f"Unexpected response type: {type(response)}")
             source = response.text
 
             id_match = re.search(r"WIKIREQUEST\.info\.pageId = (\d+);", source)
             if id_match is None:
-                raise exceptions.UnexpectedException(
-                    f"Cannot find page id: {target_pages[index].fullname}"
-                )
+                raise exceptions.UnexpectedException(f"Cannot find page id: {target_pages[index].fullname}")
             target_pages[index].id = int(id_match.group(1))
 
         return pages
@@ -474,10 +453,7 @@ class PageCollection(list["Page"]):
             return pages
 
         responses = site.amc_request(
-            [
-                {"moduleName": "viewsource/ViewSourceModule", "page_id": page.id}
-                for page in pages
-            ]
+            [{"moduleName": "viewsource/ViewSourceModule", "page_id": page.id} for page in pages]
         )
 
         for page, responses in zip(pages, responses):
@@ -546,25 +522,19 @@ class PageCollection(list["Page"]):
             body = response.json()["body"]
             revs = []
             body_html = BeautifulSoup(body, "lxml")
-            for rev_element in body_html.select(
-                "table.page-history > tr[id^=revision-row-]"
-            ):
+            for rev_element in body_html.select("table.page-history > tr[id^=revision-row-]"):
                 rev_id = int(str(rev_element["id"]).removeprefix("revision-row-"))
 
                 tds = rev_element.select("td")
                 rev_no = int(tds[0].text.strip().removesuffix("."))
                 created_by_elem = tds[4].select_one("span.printuser")
                 if created_by_elem is None:
-                    raise exceptions.NoElementException(
-                        "Cannot find created by element"
-                    )
+                    raise exceptions.NoElementException("Cannot find created by element")
                 created_by = user_parser(page.site.client, created_by_elem)
 
                 created_at_elem = tds[5].select_one("span.odate")
                 if created_at_elem is None:
-                    raise exceptions.NoElementException(
-                        "Cannot find created at element"
-                    )
+                    raise exceptions.NoElementException("Cannot find created at element")
                 created_at = odate_parser(created_at_elem)
 
                 comment = tds[6].text.strip()
@@ -624,10 +594,7 @@ class PageCollection(list["Page"]):
             return pages
 
         responses = site.amc_request(
-            [
-                {"moduleName": "pagerate/WhoRatedPageModule", "pageId": page.id}
-                for page in pages
-            ]
+            [{"moduleName": "pagerate/WhoRatedPageModule", "pageId": page.id} for page in pages]
         )
 
         for page, response in zip(pages, responses):
@@ -1004,9 +971,7 @@ class Page:
 
             # <meta name="xxx" content="yyy"/> を正規表現で取得
             metas = {}
-            for meta in re.findall(
-                r'&lt;meta name="([^"]+)" content="([^"]+)"/&gt;', body
-            ):
+            for meta in re.findall(r'&lt;meta name="([^"]+)" content="([^"]+)"/&gt;', body):
                 metas[meta[0]] = meta[1]
 
             self._metas = metas
@@ -1136,10 +1101,7 @@ class Page:
         page_lock_response = site.amc_request([page_lock_request_body])[0]
         page_lock_response_data = page_lock_response.json()
 
-        if (
-            "locked" in page_lock_response_data
-            or "other_locks" in page_lock_response_data
-        ):
+        if "locked" in page_lock_response_data or "other_locks" in page_lock_response_data:
             raise exceptions.TargetErrorException(
                 f"Page {fullname} is locked or other locks exist",
             )

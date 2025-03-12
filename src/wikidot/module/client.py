@@ -50,9 +50,7 @@ class ClientUserMethods:
         """
         return User.from_name(self.client, name, raise_when_not_found)
 
-    def get_bulk(
-        self, names: list[str], raise_when_not_found: bool = False
-    ) -> UserCollection:
+    def get_bulk(self, names: list[str], raise_when_not_found: bool = False) -> UserCollection:
         """
         複数のユーザー名からユーザーオブジェクトのコレクションを取得する
 

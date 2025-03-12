@@ -124,9 +124,7 @@ class SitePageMethods:
         NotFoundException
             raise_when_not_foundがTrueでページが見つからない場合
         """
-        res = PageCollection.search_pages(
-            self.site, SearchPagesQuery(fullname=fullname)
-        )
+        res = PageCollection.search_pages(self.site, SearchPagesQuery(fullname=fullname))
         if len(res) == 0:
             if raise_when_not_found:
                 raise exceptions.NotFoundException(f"Page is not found: {fullname}")
@@ -302,9 +300,7 @@ class Site:
 
         # サイトが存在しない場合
         if response.status_code == httpx.codes.NOT_FOUND:
-            raise exceptions.NotFoundException(
-                f"Site is not found: {unix_name}.wikidot.com"
-            )
+            raise exceptions.NotFoundException(f"Site is not found: {unix_name}.wikidot.com")
 
         # サイトが存在する場合
         source = response.text
@@ -312,35 +308,25 @@ class Site:
         # id : WIKIREQUEST.info.siteId = xxxx;
         id_match = re.search(r"WIKIREQUEST\.info\.siteId = (\d+);", source)
         if id_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site id: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site id: {unix_name}.wikidot.com")
         site_id = int(id_match.group(1))
 
         # title : titleタグ
         title_match = re.search(r"<title>(.*?)</title>", source)
         if title_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site title: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site title: {unix_name}.wikidot.com")
         title = title_match.group(1)
 
         # unix_name : WIKIREQUEST.info.siteUnixName = "xxxx";
-        unix_name_match = re.search(
-            r'WIKIREQUEST\.info\.siteUnixName = "(.*?)";', source
-        )
+        unix_name_match = re.search(r'WIKIREQUEST\.info\.siteUnixName = "(.*?)";', source)
         if unix_name_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site unix_name: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site unix_name: {unix_name}.wikidot.com")
         unix_name = unix_name_match.group(1)
 
         # domain :WIKIREQUEST.info.domain = "xxxx";
         domain_match = re.search(r'WIKIREQUEST\.info\.domain = "(.*?)";', source)
         if domain_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site domain: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site domain: {unix_name}.wikidot.com")
         domain = domain_match.group(1)
 
         # SSL対応チェック
@@ -371,9 +357,7 @@ class Site:
         list | Exception
             レスポンスのリスト、またはreturn_exceptionsがTrueの場合は例外
         """
-        return self.client.amc_client.request(
-            bodies, return_exceptions, self.unix_name, self.ssl_supported
-        )
+        return self.client.amc_client.request(bodies, return_exceptions, self.unix_name, self.ssl_supported)
 
     def get_applications(self):
         """
@@ -506,9 +490,7 @@ class Site:
             return False
 
         for user in users:
-            if user.name.strip() == user_name and (
-                user_id is None or user.id == user_id
-            ):
+            if user.name.strip() == user_name and (user_id is None or user.id == user_id):
                 return True
 
         return False

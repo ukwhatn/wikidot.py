@@ -35,6 +35,10 @@ lint:
 	python -m ruff check $(FORMAT_DIR)
 	python -m mypy $(FORMAT_DIR) --install-types --non-interactive
 
+lint-fix:
+	pip install -e .[lint]
+	python -m ruff check $(FORMAT_DIR) --fix
+
 # ドキュメント関連のコマンド
 docs-install:
 	pip install -e .[docs]

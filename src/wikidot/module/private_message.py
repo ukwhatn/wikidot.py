@@ -55,9 +55,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 
     @staticmethod
     @login_required
-    def from_ids(
-        client: "Client", message_ids: list[int]
-    ) -> "PrivateMessageCollection":
+    def from_ids(client: "Client", message_ids: list[int]) -> "PrivateMessageCollection":
         """
         メッセージIDのリストからメッセージオブジェクトのコレクションを取得する
 
@@ -92,18 +90,14 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                 }
             )
 
-        responses: tuple[httpx.Response | Exception] = client.amc_client.request(
-            bodies, return_exceptions=True
-        )
+        responses: tuple[httpx.Response | Exception] = client.amc_client.request(bodies, return_exceptions=True)
 
         messages = []
 
         for index, response in enumerate(responses):
             if isinstance(response, exceptions.WikidotStatusCodeException):
                 if response.status_code == "no_message":
-                    raise exceptions.ForbiddenException(
-                        f"Failed to get message: {message_ids[index]}"
-                    ) from response
+                    raise exceptions.ForbiddenException(f"Failed to get message: {message_ids[index]}") from response
 
             if isinstance(response, Exception):
                 raise response
@@ -124,11 +118,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                     recipient=user_parser(client, recipient),
                     subject=subject_element.get_text() if subject_element else "",
                     body=body_element.get_text() if body_element else "",
-                    created_at=(
-                        odate_parser(odate_element)
-                        if odate_element
-                        else datetime.fromtimestamp(0)
-                    ),
+                    created_at=(odate_parser(odate_element) if odate_element else datetime.fromtimestamp(0)),
                 )
             )
 
@@ -161,9 +151,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
             ログインしていない場合
         """
         # pager取得
-        response: httpx.Response = cast(
-            httpx.Response, client.amc_client.request([{"moduleName": module_name}])[0]
-        )
+        response: httpx.Response = cast(httpx.Response, client.amc_client.request([{"moduleName": module_name}])[0])
 
         html = BeautifulSoup(response.json()["body"], "lxml")
         # pagerの最後から2番目の要素を取得
@@ -173,10 +161,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 
         if max_page > 1:
             # メッセージ取得
-            bodies = [
-                {"page": page, "moduleName": module_name}
-                for page in range(1, max_page + 1)
-            ]
+            bodies = [{"page": page, "moduleName": module_name} for page in range(1, max_page + 1)]
 
             responses: tuple[httpx.Response] = cast(
                 tuple[httpx.Response],
@@ -189,12 +174,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         for response in responses:
             html = BeautifulSoup(response.json()["body"], "lxml")
             # tr.messageのdata-href末尾の数字を取得
-            message_ids.extend(
-                [
-                    int(str(tr["data-href"]).split("/")[-1])
-                    for tr in html.select("tr.message")
-                ]
-            )
+            message_ids.extend([int(str(tr["data-href"]).split("/")[-1]) for tr in html.select("tr.message")])
 
         return PrivateMessageCollection.from_ids(client, message_ids)
 
@@ -224,9 +204,7 @@ class PrivateMessageInbox(PrivateMessageCollection):
         PrivateMessageInbox
             受信箱メッセージのコレクション
         """
-        return PrivateMessageInbox(
-            PrivateMessageCollection.from_ids(client, message_ids)
-        )
+        return PrivateMessageInbox(PrivateMessageCollection.from_ids(client, message_ids))
 
     @staticmethod
     def acquire(client: "Client"):
@@ -248,11 +226,7 @@ class PrivateMessageInbox(PrivateMessageCollection):
         LoginRequiredException
             ログインしていない場合
         """
-        return PrivateMessageInbox(
-            PrivateMessageCollection._acquire(
-                client, "dashboard/messages/DMInboxModule"
-            )
-        )
+        return PrivateMessageInbox(PrivateMessageCollection._acquire(client, "dashboard/messages/DMInboxModule"))
 
 
 class PrivateMessageSentBox(PrivateMessageCollection):
@@ -280,9 +254,7 @@ class PrivateMessageSentBox(PrivateMessageCollection):
         PrivateMessageSentBox
             送信箱メッセージのコレクション
         """
-        return PrivateMessageSentBox(
-            PrivateMessageCollection.from_ids(client, message_ids)
-        )
+        return PrivateMessageSentBox(PrivateMessageCollection.from_ids(client, message_ids))
 
     @staticmethod
     def acquire(client: "Client") -> "PrivateMessageSentBox":
@@ -304,9 +276,7 @@ class PrivateMessageSentBox(PrivateMessageCollection):
         LoginRequiredException
             ログインしていない場合
         """
-        return PrivateMessageSentBox(
-            PrivateMessageCollection._acquire(client, "dashboard/messages/DMSentModule")
-        )
+        return PrivateMessageSentBox(PrivateMessageCollection._acquire(client, "dashboard/messages/DMSentModule"))
 
 
 @dataclass
