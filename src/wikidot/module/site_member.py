@@ -202,9 +202,6 @@ class SiteMember:
                 ]
             )
         except WikidotStatusCodeException as e:
-            if e.status_code == "no_permission":
-                raise ForbiddenException(f"You don't have permission to do {event} event") from e
-
             if e.status_code == "not_already":
                 raise TargetErrorException(f"User is not moderator/admin: {self.user.name}") from e
 

@@ -17,7 +17,7 @@ from ..common.exceptions import (
     AMCHttpStatusCodeException,
     NotFoundException,
     ResponseDataException,
-    WikidotStatusCodeException,
+    WikidotStatusCodeException, ForbiddenException,
 )
 
 
@@ -30,11 +30,11 @@ class AjaxRequestHeader:
     """
 
     def __init__(
-        self,
-        content_type: str | None = None,
-        user_agent: str | None = None,
-        referer: str | None = None,
-        cookie: dict | None = None,
+            self,
+            content_type: str | None = None,
+            user_agent: str | None = None,
+            referer: str | None = None,
+            cookie: dict | None = None,
     ):
         """
         AjaxRequestHeaderの初期化
@@ -138,9 +138,9 @@ class AjaxModuleConnectorClient:
     """
 
     def __init__(
-        self,
-        site_name: str | None = None,
-        config: AjaxModuleConnectorConfig | None = None,
+            self,
+            site_name: str | None = None,
+            config: AjaxModuleConnectorConfig | None = None,
     ):
         """
         AjaxModuleConnectorClientの初期化
@@ -191,17 +191,17 @@ class AjaxModuleConnectorClient:
 
         # httpsにリダイレクトされているかどうかで判断
         return (
-            response.status_code == httpx.codes.MOVED_PERMANENTLY
-            and "Location" in response.headers
-            and response.headers["Location"].startswith("https")
+                response.status_code == httpx.codes.MOVED_PERMANENTLY
+                and "Location" in response.headers
+                and response.headers["Location"].startswith("https")
         )
 
     def request(
-        self,
-        bodies: list[dict[str, Any]],
-        return_exceptions: bool = False,
-        site_name: str | None = None,
-        site_ssl_supported: bool | None = None,
+            self,
+            bodies: list[dict[str, Any]],
+            return_exceptions: bool = False,
+            site_name: str | None = None,
+            site_ssl_supported: bool | None = None,
     ) -> tuple[httpx.Response | Exception]:
         """
         Ajax Module Connectorにリクエストを送信し、レスポンスを取得する
@@ -310,6 +310,14 @@ class AjaxModuleConnectorClient:
                         wd_logger.info(f'AMC is respond status: "try_again" (retry: {retry_count})')
                         await asyncio.sleep(self.config.retry_interval)
                         continue
+
+                    elif _response_body["status"] == "no_permission":
+                        target_str = "unknown"
+                        if "moduleName" in _body:
+                            target_str = f"moduleName: {_body['moduleName']}"
+                        elif "action" in _body:
+                            target_str = f"action: {_body['action']}/{_body['event'] if 'event' in _body else ''}"
+                        raise ForbiddenException(f"Your account has no permission to perform this action: {target_str}")
 
                     # それ以外でstatusがokでない場合はエラーとして扱う
                     elif _response_body["status"] != "ok":
