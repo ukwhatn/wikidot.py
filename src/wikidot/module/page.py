@@ -735,7 +735,7 @@ class Page:
         str
             ページの完全なURL
         """
-        return f"{self.site.get_url()}/{self.fullname}"
+        return f"{self.site.url}/{self.fullname}"
 
     @property
     def id(self) -> int:

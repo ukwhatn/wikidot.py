@@ -195,6 +195,7 @@ class SiteForumMethods:
         """
         self.site = site
 
+    @property
     def categories(self) -> "ForumCategoryCollection":
         """
         サイト内のフォーラムカテゴリ一覧を取得する
@@ -415,7 +416,8 @@ class Site:
             else:
                 raise e
 
-    def get_url(self):
+    @property
+    def url(self):
         """
         サイトのURLを取得する
 

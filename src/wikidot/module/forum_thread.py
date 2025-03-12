@@ -11,7 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 
 from ..common.exceptions import NoElementException
 from ..util.parser import odate as odate_parser
@@ -65,7 +65,9 @@ class ForumThreadCollection(list["ForumThread"]):
         return super().__iter__()
 
     @staticmethod
-    def _parse(site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None) -> list["ForumThread"]:
+    def _parse_list_in_category(
+        site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
+    ) -> list["ForumThread"]:
         """
         フォーラムページのHTMLからスレッド情報を抽出する内部メソッド
 
@@ -137,6 +139,90 @@ class ForumThreadCollection(list["ForumThread"]):
         return threads
 
     @staticmethod
+    def _parse_thread_page(
+        site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
+    ) -> "ForumThread":
+        """
+        スレッドページのHTMLからスレッド情報を抽出する内部メソッド
+
+        HTMLからスレッドのタイトル、説明、作成者、作成日時などの情報を抽出し、
+        ForumThreadオブジェクトを生成する。
+
+        Parameters
+        ----------
+        site : Site
+            スレッドが属するサイト
+        html : BeautifulSoup
+            パース対象のHTML
+        category : ForumCategory | None, default None
+            スレッドが属するカテゴリ（オプション）
+
+        Returns
+        -------
+        ForumThread
+            抽出されたスレッドオブジェクト
+
+        Raises
+        ------
+        NoElementException
+            必要なHTML要素が見つからない場合
+        """
+        # title取得処理
+        # forum-breadcrumbsの最後のNavigableStringを取得
+        bc_elem = html.select_one("div.forum-breadcrumbs")
+        if bc_elem is None:
+            raise NoElementException("Breadcrumbs element is not found.")
+        title = bc_elem.contents[-1].text.strip().removeprefix("» ")
+
+        # description取得処理
+        description_block_elem = html.select_one("div.description-block")
+        if description_block_elem is None:
+            raise NoElementException("Description block element is not found.")
+        description = "".join(
+            [text.strip() for text in description_block_elem if isinstance(text, NavigableString) and text.strip()]
+        )
+
+        # created_by取得処理
+        user_elem = html.select_one("div.statistics span.printuser")
+        if user_elem is None:
+            raise NoElementException("User element is not found.")
+        created_by = user_parser(site.client, user_elem)
+
+        # created_at取得処理
+        odate_elem = html.select_one("div.statistics span.odate")
+        if odate_elem is None:
+            raise NoElementException("Odate element is not found.")
+        created_at = odate_parser(odate_elem)
+
+        # post_count取得処理
+        # 3番目のbrの前のテキスト
+        br_tags = html.select("div.statistics br")
+        if len(br_tags) < 3:
+            raise NoElementException("Br tags are not enough.")
+        post_count_elem = br_tags[2].previous_sibling
+        if post_count_elem is None:
+            raise NoElementException("Posts count element is not found.")
+        post_count = int(re.search(r"(\d+)", post_count_elem).group(1))
+
+        # id取得処理
+        # WIKIDOT.forumThreadId = 17065036;を全体から検索
+        script_elem = html.find("script", text=re.compile(r"WIKIDOT.forumThreadId = \d+;"))
+        if script_elem is None:
+            raise NoElementException("Script element is not found.")
+        thread_id = int(re.search(r"(\d+)", script_elem.text).group(1))
+
+        return ForumThread(
+            site=site,
+            id=thread_id,
+            title=title,
+            description=description,
+            created_by=created_by,
+            created_at=created_at,
+            post_count=post_count,
+            category=category,
+        )
+
+    @staticmethod
     def acquire_all_in_category(category: "ForumCategory") -> "ForumThreadCollection":
         """
         特定のカテゴリ内のすべてのスレッドを取得する
@@ -174,7 +260,7 @@ class ForumThreadCollection(list["ForumThread"]):
         first_body = first_response.json()["body"]
         first_html = BeautifulSoup(first_body, "lxml")
 
-        threads.extend(ForumThreadCollection._parse(category.site, first_html))
+        threads.extend(ForumThreadCollection._parse_list_in_category(category.site, first_html))
 
         # pager検索
         pager = first_html.select_one("div.pager")
@@ -199,9 +285,54 @@ class ForumThreadCollection(list["ForumThread"]):
         for response in responses:
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
-            threads.extend(ForumThreadCollection._parse(category.site, html, category))
+            threads.extend(ForumThreadCollection._parse_list_in_category(category.site, html, category))
 
         return ForumThreadCollection(site=category.site, threads=threads)
+
+    @staticmethod
+    def acquire_from_thread_ids(
+        site: "Site", thread_ids: list[int], category: Optional["ForumCategory"] = None
+    ) -> "ForumThreadCollection":
+        """
+        指定されたスレッドIDのスレッド情報を取得する
+
+        指定されたスレッドIDのスレッド情報を取得し、コレクションとして返す。
+
+        Parameters
+        ----------
+        site : Site
+            スレッドが属するサイト
+        thread_ids : list[int]
+            取得するスレッドのIDリスト
+        category : ForumCategory | None, default None
+            スレッドが属するカテゴリ（オプション）
+
+        Returns
+        -------
+        ForumThreadCollection
+            取得したスレッド情報のコレクション
+        """
+        threads = []
+
+        for thread_id in thread_ids:
+            response = site.amc_request(
+                [
+                    {
+                        "t": thread_id,
+                        "moduleName": "forum/ForumViewThreadModule",
+                    }
+                ]
+            )[0]
+
+            body = response.json()["body"]
+            html = BeautifulSoup(body, "lxml")
+
+            thread = ForumThreadCollection._parse_thread_page(site, html, category)
+            if thread_id != thread.id:
+                raise NoElementException("Thread ID is not matched.")
+            threads.append(thread)
+
+        return ForumThreadCollection(site=site, threads=threads)
 
 
 @dataclass
@@ -254,5 +385,39 @@ class ForumThread:
             f"ForumThread(id={self.id}, "
             f"title={self.title}, description={self.description}, "
             f"created_by={self.created_by}, created_at={self.created_at}, "
-            f"post_count={self.post_count})"
+            f"post_count={self.post_count}), "
+            f"category={self.category}"
         )
+
+    @property
+    def url(self) -> str:
+        """
+        スレッドのURLを取得する
+
+        Returns
+        -------
+        str
+            スレッドのURL
+        """
+        return f"{self.site.url}/forum/t-{self.id}/"
+
+    @staticmethod
+    def get_from_id(site: "Site", thread_id: int, category: Optional["ForumCategory"] = None) -> "ForumThread":
+        """
+        スレッドIDからスレッド情報を取得する
+
+        Parameters
+        ----------
+        site : Site
+            スレッドが属するサイト
+        thread_id : int
+            取得するスレッドのID
+        category : ForumCategory | None, default None
+            スレッドが属するカテゴリ（オプション）
+
+        Returns
+        -------
+        ForumThread
+            取得したスレッド情報
+        """
+        return ForumThreadCollection.acquire_from_thread_ids(site, [thread_id], category)[0]
