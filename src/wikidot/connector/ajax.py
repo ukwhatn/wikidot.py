@@ -250,7 +250,6 @@ class AjaxModuleConnectorClient:
             retry_count = 0
 
             while True:
-
                 # リクエスト実行
                 try:
                     response = None
@@ -258,7 +257,7 @@ class AjaxModuleConnectorClient:
                     async with semaphore_instance:
                         async with httpx.AsyncClient() as client:
                             url = (
-                                f'http{"s" if site_ssl_supported else ""}://{site_name}.wikidot.com/'
+                                f"http{'s' if site_ssl_supported else ''}://{site_name}.wikidot.com/"
                                 f"ajax-module-connector.php"
                             )
                             _body["wikidot_token7"] = 123456

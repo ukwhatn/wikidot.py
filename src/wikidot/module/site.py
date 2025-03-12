@@ -440,7 +440,7 @@ class Site:
         str
             サイトの完全なURL
         """
-        return f'http{"s" if self.ssl_supported else ""}://{self.domain}'
+        return f"http{'s' if self.ssl_supported else ''}://{self.domain}"
 
     @property
     def members(self):
