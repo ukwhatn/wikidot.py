@@ -104,7 +104,8 @@ class ClientPrivateMessageMethods:
         """
         PrivateMessage.send(self.client, recipient, subject, body)
 
-    def get_inbox(self) -> PrivateMessageInbox:
+    @property
+    def inbox(self) -> PrivateMessageInbox:
         """
         受信箱を取得する
 
@@ -115,7 +116,8 @@ class ClientPrivateMessageMethods:
         """
         return PrivateMessageInbox.acquire(self.client)
 
-    def get_sentbox(self) -> PrivateMessageSentBox:
+    @property
+    def sentbox(self) -> PrivateMessageSentBox:
         """
         送信箱を取得する
 
