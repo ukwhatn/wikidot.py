@@ -25,13 +25,11 @@ build = [
     "twine",
 ]
 lint = [
-    "flake8",
+    "ruff",
     "mypy",
-    "isort",
 ]
 format = [
-    "black",
-    "isort",
+    "ruff",
 ]
 docs = [
     "sphinx>=7.2.6",
@@ -44,3 +42,17 @@ docs = [
 [project.urls]
 "Homepage" = "https://github.com/ukwhatn/wikidot.py"
 "Bug Tracker" = "https://github.com/ukwhatn/wikidot.py/issues"
+
+[tool.ruff]
+target-version = "py310"
+line-length = 88
+lint.select = ["E", "F", "I"]
+lint.ignore = []
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"
+
+[tool.ruff.lint.isort]
+known-first-party = ["wikidot"]
