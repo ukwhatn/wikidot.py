@@ -1,10 +1,3 @@
-"""
-WikidotのAjax Module Connectorとの通信を担当するモジュール
-
-このモジュールは、Wikidotサイトのajax-module-connector.phpとの通信を行うための
-クラスやユーティリティを提供する。非同期通信、エラーハンドリング、リトライ機能を備えている。
-"""
-
 import asyncio
 import json.decoder
 from dataclasses import dataclass
@@ -22,12 +15,7 @@ from ..common.exceptions import (
 
 
 class AjaxRequestHeader:
-    """
-    Ajax Module Connector通信時に使用するリクエストヘッダを管理するクラス
-
-    Content-Type、User-Agent、Referer、Cookieなどを管理し、
-    適切なHTTPヘッダを生成する機能を提供する。
-    """
+    """ajax-module-connector.phpへのリクエスト時に利用するヘッダの構築用クラス"""
 
     def __init__(
         self,
@@ -36,19 +24,18 @@ class AjaxRequestHeader:
         referer: str | None = None,
         cookie: dict | None = None,
     ):
-        """
-        AjaxRequestHeaderの初期化
+        """AjaxRequestHeaderオブジェクトの初期化
 
         Parameters
         ----------
-        content_type : str | None, default None
-            設定するContent-Type。Noneの場合はデフォルト値が使用される
-        user_agent : str | None, default None
-            設定するUser-Agent。Noneの場合はデフォルト値が使用される
-        referer : str | None, default None
-            設定するReferer。Noneの場合はデフォルト値が使用される
-        cookie : dict | None, default None
-            設定するCookie。Noneの場合は空の辞書が使用される
+        content_type: str | None
+            Content-Type
+        user_agent: str | None
+            User-Agent
+        referer: str | None
+            Referer
+        cookie: dict | None
+            Cookie
         """
         self.content_type: str = (
             "application/x-www-form-urlencoded; charset=UTF-8"
@@ -63,39 +50,36 @@ class AjaxRequestHeader:
         return
 
     def set_cookie(self, name, value) -> None:
-        """
-        Cookieを設定する
+        """Cookieを設定する
 
         Parameters
         ----------
-        name : str
-            設定するCookieの名前
-        value : str
-            設定するCookieの値
+        name: str
+            Cookie名
+        value: str
+            Cookie値
         """
         self.cookie[name] = value
         return
 
     def delete_cookie(self, name) -> None:
-        """
-        Cookieを削除する
+        """Cookieを削除する
 
         Parameters
         ----------
-        name : str
-            削除するCookieの名前
+        name: str
+            Cookie名
         """
         del self.cookie[name]
         return
 
     def get_header(self) -> dict:
-        """
-        構築されたHTTPヘッダを取得する
+        """ヘッダを構築して返す
 
         Returns
         -------
         dict
-            HTTPリクエスト用のヘッダ辞書
+            ヘッダ
         """
         return {
             "Content-Type": self.content_type,
@@ -109,22 +93,18 @@ class AjaxRequestHeader:
 
 @dataclass
 class AjaxModuleConnectorConfig:
-    """
-    Ajax Module Connector通信の設定を保持するデータクラス
-
-    リクエストのタイムアウト、リトライ回数、並行通信数などの
-    設定を管理する。
+    """ajax-module-connector.phpへのリクエストを行う際の設定
 
     Attributes
     ----------
-    request_timeout : int, default 20
-        リクエストのタイムアウト秒数
-    attempt_limit : int, default 3
-        エラー発生時のリトライ上限回数
-    retry_interval : int, default 5
-        リトライ間隔（秒）
-    semaphore_limit : int, default 10
-        非同期リクエストの最大並行数
+    request_timeout: int
+        タイムアウト
+    attempt_limit: int
+        リクエストの試行回数上限
+    retry_interval: int
+        リクエスト失敗時のリトライ間隔
+    semaphore_limit: int
+        セマフォの上限
     """
 
     request_timeout: int = 20
@@ -134,27 +114,19 @@ class AjaxModuleConnectorConfig:
 
 
 class AjaxModuleConnectorClient:
-    """
-    WikidotのAjax Module Connectorと通信するクライアントクラス
-
-    ajax-module-connector.phpへのHTTPリクエストを行い、レスポンスを処理する。
-    非同期通信、リトライ処理、エラーハンドリングなどの機能を備えている。
-    """
+    """ajax-module-connector.phpへのリクエストを行うクライアント"""
 
     def __init__(
         self,
         site_name: str | None = None,
         config: AjaxModuleConnectorConfig | None = None,
     ):
-        """
-        AjaxModuleConnectorClientの初期化
+        """AjaxModuleConnectorClientオブジェクトの初期化
 
         Parameters
         ----------
-        site_name : str | None, default None
-            接続先のWikidotサイト名。Noneの場合は"www"が使用される
-        config : AjaxModuleConnectorConfig | None, default None
-            通信設定。Noneの場合はデフォルト値が使用される
+        config: AjaxModuleConnectorConfig
+            設定
         """
         self.site_name: str = site_name if site_name is not None else "www"
         self.config: AjaxModuleConnectorConfig = (
@@ -168,22 +140,8 @@ class AjaxModuleConnectorClient:
         self.header: AjaxRequestHeader = AjaxRequestHeader()
 
     def _check_existence_and_ssl(self):
-        """
-        サイトの存在とSSL対応状況を確認する
+        """実際にアクセスしてみてサイトの存在とSSL対応をチェック"""
 
-        実際にHTTPリクエストを送信し、サイトの存在を確認するとともに、
-        HTTPSにリダイレクトされるかどうかでSSL対応状況を判断する。
-
-        Returns
-        -------
-        bool
-            サイトがSSL対応している場合はTrue、そうでない場合はFalse
-
-        Raises
-        ------
-        NotFoundException
-            指定されたサイトが存在しない場合
-        """
         # wwwは常にSSL対応
         if self.site_name == "www":
             return True
@@ -209,35 +167,39 @@ class AjaxModuleConnectorClient:
         site_name: str | None = None,
         site_ssl_supported: bool | None = None,
     ) -> tuple[httpx.Response | Exception]:
-        """
-        Ajax Module Connectorにリクエストを送信し、レスポンスを取得する
-
-        複数のリクエストを非同期で並行処理し、エラー発生時には自動的にリトライを行う。
+        """ajax-module-connector.phpへのリクエストを行う
 
         Parameters
         ----------
-        bodies : list[dict[str, Any]]
-            送信するリクエストボディのリスト
-        return_exceptions : bool, default False
-            例外を返すか送出するか (True: 返す, False: 送出する)
-        site_name : str | None, default None
-            接続先サイト名。Noneの場合は初期化時に指定したサイト名が使用される
-        site_ssl_supported : bool | None, default None
-            サイトのSSL対応状況。Noneの場合は初期化時に確認した結果が使用される
+        bodies: list[dict]
+            リクエストボディのリスト
+        return_exceptions: bool
+            例外を返すかどうか (True: 返す, False: 例外を送出)
+            デフォルトでは例外を送出
+        site_name: str | None
+            サイト名
+            デフォルトでは初期化時に指定したサイト名
+        site_ssl_supported: bool | None
+            サイトがSSL対応しているかどうか
+            デフォルトでは初期化時にチェックした結果
 
         Returns
         -------
-        tuple[httpx.Response | Exception]
-            レスポンスまたは例外のタプル（リクエストと同じ順序）
+        dict
+            レスポンスボディのリスト（順序はリクエストボディのリストと同じ）
 
         Raises
         ------
         AMCHttpStatusCodeException
-            HTTPステータスコードが200以外の場合（return_exceptionsがFalseの場合）
+            AMCから返却されたHTTPステータスが200以外だったときの例外
+
         WikidotStatusCodeException
-            レスポンスのステータスが"ok"でない場合（return_exceptionsがFalseの場合）
+            AMCから返却されたデータ内のステータスがokではなかったときの例外
+            HTTPステータスが200以外の場合はAMCHttpStatusCodeExceptionを投げる
+
         ResponseDataException
-            レスポンスが不正なJSON形式または空の場合（return_exceptionsがFalseの場合）
+            AMCから返却されたデータが不正だったときの例外
+            JSONデータとしてパースできなかった場合や空だった場合に投げる
         """
         semaphore_instance = asyncio.Semaphore(self.config.semaphore_limit)
 
