@@ -4,13 +4,14 @@ from typing import TYPE_CHECKING, Optional
 
 import httpx
 
-from ..common import exceptions
-from ..common.decorators import login_required
-from ..util.quick_module import QMCUser, QuickModule
 from .forum_category import ForumCategoryCollection
+from .forum_thread import ForumThread, ForumThreadCollection
 from .page import Page, PageCollection, SearchPagesQuery
 from .site_application import SiteApplication
 from .site_member import SiteMember
+from ..common import exceptions
+from ..common.decorators import login_required
+from ..util.quick_module import QMCUser, QuickModule
 
 if TYPE_CHECKING:
     from .client import Client
@@ -132,12 +133,12 @@ class SitePageMethods:
         return res[0]
 
     def create(
-        self,
-        fullname: str,
-        title: str = "",
-        source: str = "",
-        comment: str = "",
-        force_edit: bool = False,
+            self,
+            fullname: str,
+            title: str = "",
+            source: str = "",
+            comment: str = "",
+            force_edit: bool = False,
     ) -> "Page":
         """
         ページを新規作成する
@@ -360,7 +361,8 @@ class Site:
         """
         return self.client.amc_client.request(bodies, return_exceptions, self.unix_name, self.ssl_supported)
 
-    def get_applications(self):
+    @property
+    def applications(self):
         """
         サイトへの未処理の参加申請を取得する
 
@@ -496,3 +498,35 @@ class Site:
                 return True
 
         return False
+
+    def get_thread(self, thread_id: int):
+        """
+        スレッドを取得する
+
+        Parameters
+        ----------
+        thread_id : int
+            スレッドID
+
+        Returns
+        -------
+        ForumThread
+            スレッドオブジェクト
+        """
+        return ForumThread.get_from_id(self, thread_id)
+
+    def get_threads(self, thread_ids: list[int]):
+        """
+        複数のスレッドを取得する
+
+        Parameters
+        ----------
+        thread_ids : list[int]
+            スレッドIDのリスト
+
+        Returns
+        -------
+        list[ForumThread]
+            スレッドオブジェクトのリスト
+        """
+        return ForumThreadCollection.acquire_from_thread_ids(self, thread_ids)

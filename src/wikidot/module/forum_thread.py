@@ -32,9 +32,9 @@ class ForumThreadCollection(list["ForumThread"]):
     """
 
     def __init__(
-        self,
-        site: Optional["Site"] = None,
-        threads: Optional[list["ForumThread"]] = None,
+            self,
+            site: Optional["Site"] = None,
+            threads: Optional[list["ForumThread"]] = None,
     ):
         """
         初期化メソッド
@@ -66,7 +66,7 @@ class ForumThreadCollection(list["ForumThread"]):
 
     @staticmethod
     def _parse_list_in_category(
-        site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
+            site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
     ) -> "ForumThreadCollection":
         """
         フォーラムページのHTMLからスレッド情報を抽出する内部メソッド
@@ -140,7 +140,7 @@ class ForumThreadCollection(list["ForumThread"]):
 
     @staticmethod
     def _parse_thread_page(
-        site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
+            site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
     ) -> "ForumThread":
         """
         スレッドページのHTMLからスレッド情報を抽出する内部メソッド
@@ -298,7 +298,7 @@ class ForumThreadCollection(list["ForumThread"]):
 
     @staticmethod
     def acquire_from_thread_ids(
-        site: "Site", thread_ids: list[int], category: Optional["ForumCategory"] = None
+            site: "Site", thread_ids: list[int], category: Optional["ForumCategory"] = None
     ) -> "ForumThreadCollection":
         """
         指定されたスレッドIDのスレッド情報を取得する
@@ -319,17 +319,18 @@ class ForumThreadCollection(list["ForumThread"]):
         ForumThreadCollection
             取得したスレッド情報のコレクション
         """
+        responses = site.amc_request(
+            [
+                {
+                    "t": thread_id,
+                    "moduleName": "forum/ForumViewThreadModule",
+                } for thread_id in thread_ids
+            ]
+        )
+
         threads = []
 
-        for thread_id in thread_ids:
-            response = site.amc_request(
-                [
-                    {
-                        "t": thread_id,
-                        "moduleName": "forum/ForumViewThreadModule",
-                    }
-                ]
-            )[0]
+        for response, thread_id in zip(responses, thread_ids):
 
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
