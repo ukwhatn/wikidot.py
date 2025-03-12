@@ -25,9 +25,9 @@ class ForumPostCollection(list["ForumPost"]):
     """
 
     def __init__(
-        self,
-        thread: Optional["ForumThread"] = None,
-        posts: Optional[list["ForumPost"]] = None,
+            self,
+            thread: Optional["ForumThread"] = None,
+            posts: Optional[list["ForumPost"]] = None,
     ):
         """
         初期化メソッド
@@ -56,6 +56,25 @@ class ForumPostCollection(list["ForumPost"]):
             投稿オブジェクトのイテレータ
         """
         return super().__iter__()
+
+    def find(self, id: int) -> Optional["ForumPost"]:
+        """
+        指定したIDの投稿を取得する
+
+        Parameters
+        ----------
+        id : int
+            取得する投稿のID
+
+        Returns
+        -------
+        ForumPost | None
+            指定したIDの投稿。存在しない場合はNone
+        """
+        for post in self:
+            if post.id == id:
+                return post
+        return None
 
     # @staticmethod
     # def _parse(thread: "ForumThread", html: BeautifulSoup) -> list["ForumPost"]:

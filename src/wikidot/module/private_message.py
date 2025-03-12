@@ -8,7 +8,7 @@ Wikidotのプライベートメッセージを扱うモジュール
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING, cast, Optional
 
 import httpx
 from bs4 import BeautifulSoup, ResultSet, Tag
@@ -52,6 +52,26 @@ class PrivateMessageCollection(list["PrivateMessage"]):
             メッセージオブジェクトのイテレータ
         """
         return super().__iter__()
+
+    def find(self, id: int) -> Optional["PrivateMessage"]:
+        """
+        指定IDのメッセージを取得する
+
+        Parameters
+        ----------
+        id : int
+            取得するメッセージのID
+
+        Returns
+        -------
+        PrivateMessage | None
+            取得したメッセージオブジェクト。見つからない場合はNone
+        """
+        for message in self:
+            if message.id == id:
+                return message
+
+        return None
 
     @staticmethod
     @login_required

@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
-from ..common.exceptions import NoElementException
 from .page_source import PageSource
+from ..common.exceptions import NoElementException
 
 if TYPE_CHECKING:
     from .page import Page
@@ -29,9 +29,9 @@ class PageRevisionCollection(list["PageRevision"]):
     """
 
     def __init__(
-        self,
-        page: Optional["Page"] = None,
-        revisions: Optional[list["PageRevision"]] = None,
+            self,
+            page: Optional["Page"] = None,
+            revisions: Optional[list["PageRevision"]] = None,
     ):
         """
         初期化メソッド
@@ -56,6 +56,25 @@ class PageRevisionCollection(list["PageRevision"]):
             リビジョンオブジェクトのイテレータ
         """
         return super().__iter__()
+
+    def find(self, id: int) -> Optional["PageRevision"]:
+        """
+        指定したリビジョンIDのリビジョンを取得する
+
+        Parameters
+        ----------
+        id : int
+            取得するリビジョンのID
+
+        Returns
+        -------
+        PageRevision | None
+            指定したIDのリビジョン。見つからない場合はNone
+        """
+        for revision in self:
+            if revision.id == id:
+                return revision
+        return None
 
     @staticmethod
     def _acquire_sources(page, revisions: list["PageRevision"]):

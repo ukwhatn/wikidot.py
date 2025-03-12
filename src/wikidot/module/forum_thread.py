@@ -64,6 +64,25 @@ class ForumThreadCollection(list["ForumThread"]):
         """
         return super().__iter__()
 
+    def find(self, id: int) -> Optional["ForumThread"]:
+        """
+        指定したIDのスレッドを取得する
+
+        Parameters
+        ----------
+        id : int
+            取得するスレッドのID
+
+        Returns
+        -------
+        ForumThread | None
+            指定したIDのスレッド。存在しない場合はNone
+        """
+        for thread in self:
+            if thread.id == id:
+                return thread
+        return None
+
     @staticmethod
     def _parse_list_in_category(
             site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None

@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
-from ..common.exceptions import NoElementException
 from .forum_thread import ForumThread, ForumThreadCollection
+from ..common.exceptions import NoElementException
 
 if TYPE_CHECKING:
     from .site import Site
@@ -27,9 +27,9 @@ class ForumCategoryCollection(list["ForumCategory"]):
     """
 
     def __init__(
-        self,
-        site: Optional["Site"] = None,
-        categories: Optional[list["ForumCategory"]] = None,
+            self,
+            site: Optional["Site"] = None,
+            categories: Optional[list["ForumCategory"]] = None,
     ):
         """
         初期化メソッド
@@ -58,6 +58,27 @@ class ForumCategoryCollection(list["ForumCategory"]):
             カテゴリオブジェクトのイテレータ
         """
         return super().__iter__()
+
+    def find(self, id: int) -> Optional["ForumCategory"]:
+        """
+        カテゴリIDでカテゴリを検索する
+
+        指定されたIDのカテゴリが存在する場合はそのカテゴリオブジェクトを返す。
+
+        Parameters
+        ----------
+        id : int
+            検索するカテゴリのID
+
+        Returns
+        -------
+        ForumCategory | None
+            検索結果のカテゴリオブジェクト。見つからない場合はNone
+        """
+        for category in self:
+            if category.id == id:
+                return category
+        return None
 
     @staticmethod
     def acquire_all(site: "Site"):

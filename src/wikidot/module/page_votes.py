@@ -47,6 +47,25 @@ class PageVoteCollection(list["PageVote"]):
         """
         return super().__iter__()
 
+    def find(self, user: "AbstractUser") -> "PageVote":
+        """
+        指定ユーザーの投票を取得する
+
+        Parameters
+        ----------
+        user : AbstractUser
+            投票を行ったユーザー
+
+        Returns
+        -------
+        PageVote
+            ユーザーの投票情報
+        """
+        for vote in self:
+            if vote.user.id == user.id:
+                return vote
+        raise ValueError(f"User {user} has not voted on page {self.page}")
+
 
 @dataclass
 class PageVote:
