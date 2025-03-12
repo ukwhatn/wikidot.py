@@ -67,7 +67,7 @@ class ForumThreadCollection(list["ForumThread"]):
     @staticmethod
     def _parse_list_in_category(
         site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
-    ) -> list["ForumThread"]:
+    ) -> "ForumThreadCollection":
         """
         フォーラムページのHTMLからスレッド情報を抽出する内部メソッド
 
@@ -136,7 +136,7 @@ class ForumThreadCollection(list["ForumThread"]):
 
             threads.append(thread)
 
-        return threads
+        return ForumThreadCollection(site=site, threads=threads)
 
     @staticmethod
     def _parse_thread_page(
@@ -202,14 +202,21 @@ class ForumThreadCollection(list["ForumThread"]):
         post_count_elem = br_tags[2].previous_sibling
         if post_count_elem is None:
             raise NoElementException("Posts count element is not found.")
-        post_count = int(re.search(r"(\d+)", post_count_elem).group(1))
+        post_count_text = str(post_count_elem)
+        post_count_match = re.search(r"(\d+)", post_count_text)
+        if post_count_match is None:
+            raise NoElementException("Post count is not found.")
+        post_count = int(post_count_match.group(1))
 
         # id取得処理
-        # WIKIDOT.forumThreadId = 17065036;を全体から検索
+        # WIKIDOT.forumThreadId = xxxxxx;を全体から検索
         script_elem = html.find("script", text=re.compile(r"WIKIDOT.forumThreadId = \d+;"))
         if script_elem is None:
             raise NoElementException("Script element is not found.")
-        thread_id = int(re.search(r"(\d+)", script_elem.text).group(1))
+        thread_id_match = re.search(r"(\d+)", script_elem.text)
+        if thread_id_match is None:
+            raise NoElementException("Thread ID is not found in script.")
+        thread_id = int(thread_id_match.group(1))
 
         return ForumThread(
             site=site,
@@ -245,7 +252,7 @@ class ForumThreadCollection(list["ForumThread"]):
         NoElementException
             HTML要素の解析に失敗した場合
         """
-        threads = []
+        threads: list["ForumThread"] = []
 
         first_response = category.site.amc_request(
             [
