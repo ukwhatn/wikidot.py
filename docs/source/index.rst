@@ -11,9 +11,7 @@ Wikidotサイトとの対話を行うためのPythonライブラリ
    :caption: 目次:
 
    installation
-   quickstart
    reference/index
-   examples
 
 索引
 ====

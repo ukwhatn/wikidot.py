@@ -10,15 +10,6 @@ wikidot.pyは、PyPIからインストールできます：
 
     pip install wikidot
 
-開発版のインストール
---------------
-
-最新の開発版をインストールするには、GitHubリポジトリから直接インストールします：
-
-.. code-block:: bash
-
-    pip install git+https://github.com/ukwhatn/wikidot.py.git@develop
-
 必要条件
 ------
 
