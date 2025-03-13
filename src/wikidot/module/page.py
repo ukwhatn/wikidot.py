@@ -7,13 +7,13 @@ from typing import TYPE_CHECKING, Any, Optional, Union
 import httpx
 from bs4 import BeautifulSoup
 
-from .page_revision import PageRevision, PageRevisionCollection
-from .page_source import PageSource
-from .page_votes import PageVote, PageVoteCollection
 from ..common import exceptions
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 from ..util.requestutil import RequestUtil
+from .page_revision import PageRevision, PageRevisionCollection
+from .page_source import PageSource
+from .page_votes import PageVote, PageVoteCollection
 
 if TYPE_CHECKING:
     from .site import Site
@@ -328,17 +328,17 @@ class PageCollection(list["Page"]):
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
         query_dict["module_body"] = (
-                '[[div class="page"]]\n'
-                + "".join(
-            [
-                f'[[span class="set {key}"]]'
-                f'[[span class="name"]] {key} [[/span]]'
-                f'[[span class="value"]] %%{key}%% [[/span]]'
-                f"[[/span]]"
-                for key in DEFAULT_MODULE_BODY
-            ]
-        )
-                + "\n[[/div]]"
+            '[[div class="page"]]\n'
+            + "".join(
+                [
+                    f'[[span class="set {key}"]]'
+                    f'[[span class="name"]] {key} [[/span]]'
+                    f'[[span class="value"]] %%{key}%% [[/span]]'
+                    f"[[/span]]"
+                    for key in DEFAULT_MODULE_BODY
+                ]
+            )
+            + "\n[[/div]]"
         )
 
         try:
@@ -1052,14 +1052,14 @@ class Page:
 
     @staticmethod
     def create_or_edit(
-            site: "Site",
-            fullname: str,
-            page_id: int | None = None,
-            title: str = "",
-            source: str = "",
-            comment: str = "",
-            force_edit: bool = False,
-            raise_on_exists: bool = False,
+        site: "Site",
+        fullname: str,
+        page_id: int | None = None,
+        title: str = "",
+        source: str = "",
+        comment: str = "",
+        force_edit: bool = False,
+        raise_on_exists: bool = False,
     ) -> "Page":
         """
         ページを作成または編集する
@@ -1168,11 +1168,11 @@ class Page:
         return res[0]
 
     def edit(
-            self,
-            title: Optional[str] = None,
-            source: Optional[str] = None,
-            comment: Optional[str] = None,
-            force_edit: bool = False,
+        self,
+        title: Optional[str] = None,
+        source: Optional[str] = None,
+        comment: Optional[str] = None,
+        force_edit: bool = False,
     ) -> "Page":
         """
         このページを編集する

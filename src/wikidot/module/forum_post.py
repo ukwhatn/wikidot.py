@@ -25,9 +25,9 @@ class ForumPostCollection(list["ForumPost"]):
     """
 
     def __init__(
-            self,
-            thread: Optional["ForumThread"] = None,
-            posts: Optional[list["ForumPost"]] = None,
+        self,
+        thread: Optional["ForumThread"] = None,
+        posts: Optional[list["ForumPost"]] = None,
     ):
         """
         初期化メソッド

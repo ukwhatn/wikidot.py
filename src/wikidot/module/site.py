@@ -4,14 +4,14 @@ from typing import TYPE_CHECKING, Optional
 
 import httpx
 
+from ..common import exceptions
+from ..common.decorators import login_required
+from ..util.quick_module import QMCUser, QuickModule
 from .forum_category import ForumCategoryCollection
 from .forum_thread import ForumThread, ForumThreadCollection
 from .page import Page, PageCollection, SearchPagesQuery
 from .site_application import SiteApplication
 from .site_member import SiteMember
-from ..common import exceptions
-from ..common.decorators import login_required
-from ..util.quick_module import QMCUser, QuickModule
 
 if TYPE_CHECKING:
     from .client import Client
@@ -133,12 +133,12 @@ class SitePageMethods:
         return res[0]
 
     def create(
-            self,
-            fullname: str,
-            title: str = "",
-            source: str = "",
-            comment: str = "",
-            force_edit: bool = False,
+        self,
+        fullname: str,
+        title: str = "",
+        source: str = "",
+        comment: str = "",
+        force_edit: bool = False,
     ) -> "Page":
         """
         ページを新規作成する

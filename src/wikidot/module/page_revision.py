@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
-from .page_source import PageSource
 from ..common.exceptions import NoElementException
+from .page_source import PageSource
 
 if TYPE_CHECKING:
     from .page import Page
@@ -29,9 +29,9 @@ class PageRevisionCollection(list["PageRevision"]):
     """
 
     def __init__(
-            self,
-            page: Optional["Page"] = None,
-            revisions: Optional[list["PageRevision"]] = None,
+        self,
+        page: Optional["Page"] = None,
+        revisions: Optional[list["PageRevision"]] = None,
     ):
         """
         初期化メソッド

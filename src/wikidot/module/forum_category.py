@@ -12,8 +12,8 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
-from .forum_thread import ForumThread, ForumThreadCollection
 from ..common.exceptions import NoElementException
+from .forum_thread import ForumThread, ForumThreadCollection
 
 if TYPE_CHECKING:
     from .site import Site
@@ -27,9 +27,9 @@ class ForumCategoryCollection(list["ForumCategory"]):
     """
 
     def __init__(
-            self,
-            site: Optional["Site"] = None,
-            categories: Optional[list["ForumCategory"]] = None,
+        self,
+        site: Optional["Site"] = None,
+        categories: Optional[list["ForumCategory"]] = None,
     ):
         """
         初期化メソッド

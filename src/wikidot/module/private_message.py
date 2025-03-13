@@ -8,7 +8,7 @@ Wikidotのプライベートメッセージを扱うモジュール
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, cast, Optional
+from typing import TYPE_CHECKING, Optional, cast
 
 import httpx
 from bs4 import BeautifulSoup, ResultSet, Tag
