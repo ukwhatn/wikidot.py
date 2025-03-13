@@ -50,9 +50,7 @@ class ClientUserMethods:
         """
         return User.from_name(self.client, name, raise_when_not_found)
 
-    def get_bulk(
-        self, names: list[str], raise_when_not_found: bool = False
-    ) -> UserCollection:
+    def get_bulk(self, names: list[str], raise_when_not_found: bool = False) -> UserCollection:
         """
         複数のユーザー名からユーザーオブジェクトのコレクションを取得する
 
@@ -106,7 +104,8 @@ class ClientPrivateMessageMethods:
         """
         PrivateMessage.send(self.client, recipient, subject, body)
 
-    def get_inbox(self) -> PrivateMessageInbox:
+    @property
+    def inbox(self) -> PrivateMessageInbox:
         """
         受信箱を取得する
 
@@ -117,7 +116,8 @@ class ClientPrivateMessageMethods:
         """
         return PrivateMessageInbox.acquire(self.client)
 
-    def get_sentbox(self) -> PrivateMessageSentBox:
+    @property
+    def sentbox(self) -> PrivateMessageSentBox:
         """
         送信箱を取得する
 
@@ -241,6 +241,7 @@ class Client:
             HTTPAuthentication.login(self, username, password)
             self.is_logged_in = True
             self.username = username
+            self.me = User.from_name(self, username)
 
         # ----------
         # 以下メソッド

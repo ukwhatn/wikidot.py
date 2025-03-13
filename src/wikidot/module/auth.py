@@ -54,26 +54,19 @@ class HTTPAuthentication:
         # Check status code
         if response.status_code != httpx.codes.OK:
             raise SessionCreateException(
-                "Login attempt is failed due to HTTP status code: "
-                + str(response.status_code)
+                "Login attempt is failed due to HTTP status code: " + str(response.status_code)
             )
 
         # Check body
         if "The login and password do not match" in response.text:
-            raise SessionCreateException(
-                "Login attempt is failed due to invalid username or password"
-            )
+            raise SessionCreateException("Login attempt is failed due to invalid username or password")
 
         # Check cookies
         if "WIKIDOT_SESSION_ID" not in response.cookies:
-            raise SessionCreateException(
-                "Login attempt is failed due to invalid cookies"
-            )
+            raise SessionCreateException("Login attempt is failed due to invalid cookies")
 
         # Set cookies
-        client.amc_client.header.set_cookie(
-            "WIKIDOT_SESSION_ID", response.cookies["WIKIDOT_SESSION_ID"]
-        )
+        client.amc_client.header.set_cookie("WIKIDOT_SESSION_ID", response.cookies["WIKIDOT_SESSION_ID"])
 
     @staticmethod
     def logout(client: "Client"):
@@ -90,9 +83,7 @@ class HTTPAuthentication:
         ログアウト処理でエラーが発生しても無視され、Cookieの削除は常に行われる。
         """
         try:
-            client.amc_client.request(
-                [{"action": "Login2Action", "event": "logout", "moduleName": "Empty"}]
-            )
+            client.amc_client.request([{"action": "Login2Action", "event": "logout", "moduleName": "Empty"}])
         except Exception:
             pass
 

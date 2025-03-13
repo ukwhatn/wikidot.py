@@ -32,9 +32,7 @@ class UserCollection(list["AbstractUser"]):
         return super().__iter__()
 
     @staticmethod
-    def from_names(
-        client: "Client", names: list[str], raise_when_not_found: bool = False
-    ) -> "UserCollection":
+    def from_names(client: "Client", names: list[str], raise_when_not_found: bool = False) -> "UserCollection":
         """
         ユーザー名のリストからユーザーオブジェクトのコレクションを取得する
 
@@ -63,10 +61,7 @@ class UserCollection(list["AbstractUser"]):
         responses = RequestUtil.request(
             client,
             "GET",
-            [
-                f"https://www.wikidot.com/user:info/{StringUtil.to_unix(name)}"
-                for name in names
-            ],
+            [f"https://www.wikidot.com/user:info/{StringUtil.to_unix(name)}" for name in names],
         )
 
         users: list[AbstractUser] = []
@@ -186,9 +181,7 @@ class User(AbstractUser):
     ip: str | None = None
 
     @staticmethod
-    def from_name(
-        client: "Client", name: str, raise_when_not_found: bool = False
-    ) -> "AbstractUser":
+    def from_name(client: "Client", name: str, raise_when_not_found: bool = False) -> "AbstractUser":
         """
         ユーザー名からユーザーオブジェクトを取得する
 

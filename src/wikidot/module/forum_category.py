@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, Optional
 from bs4 import BeautifulSoup
 
 from ..common.exceptions import NoElementException
-from .forum_thread import ForumThreadCollection
+from .forum_thread import ForumThread, ForumThreadCollection
 
 if TYPE_CHECKING:
     from .site import Site
@@ -59,6 +59,27 @@ class ForumCategoryCollection(list["ForumCategory"]):
         """
         return super().__iter__()
 
+    def find(self, id: int) -> Optional["ForumCategory"]:
+        """
+        カテゴリIDでカテゴリを検索する
+
+        指定されたIDのカテゴリが存在する場合はそのカテゴリオブジェクトを返す。
+
+        Parameters
+        ----------
+        id : int
+            検索するカテゴリのID
+
+        Returns
+        -------
+        ForumCategory | None
+            検索結果のカテゴリオブジェクト。見つからない場合はNone
+        """
+        for category in self:
+            if category.id == id:
+                return category
+        return None
+
     @staticmethod
     def acquire_all(site: "Site"):
         """
@@ -84,9 +105,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
         """
         categories = []
 
-        response = site.amc_request(
-            [{"moduleName": "forum/ForumStartModule", "hidden": "true"}]
-        )[0]
+        response = site.amc_request([{"moduleName": "forum/ForumStartModule", "hidden": "true"}])[0]
 
         body = response.json()["body"]
         html = BeautifulSoup(body, "lxml")
@@ -221,3 +240,46 @@ class ForumCategory:
         """
         self._threads = ForumThreadCollection.acquire_all_in_category(self)
         return self._threads
+
+    def create_thread(self, title: str, description: str, source: str):
+        """
+        カテゴリ内に新しいスレッドを作成する
+
+        Parameters
+        ----------
+        title : str
+            スレッドのタイトル
+        description : str
+            スレッドの説明文
+        source : str
+            スレッドの本文（Wikidot記法）
+
+        Returns
+        -------
+        ForumThread
+            作成したスレッドオブジェクト
+        """
+        self.site.client.login_check()
+
+        # 作成リクエスト
+        response = self.site.amc_request(
+            [
+                {
+                    "moduleName": "Empty",
+                    "action": "ForumAction",
+                    "event": "newThread",
+                    "category_id": self.id,
+                    "title": title,
+                    "description": description,
+                    "source": source,
+                }
+            ]
+        )[0].json()
+
+        # responseからthreadIdを取得
+        if "threadId" not in response and isinstance(response["threadId"], int):
+            raise NoElementException("Thread ID is not found.")
+
+        thread_id: int = response["threadId"]
+
+        return ForumThread.get_from_id(self.site, thread_id, self)

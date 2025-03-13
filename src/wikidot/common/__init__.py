@@ -6,3 +6,5 @@ Wikidotライブラリの共通機能モジュール
 """
 
 from .logger import logger as wd_logger
+
+__all__ = ["wd_logger"]

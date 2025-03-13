@@ -57,6 +57,25 @@ class PageRevisionCollection(list["PageRevision"]):
         """
         return super().__iter__()
 
+    def find(self, id: int) -> Optional["PageRevision"]:
+        """
+        指定したリビジョンIDのリビジョンを取得する
+
+        Parameters
+        ----------
+        id : int
+            取得するリビジョンのID
+
+        Returns
+        -------
+        PageRevision | None
+            指定したIDのリビジョン。見つからない場合はNone
+        """
+        for revision in self:
+            if revision.id == id:
+                return revision
+        return None
+
     @staticmethod
     def _acquire_sources(page, revisions: list["PageRevision"]):
         """
@@ -81,18 +100,13 @@ class PageRevisionCollection(list["PageRevision"]):
         NoElementException
             ソース要素が見つからない場合
         """
-        target_revisions = [
-            revision for revision in revisions if not revision.is_source_acquired()
-        ]
+        target_revisions = [revision for revision in revisions if not revision.is_source_acquired()]
 
         if len(target_revisions) == 0:
             return revisions
 
         responses = page.site.amc_request(
-            [
-                {"moduleName": "history/PageSourceModule", "revision_id": revision.id}
-                for revision in target_revisions
-            ]
+            [{"moduleName": "history/PageSourceModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
         for revision, response in zip(target_revisions, responses):
@@ -138,18 +152,13 @@ class PageRevisionCollection(list["PageRevision"]):
         list[PageRevision]
             HTML情報が更新されたリビジョンのリスト
         """
-        target_revisions = [
-            revision for revision in revisions if not revision.is_html_acquired()
-        ]
+        target_revisions = [revision for revision in revisions if not revision.is_html_acquired()]
 
         if len(target_revisions) == 0:
             return revisions
 
         responses = page.site.amc_request(
-            [
-                {"moduleName": "history/PageVersionModule", "revision_id": revision.id}
-                for revision in target_revisions
-            ]
+            [{"moduleName": "history/PageVersionModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
         for revision, response in zip(target_revisions, responses):

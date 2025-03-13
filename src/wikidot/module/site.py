@@ -8,6 +8,7 @@ from ..common import exceptions
 from ..common.decorators import login_required
 from ..util.quick_module import QMCUser, QuickModule
 from .forum_category import ForumCategoryCollection
+from .forum_thread import ForumThread, ForumThreadCollection
 from .page import Page, PageCollection, SearchPagesQuery
 from .site_application import SiteApplication
 from .site_member import SiteMember
@@ -124,9 +125,7 @@ class SitePageMethods:
         NotFoundException
             raise_when_not_foundがTrueでページが見つからない場合
         """
-        res = PageCollection.search_pages(
-            self.site, SearchPagesQuery(fullname=fullname)
-        )
+        res = PageCollection.search_pages(self.site, SearchPagesQuery(fullname=fullname))
         if len(res) == 0:
             if raise_when_not_found:
                 raise exceptions.NotFoundException(f"Page is not found: {fullname}")
@@ -197,6 +196,7 @@ class SiteForumMethods:
         """
         self.site = site
 
+    @property
     def categories(self) -> "ForumCategoryCollection":
         """
         サイト内のフォーラムカテゴリ一覧を取得する
@@ -302,9 +302,7 @@ class Site:
 
         # サイトが存在しない場合
         if response.status_code == httpx.codes.NOT_FOUND:
-            raise exceptions.NotFoundException(
-                f"Site is not found: {unix_name}.wikidot.com"
-            )
+            raise exceptions.NotFoundException(f"Site is not found: {unix_name}.wikidot.com")
 
         # サイトが存在する場合
         source = response.text
@@ -312,35 +310,25 @@ class Site:
         # id : WIKIREQUEST.info.siteId = xxxx;
         id_match = re.search(r"WIKIREQUEST\.info\.siteId = (\d+);", source)
         if id_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site id: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site id: {unix_name}.wikidot.com")
         site_id = int(id_match.group(1))
 
         # title : titleタグ
         title_match = re.search(r"<title>(.*?)</title>", source)
         if title_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site title: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site title: {unix_name}.wikidot.com")
         title = title_match.group(1)
 
         # unix_name : WIKIREQUEST.info.siteUnixName = "xxxx";
-        unix_name_match = re.search(
-            r'WIKIREQUEST\.info\.siteUnixName = "(.*?)";', source
-        )
+        unix_name_match = re.search(r'WIKIREQUEST\.info\.siteUnixName = "(.*?)";', source)
         if unix_name_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site unix_name: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site unix_name: {unix_name}.wikidot.com")
         unix_name = unix_name_match.group(1)
 
         # domain :WIKIREQUEST.info.domain = "xxxx";
         domain_match = re.search(r'WIKIREQUEST\.info\.domain = "(.*?)";', source)
         if domain_match is None:
-            raise exceptions.UnexpectedException(
-                f"Cannot find site domain: {unix_name}.wikidot.com"
-            )
+            raise exceptions.UnexpectedException(f"Cannot find site domain: {unix_name}.wikidot.com")
         domain = domain_match.group(1)
 
         # SSL対応チェック
@@ -371,11 +359,10 @@ class Site:
         list | Exception
             レスポンスのリスト、またはreturn_exceptionsがTrueの場合は例外
         """
-        return self.client.amc_client.request(
-            bodies, return_exceptions, self.unix_name, self.ssl_supported
-        )
+        return self.client.amc_client.request(bodies, return_exceptions, self.unix_name, self.ssl_supported)
 
-    def get_applications(self):
+    @property
+    def applications(self):
         """
         サイトへの未処理の参加申請を取得する
 
@@ -431,7 +418,8 @@ class Site:
             else:
                 raise e
 
-    def get_url(self):
+    @property
+    def url(self):
         """
         サイトのURLを取得する
 
@@ -440,7 +428,7 @@ class Site:
         str
             サイトの完全なURL
         """
-        return f'http{"s" if self.ssl_supported else ""}://{self.domain}'
+        return f"http{'s' if self.ssl_supported else ''}://{self.domain}"
 
     @property
     def members(self):
@@ -506,9 +494,39 @@ class Site:
             return False
 
         for user in users:
-            if user.name.strip() == user_name and (
-                user_id is None or user.id == user_id
-            ):
+            if user.name.strip() == user_name and (user_id is None or user.id == user_id):
                 return True
 
         return False
+
+    def get_thread(self, thread_id: int):
+        """
+        スレッドを取得する
+
+        Parameters
+        ----------
+        thread_id : int
+            スレッドID
+
+        Returns
+        -------
+        ForumThread
+            スレッドオブジェクト
+        """
+        return ForumThread.get_from_id(self, thread_id)
+
+    def get_threads(self, thread_ids: list[int]):
+        """
+        複数のスレッドを取得する
+
+        Parameters
+        ----------
+        thread_ids : list[int]
+            スレッドIDのリスト
+
+        Returns
+        -------
+        list[ForumThread]
+            スレッドオブジェクトのリスト
+        """
+        return ForumThreadCollection.acquire_from_thread_ids(self, thread_ids)

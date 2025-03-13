@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING
 from bs4 import BeautifulSoup
 
 from ..common.exceptions import (
-    ForbiddenException,
     TargetErrorException,
     WikidotStatusCodeException,
 )
@@ -202,15 +201,8 @@ class SiteMember:
                 ]
             )
         except WikidotStatusCodeException as e:
-            if e.status_code == "no_permission":
-                raise ForbiddenException(
-                    f"You don't have permission to do {event} event"
-                ) from e
-
             if e.status_code == "not_already":
-                raise TargetErrorException(
-                    f"User is not moderator/admin: {self.user.name}"
-                ) from e
+                raise TargetErrorException(f"User is not moderator/admin: {self.user.name}") from e
 
             if e.status_code in ("already_admin", "already_moderator"):
                 raise TargetErrorException(

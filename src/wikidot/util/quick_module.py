@@ -124,6 +124,4 @@ class QuickModule:
             ページのリスト
         """
         pages = QuickModule._request("PageLookupQModule", site_id, query)["pages"]
-        return [
-            QMCPage(title=page["title"], unix_name=page["unix_name"]) for page in pages
-        ]
+        return [QMCPage(title=page["title"], unix_name=page["unix_name"]) for page in pages]

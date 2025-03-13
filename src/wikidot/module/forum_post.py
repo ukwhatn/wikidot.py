@@ -57,6 +57,25 @@ class ForumPostCollection(list["ForumPost"]):
         """
         return super().__iter__()
 
+    def find(self, id: int) -> Optional["ForumPost"]:
+        """
+        指定したIDの投稿を取得する
+
+        Parameters
+        ----------
+        id : int
+            取得する投稿のID
+
+        Returns
+        -------
+        ForumPost | None
+            指定したIDの投稿。存在しない場合はNone
+        """
+        for post in self:
+            if post.id == id:
+                return post
+        return None
+
     # @staticmethod
     # def _parse(thread: "ForumThread", html: BeautifulSoup) -> list["ForumPost"]:
     #     pass
