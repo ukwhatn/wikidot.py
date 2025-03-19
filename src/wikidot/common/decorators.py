@@ -19,6 +19,7 @@ def login_required(func):
     1. client という名前の引数
     2. Client クラスのインスタンスである引数
     3. self.client（呼び出し元オブジェクトの属性）
+    4. selfが持つ属性が持つclientクラス（例：self.site.client）
 
     Parameters
     ----------
@@ -52,9 +53,19 @@ def login_required(func):
                     break
 
             # selfに存在するか？
-            if client is None:
+            if client is None and args:
                 if hasattr(args[0], "client"):
                     client = args[0].client
+                else:
+                    # selfが持つ属性にclientが存在するか探索する
+                    for attr_name in dir(args[0]):
+                        if attr_name.startswith("_"):
+                            continue
+                        attr = getattr(args[0], attr_name)
+                        if hasattr(attr, "client"):
+                            client = getattr(attr, "client")
+                            if isinstance(client, Client):
+                                break
 
         if client is None:
             raise ValueError("Client is not found")
