@@ -1,3 +1,6 @@
+from ..common import wd_logger
+from ..common.exceptions import LoginRequiredException
+from ..connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
 from .auth import HTTPAuthentication
 from .private_message import (
     PrivateMessage,
@@ -7,9 +10,6 @@ from .private_message import (
 )
 from .site import Site
 from .user import AbstractUser, User, UserCollection
-from ..common import wd_logger
-from ..common.exceptions import LoginRequiredException
-from ..connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
 
 
 class ClientUserMethods:
@@ -206,11 +206,11 @@ class Client:
     """
 
     def __init__(
-            self,
-            username: str | None = None,
-            password: str | None = None,
-            amc_config: AjaxModuleConnectorConfig | None = None,
-            logging_level: str = "WARNING",
+        self,
+        username: str | None = None,
+        password: str | None = None,
+        amc_config: AjaxModuleConnectorConfig | None = None,
+        logging_level: str = "WARNING",
     ):
         """
         クライアントの初期化とオプションでの認証を行う
