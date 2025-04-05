@@ -1,3 +1,5 @@
+from typing import Optional
+
 from ..common import wd_logger
 from ..common.exceptions import LoginRequiredException
 from ..connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
@@ -31,7 +33,7 @@ class ClientUserMethods:
         """
         self.client = client
 
-    def get(self, name: str, raise_when_not_found: bool = False) -> "AbstractUser":
+    def get(self, name: str, raise_when_not_found: bool = False) -> Optional["AbstractUser"]:
         """
         ユーザー名からユーザーオブジェクトを取得する
 

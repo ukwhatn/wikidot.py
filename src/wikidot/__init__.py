@@ -13,7 +13,7 @@ import sys
 from .module.client import Client
 
 __all__ = ["Client"]
-__version__ = "3.1.0dev11"
+__version__ = "3.1.0dev12"
 
 
 # 全クラス・モジュールを公開する
