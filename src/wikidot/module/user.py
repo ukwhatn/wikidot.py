@@ -1,6 +1,6 @@
 from collections.abc import Iterator
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
@@ -181,7 +181,7 @@ class User(AbstractUser):
     ip: str | None = None
 
     @staticmethod
-    def from_name(client: "Client", name: str, raise_when_not_found: bool = False) -> "AbstractUser":
+    def from_name(client: "Client", name: str, raise_when_not_found: bool = False) -> Optional["AbstractUser"]:
         """
         ユーザー名からユーザーオブジェクトを取得する
 
@@ -209,7 +209,14 @@ class User(AbstractUser):
         IndexError
             ユーザーが見つからない場合（raise_when_not_foundがFalseの場合）
         """
-        return UserCollection.from_names(client, [name], raise_when_not_found)[0]
+        result = UserCollection.from_names(client, [name], raise_when_not_found)
+        if len(result) == 0:
+            if raise_when_not_found:
+                raise NotFoundException(f"User not found: {name}")
+            else:
+                return None
+
+        return result[0]
 
 
 @dataclass
