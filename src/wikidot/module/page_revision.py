@@ -111,13 +111,15 @@ class PageRevisionCollection(list["PageRevision"]):
 
         for revision, response in zip(target_revisions, responses):
             body = response.json()["body"]
+            # nbspをスペースに置換
+            body = body.replace("&nbsp;", " ")
             body_html = BeautifulSoup(body, "lxml")
             wiki_text_elem = body_html.select_one("div.page-source")
             if wiki_text_elem is None:
                 raise NoElementException("Wiki text element not found")
             revision.source = PageSource(
                 page=page,
-                wiki_text=wiki_text_elem.text.strip(),
+                wiki_text=wiki_text_elem.get_text().strip(),
             )
 
         return revisions
