@@ -477,11 +477,13 @@ class PageCollection(list["Page"]):
 
         for page, responses in zip(pages, responses):
             body = responses.json()["body"]
+            # nbspをスペースに置換
+            body = body.replace("&nbsp;", " ")
             html = BeautifulSoup(body, "lxml")
             source_element = html.select_one("div.page-source")
             if source_element is None:
                 raise exceptions.NoElementException("Cannot find source element")
-            source = source_element.text.strip().removeprefix("\t")
+            source = source_element.get_text().strip().removeprefix("\t")
             page.source = PageSource(page, source)
         return pages
 
