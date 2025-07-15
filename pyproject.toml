@@ -56,3 +56,24 @@ line-ending = "auto"
 
 [tool.ruff.lint.isort]
 known-first-party = ["wikidot"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "docs.source.conf"
+ignore_missing_imports = true
+warn_return_any = false
+
+[[tool.mypy.overrides]]
+module = [
+    "wikidot.connector.ajax",
+    "wikidot.module.client",
+    "wikidot.module.page",
+    "wikidot.module.private_message",
+    "wikidot.module.site"
+]
+warn_return_any = false

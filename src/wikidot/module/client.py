@@ -228,8 +228,9 @@ class Client:
         logging_level : str, default "WARNING"
             ロギングレベル
         """
-        # 最初にロギングレベルを決定する
-        wd_logger.setLevel(logging_level)
+        # ロギング設定を行う
+        from wikidot.common.logger import setup_console_handler
+        setup_console_handler(wd_logger, logging_level)
 
         # AMCClientを初期化
         self.amc_client = AjaxModuleConnectorClient(site_name=None, config=amc_config)

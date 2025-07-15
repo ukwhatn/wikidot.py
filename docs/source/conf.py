@@ -26,9 +26,9 @@ author = 'ukwhatn'
 # バージョン情報
 try:
     import wikidot
-    version = wikidot.__version__ if hasattr(wikidot, '__version__') else '3.1.0.dev9'
+    version = wikidot.__version__ if hasattr(wikidot, '__version__') else '3.1.0dev13'
 except (ImportError, AttributeError):
-    version = '3.1.0.dev9'
+    version = '3.1.0dev13'
 release = version
 
 # 拡張機能
@@ -45,7 +45,7 @@ extensions = [
 templates_path = ['_templates']
 
 # 除外パターン
-exclude_patterns = []
+exclude_patterns = ['_build', '../build', 'Thumbs.db', '.DS_Store', '*.tmp', '**/*~', '**/__pycache__/**', '**/*.pyc', '.nojekyll']
 
 # デフォルト言語
 language = 'ja'

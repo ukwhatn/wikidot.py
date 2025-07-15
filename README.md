@@ -43,8 +43,6 @@ print(f"作成者: {page.created_by.name}")
 📚 **[公式ドキュメント](https://ukwhatn.github.io/wikidot.py/)**
 
 - [インストール方法](https://ukwhatn.github.io/wikidot.py/installation.html)
-- [クイックスタート](https://ukwhatn.github.io/wikidot.py/quickstart.html)
-- [使用例](https://ukwhatn.github.io/wikidot.py/examples.html)
 - [APIリファレンス](https://ukwhatn.github.io/wikidot.py/reference/index.html)
 
 ## ドキュメント構築
