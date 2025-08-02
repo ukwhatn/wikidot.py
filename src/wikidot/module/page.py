@@ -1,6 +1,6 @@
 import re
 from collections.abc import Iterator
-from dataclasses import asdict, dataclass
+from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Optional, Union
 
@@ -43,7 +43,6 @@ DEFAULT_MODULE_BODY = [
 ]
 
 
-@dataclass
 class SearchPagesQuery:
     """
     ページ検索クエリを表すクラス
@@ -91,33 +90,84 @@ class SearchPagesQuery:
         個別表示するかどうか
     wrapper : str, default "no"
         ラッパー要素を表示するかどうか
+
+    Raises
+    ------
+    ValueError
+        無効なキーワード引数が渡された場合
     """
 
-    # selecting pages
-    pagetype: Optional[str] = "*"
-    category: Optional[str] = "*"
-    tags: Optional[str | list[str]] = None
-    parent: Optional[str] = None
-    link_to: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    created_by: Optional[Union["User", str]] = None
-    rating: Optional[str] = None
-    votes: Optional[str] = None
-    name: Optional[str] = None
-    fullname: Optional[str] = None
-    range: Optional[str] = None
+    # 有効なフィールド名のセット
+    _VALID_FIELDS = {
+        "pagetype",
+        "category",
+        "tags",
+        "parent",
+        "link_to",
+        "created_at",
+        "updated_at",
+        "created_by",
+        "rating",
+        "votes",
+        "name",
+        "fullname",
+        "range",
+        "order",
+        "offset",
+        "limit",
+        "perPage",
+        "separate",
+        "wrapper",
+    }
 
-    # ordering
-    order: str = "created_at desc"
+    def __init__(self, **kwargs):
+        """
+        SearchPagesQueryの初期化
 
-    # pagination
-    offset: Optional[int] = 0
-    limit: Optional[int] = None
-    perPage: Optional[int] = 250
-    # layout
-    separate: Optional[str] = "no"
-    wrapper: Optional[str] = "no"
+        Parameters
+        ----------
+        **kwargs
+            検索条件のキーワード引数
+
+        Raises
+        ------
+        ValueError
+            無効なキーワード引数が含まれている場合
+        """
+        # 無効なキーのチェック
+        invalid_keys = set(kwargs.keys()) - self._VALID_FIELDS
+        if invalid_keys:
+            raise ValueError(
+                f"Invalid query parameters: {', '.join(sorted(invalid_keys))}. "
+                f"Valid parameters are: {', '.join(sorted(self._VALID_FIELDS))}"
+            )
+
+        # デフォルト値の設定
+        # selecting pages
+        self.pagetype: Optional[str] = kwargs.get("pagetype", "*")
+        self.category: Optional[str] = kwargs.get("category", "*")
+        self.tags: Optional[str | list[str]] = kwargs.get("tags", None)
+        self.parent: Optional[str] = kwargs.get("parent", None)
+        self.link_to: Optional[str] = kwargs.get("link_to", None)
+        self.created_at: Optional[str] = kwargs.get("created_at", None)
+        self.updated_at: Optional[str] = kwargs.get("updated_at", None)
+        self.created_by: Optional[Union["User", str]] = kwargs.get("created_by", None)
+        self.rating: Optional[str] = kwargs.get("rating", None)
+        self.votes: Optional[str] = kwargs.get("votes", None)
+        self.name: Optional[str] = kwargs.get("name", None)
+        self.fullname: Optional[str] = kwargs.get("fullname", None)
+        self.range: Optional[str] = kwargs.get("range", None)
+
+        # ordering
+        self.order: str = kwargs.get("order", "created_at desc")
+
+        # pagination
+        self.offset: Optional[int] = kwargs.get("offset", 0)
+        self.limit: Optional[int] = kwargs.get("limit", None)
+        self.perPage: Optional[int] = kwargs.get("perPage", 250)
+        # layout
+        self.separate: Optional[str] = kwargs.get("separate", "no")
+        self.wrapper: Optional[str] = kwargs.get("wrapper", "no")
 
     def as_dict(self) -> dict[str, Any]:
         """
@@ -130,7 +180,12 @@ class SearchPagesQuery:
         dict[str, Any]
             APIリクエスト用の辞書形式パラメータ
         """
-        res = {k: v for k, v in asdict(self).items() if v is not None}
+        res = {}
+        for field in self._VALID_FIELDS:
+            value = getattr(self, field)
+            if value is not None:
+                res[field] = value
+
         if "tags" in res and isinstance(res["tags"], list):
             res["tags"] = " ".join(res["tags"])
         return res
