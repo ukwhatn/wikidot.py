@@ -230,6 +230,7 @@ class Client:
         """
         # ロギング設定を行う
         from wikidot.common.logger import setup_console_handler
+
         setup_console_handler(wd_logger, logging_level)
 
         # AMCClientを初期化
@@ -257,18 +258,6 @@ class Client:
         # ------------
         # メソッド終わり
         # ------------
-
-    def __del__(self):
-        """
-        デストラクタ - クライアントの使用終了時の後処理
-
-        ログイン中であればログアウト処理を行い、リソースを解放する。
-        """
-        if self.is_logged_in:
-            HTTPAuthentication.logout(self)
-            self.is_logged_in = False
-            self.username = None
-        del self
 
     def __enter__(self):
         """
@@ -298,7 +287,15 @@ class Client:
         traceback : traceback
             例外のトレースバック
         """
-        self.__del__()
+        if self.is_logged_in:
+            try:
+                HTTPAuthentication.logout(self)
+            except Exception:
+                # ログアウトエラーは記録するが、再度raiseはしない
+                pass
+            finally:
+                self.is_logged_in = False
+                self.username = None
         return
 
     def __str__(self):
@@ -327,3 +324,29 @@ class Client:
         if not self.is_logged_in:
             raise LoginRequiredException("Login is required to execute this function")
         return
+
+    def close(self) -> None:
+        """
+        クライアントのリソースを明示的に解放
+
+        ログイン中であればログアウト処理を行い、関連するリソースをクリーンアップする。
+        with文を使用しない場合は、このメソッドを明示的に呼び出してリソースを解放すること。
+
+        Examples
+        --------
+        >>> client = Client(username="user", password="pass")
+        >>> try:
+        ...     # 何か処理
+        ...     pass
+        ... finally:
+        ...     client.close()
+        """
+        if self.is_logged_in:
+            try:
+                HTTPAuthentication.logout(self)
+            except Exception:
+                # ログアウトエラーは記録するが、再度raiseはしない
+                pass
+            finally:
+                self.is_logged_in = False
+                self.username = None
