@@ -68,6 +68,37 @@ class QuickModule:
         return response.json()
 
     @staticmethod
+    def _generic_lookup(module_name: str, site_id: int, query: str, response_key: str, 
+                       item_class, item_mapping):
+        """汎用的な検索メソッド
+
+        Parameters
+        ----------
+        module_name: str
+            モジュール名
+        site_id: int
+            サイトID
+        query: str
+            クエリ
+        response_key: str
+            レスポンスから取得するキー
+        item_class: type
+            返すアイテムのクラス
+        item_mapping: callable
+            レスポンスアイテムからクラスインスタンスへの変換関数
+
+        Returns
+        -------
+        list
+            アイテムのリスト
+        """
+        items = QuickModule._request(module_name, site_id, query)[response_key]
+        # member_lookupの特殊ケースを処理
+        if items is False:
+            return []
+        return [item_mapping(item_class, item) for item in items]
+
+    @staticmethod
     def member_lookup(site_id: int, query: str):
         """メンバーを検索する
 
@@ -83,10 +114,14 @@ class QuickModule:
         list[QMCUser]
             ユーザーのリスト
         """
-        users = QuickModule._request("MemberLookupQModule", site_id, query)["users"]
-        if users is False:
-            return []
-        return [QMCUser(id=int(user["user_id"]), name=user["name"]) for user in users]
+        return QuickModule._generic_lookup(
+            "MemberLookupQModule", 
+            site_id, 
+            query, 
+            "users",
+            QMCUser,
+            lambda cls, item: cls(id=int(item["user_id"]), name=item["name"])
+        )
 
     @staticmethod
     def user_lookup(site_id: int, query: str):
@@ -104,8 +139,14 @@ class QuickModule:
         list[QMCUser]
             ユーザーのリスト
         """
-        users = QuickModule._request("UserLookupQModule", site_id, query)["users"]
-        return [QMCUser(id=int(user["user_id"]), name=user["name"]) for user in users]
+        return QuickModule._generic_lookup(
+            "UserLookupQModule",
+            site_id,
+            query,
+            "users",
+            QMCUser,
+            lambda cls, item: cls(id=int(item["user_id"]), name=item["name"])
+        )
 
     @staticmethod
     def page_lookup(site_id: int, query: str):
@@ -123,5 +164,11 @@ class QuickModule:
         list[QMCPage]
             ページのリスト
         """
-        pages = QuickModule._request("PageLookupQModule", site_id, query)["pages"]
-        return [QMCPage(title=page["title"], unix_name=page["unix_name"]) for page in pages]
+        return QuickModule._generic_lookup(
+            "PageLookupQModule",
+            site_id,
+            query,
+            "pages",
+            QMCPage,
+            lambda cls, item: cls(title=item["title"], unix_name=item["unix_name"])
+        )

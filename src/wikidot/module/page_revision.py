@@ -10,9 +10,6 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from bs4 import BeautifulSoup
-
-from ..common.exceptions import NoElementException
 from .page_source import PageSource
 
 if TYPE_CHECKING:
@@ -77,6 +74,44 @@ class PageRevisionCollection(list["PageRevision"]):
         return None
 
     @staticmethod
+    def _generic_acquire(page, revisions: list["PageRevision"], check_acquired_func, 
+                        module_name: str, process_response_func):
+        """
+        リビジョンデータを一括取得する汎用メソッド
+
+        Parameters
+        ----------
+        page : Page
+            リビジョンが属するページ
+        revisions : list[PageRevision]
+            データを取得するリビジョンのリスト
+        check_acquired_func : callable
+            データが既に取得済みかチェックする関数
+        module_name : str
+            AMCリクエストで使用するモジュール名
+        process_response_func : callable
+            レスポンスを処理する関数 (revision, response) -> None
+
+        Returns
+        -------
+        list[PageRevision]
+            データが更新されたリビジョンのリスト
+        """
+        target_revisions = [revision for revision in revisions if not check_acquired_func(revision)]
+
+        if len(target_revisions) == 0:
+            return revisions
+
+        responses = page.site.amc_request(
+            [{"moduleName": module_name, "revision_id": revision.id} for revision in target_revisions]
+        )
+
+        for revision, response in zip(target_revisions, responses):
+            process_response_func(revision, response, page)
+
+        return revisions
+
+    @staticmethod
     def _acquire_sources(page, revisions: list["PageRevision"]):
         """
         複数のリビジョンのソースコードを一括取得する内部メソッド
@@ -100,16 +135,10 @@ class PageRevisionCollection(list["PageRevision"]):
         NoElementException
             ソース要素が見つからない場合
         """
-        target_revisions = [revision for revision in revisions if not revision.is_source_acquired()]
+        def process_source_response(revision, response, page):
+            from bs4 import BeautifulSoup
 
-        if len(target_revisions) == 0:
-            return revisions
-
-        responses = page.site.amc_request(
-            [{"moduleName": "history/PageSourceModule", "revision_id": revision.id} for revision in target_revisions]
-        )
-
-        for revision, response in zip(target_revisions, responses):
+            from ..common.exceptions import NoElementException
             body = response.json()["body"]
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
@@ -122,7 +151,13 @@ class PageRevisionCollection(list["PageRevision"]):
                 wiki_text=wiki_text_elem.get_text().strip(),
             )
 
-        return revisions
+        return PageRevisionCollection._generic_acquire(
+            page, 
+            revisions, 
+            lambda r: r.is_source_acquired(),
+            "history/PageSourceModule",
+            process_source_response
+        )
 
     def get_sources(self):
         """
@@ -154,16 +189,7 @@ class PageRevisionCollection(list["PageRevision"]):
         list[PageRevision]
             HTML情報が更新されたリビジョンのリスト
         """
-        target_revisions = [revision for revision in revisions if not revision.is_html_acquired()]
-
-        if len(target_revisions) == 0:
-            return revisions
-
-        responses = page.site.amc_request(
-            [{"moduleName": "history/PageVersionModule", "revision_id": revision.id} for revision in target_revisions]
-        )
-
-        for revision, response in zip(target_revisions, responses):
+        def process_html_response(revision, response, page):
             body = response.json()["body"]
             # onclick="document.getElementById('page-version-info').style.display='none'">(.*?)</a>\n\t</div>\n\n\n\n
             # 以降をソースとして取得
@@ -174,7 +200,13 @@ class PageRevisionCollection(list["PageRevision"]):
             source = source.split("</a>\n\t</div>\n\n\n\n", maxsplit=1)[1]
             revision._html = source
 
-        return revisions
+        return PageRevisionCollection._generic_acquire(
+            page,
+            revisions,
+            lambda r: r.is_html_acquired(),
+            "history/PageVersionModule",
+            process_html_response
+        )
 
     def get_htmls(self):
         """
