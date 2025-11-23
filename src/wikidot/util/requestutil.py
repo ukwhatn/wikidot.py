@@ -1,4 +1,5 @@
 import asyncio
+from concurrent.futures import ThreadPoolExecutor
 from typing import TYPE_CHECKING
 
 import httpx
@@ -52,4 +53,18 @@ class RequestUtil:
             else:
                 raise ValueError("Invalid method")
 
-        return asyncio.run(_execute())
+        def _run_async(coro):
+            """Execute an async coroutine in the current or new event loop"""
+            try:
+                # Get the running event loop
+                loop = asyncio.get_running_loop()
+            except RuntimeError:
+                # No event loop exists, create a new one and run
+                return asyncio.run(coro)
+            else:
+                # Run in a separate thread to avoid conflict with the existing loop
+                with ThreadPoolExecutor(max_workers=1) as executor:
+                    future = executor.submit(asyncio.run, coro)
+                    return future.result()
+
+        return _run_async(_execute())
