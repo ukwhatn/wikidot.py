@@ -403,7 +403,7 @@ class ForumThread:
     category: Optional["ForumCategory"] = None
     _posts: Optional["ForumPostCollection"] = field(default=None, repr=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
