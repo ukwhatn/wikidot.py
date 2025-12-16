@@ -68,8 +68,7 @@ lint.select = [
 ]
 lint.ignore = [
     "E501",   # line too long (handled by formatter)
-    # 以下は段階的に修正予定（Phase 2-3で対応）
-    "SIM105", # contextlib.suppress (Task 2.2で対応)
+    # 以下は段階的に修正予定またはコード可読性のため維持
     "SIM102", # Combine if statements (コード可読性のため維持)
     "SIM108", # Ternary operator (コード可読性のため維持)
     "SIM110", # Use any() (コード可読性のため維持)

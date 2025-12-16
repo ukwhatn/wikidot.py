@@ -1,3 +1,4 @@
+import contextlib
 from typing import TYPE_CHECKING
 
 import httpx
@@ -82,9 +83,7 @@ class HTTPAuthentication:
         -----
         ログアウト処理でエラーが発生しても無視され、Cookieの削除は常に行われる。
         """
-        try:
+        with contextlib.suppress(Exception):
             client.amc_client.request([{"action": "Login2Action", "event": "logout", "moduleName": "Empty"}])
-        except Exception:
-            pass
 
         client.amc_client.header.delete_cookie("WIKIDOT_SESSION_ID")
