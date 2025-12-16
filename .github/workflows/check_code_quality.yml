@@ -14,14 +14,13 @@ jobs:
       with:
         ref: ${{ github.head_ref }}
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v4
       with:
-        python-version: '3.10'
+        enable-cache: true
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
+    - name: Set up Python
+      run: uv python install 3.10
 
     - name: Run formatter
       run: make format
@@ -32,7 +31,7 @@ jobs:
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
           git add .
-          git commit -m "🎨 Format code with isort and black"
+          git commit -m "🎨 Format code with ruff"
           git push
         fi
 
@@ -49,14 +48,13 @@ jobs:
       with:
         ref: ${{ github.head_ref }}
 
-    - name: Set up Python ${{ matrix.python-version }}
-      uses: actions/setup-python@v5
+    - name: Set up uv
+      uses: astral-sh/setup-uv@v4
       with:
-        python-version: ${{ matrix.python-version }}
+        enable-cache: true
 
-    - name: Install dependencies
-      run: |
-        python -m pip install --upgrade pip
+    - name: Set up Python ${{ matrix.python-version }}
+      run: uv python install ${{ matrix.python-version }}
 
     - name: Run linter
       run: make lint

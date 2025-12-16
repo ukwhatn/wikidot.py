@@ -9,8 +9,7 @@ release_from-develop:
 
 build:
 	rm -rf dist
-	pip install -e .[build]
-	python -m build
+	uv build
 
 update-version:
 	@echo "Updating version to $(version)"
@@ -34,31 +33,31 @@ commit:
 	git commit -m '$(message)'
 
 format:
-	pip install -e .[format]
-	python -m ruff format $(FORMAT_DIR)
+	uv sync --extra format
+	uv run ruff format $(FORMAT_DIR)
 
 lint:
-	pip install -e .[lint]
-	python -m ruff check $(FORMAT_DIR)
-	python -m mypy $(FORMAT_DIR) --install-types --non-interactive
+	uv sync --extra lint
+	uv run ruff check $(FORMAT_DIR)
+	uv run mypy $(FORMAT_DIR) --install-types --non-interactive
 
 lint-fix:
-	pip install -e .[lint]
-	python -m ruff check $(FORMAT_DIR) --fix
+	uv sync --extra lint
+	uv run ruff check $(FORMAT_DIR) --fix
 
 # ドキュメント関連のコマンド
 docs-install:
-	pip install -e .[docs]
+	uv sync --extra docs
 
 docs-build:
 	make docs-install
-	sphinx-build -b html $(DOCS_SOURCE) $(DOCS_BUILD)
+	uv run sphinx-build -b html $(DOCS_SOURCE) $(DOCS_BUILD)
 
 docs-clean:
 	rm -rf $(DOCS_BUILD)
 
 docs-serve:
-	cd $(DOCS_BUILD) && python -m http.server
+	cd $(DOCS_BUILD) && uv run python -m http.server
 
 docs-github:
 	make docs-clean
@@ -66,4 +65,4 @@ docs-github:
 	touch $(DOCS_BUILD)/.nojekyll
 	@echo "GitHub Pages用のドキュメントが生成されました。docs/buildディレクトリの内容をgh-pagesブランチにプッシュしてください。"
 
-PHONY: build release release_from-develop update-version format commit docs-install docs-build docs-clean docs-serve docs-github
+.PHONY: build release release_from-develop update-version format commit lint lint-fix docs-install docs-build docs-clean docs-serve docs-github
