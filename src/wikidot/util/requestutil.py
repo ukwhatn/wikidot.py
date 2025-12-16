@@ -42,7 +42,7 @@ class RequestUtil:
             async with semaphore, httpx.AsyncClient() as _client:
                 return await _client.post(url)
 
-        async def _execute():
+        async def _execute() -> list[httpx.Response | BaseException]:
             if method == "GET":
                 return await asyncio.gather(*[_get(url) for url in urls], return_exceptions=return_exceptions)
             elif method == "POST":
@@ -50,4 +50,8 @@ class RequestUtil:
             else:
                 raise ValueError("Invalid method")
 
-        return asyncio.run(_execute())
+        results = asyncio.run(_execute())
+        return [
+            r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))
+            for r in results
+        ]
