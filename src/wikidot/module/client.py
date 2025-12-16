@@ -1,3 +1,4 @@
+from types import TracebackType
 from typing import Optional
 
 from ..common import wd_logger
@@ -257,7 +258,7 @@ class Client:
         # メソッド終わり
         # ------------
 
-    def __del__(self):
+    def __del__(self) -> None:
         """
         デストラクタ - クライアントの使用終了時の後処理
 
@@ -269,7 +270,7 @@ class Client:
             self.username = None
         del self
 
-    def __enter__(self):
+    def __enter__(self) -> "Client":
         """
         コンテキストマネージャプロトコルのエントリーポイント
 
@@ -282,7 +283,12 @@ class Client:
         """
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         """
         コンテキストマネージャプロトコルの終了処理
 
@@ -300,7 +306,7 @@ class Client:
         self.__del__()
         return
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
