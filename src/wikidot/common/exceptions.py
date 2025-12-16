@@ -16,7 +16,7 @@ class WikidotException(Exception):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -38,7 +38,7 @@ class UnexpectedException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -60,7 +60,7 @@ class SessionCreateException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -76,7 +76,7 @@ class LoginRequiredException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -96,7 +96,7 @@ class AjaxModuleConnectorException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -119,7 +119,7 @@ class AMCHttpStatusCodeException(AjaxModuleConnectorException):
         エラーとなったHTTPステータスコード
     """
 
-    def __init__(self, message, status_code: int):
+    def __init__(self, message: str, status_code: int) -> None:
         super().__init__(message)
         self.status_code = status_code
 
@@ -144,7 +144,7 @@ class WikidotStatusCodeException(AjaxModuleConnectorException):
         Wikidotから返されたエラーステータスコード
     """
 
-    def __init__(self, message, status_code: str):
+    def __init__(self, message: str, status_code: str) -> None:
         super().__init__(message)
         self.status_code = status_code
 
@@ -161,7 +161,7 @@ class ResponseDataException(AjaxModuleConnectorException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -183,7 +183,7 @@ class NotFoundException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -199,7 +199,7 @@ class TargetExistsException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -216,7 +216,7 @@ class TargetErrorException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -233,7 +233,7 @@ class ForbiddenException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
 
 
@@ -255,5 +255,5 @@ class NoElementException(WikidotException):
         例外メッセージ
     """
 
-    def __init__(self, message):
+    def __init__(self, message: str) -> None:
         super().__init__(message)
