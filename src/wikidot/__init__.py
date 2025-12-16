@@ -17,7 +17,7 @@ __version__ = "3.1.0dev13"
 
 
 # 全クラス・モジュールを公開する
-def _import_submodules():
+def _import_submodules() -> None:
     """
     パッケージ内の全サブモジュールからクラスをインポートしトップレベルで公開する関数
 
