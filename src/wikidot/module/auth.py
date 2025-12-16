@@ -21,7 +21,7 @@ class HTTPAuthentication:
         client: "Client",
         username: str,
         password: str,
-    ):
+    ) -> None:
         """
         ユーザー名とパスワードでWikidotにログインする
 
@@ -70,7 +70,7 @@ class HTTPAuthentication:
         client.amc_client.header.set_cookie("WIKIDOT_SESSION_ID", response.cookies["WIKIDOT_SESSION_ID"])
 
     @staticmethod
-    def logout(client: "Client"):
+    def logout(client: "Client") -> None:
         """
         Wikidotからログアウトする
 
