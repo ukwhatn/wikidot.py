@@ -138,7 +138,7 @@ class AbstractUser:
     avatar_url: str | None = None
     ip: str | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
