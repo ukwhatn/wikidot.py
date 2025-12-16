@@ -41,7 +41,7 @@ class SiteApplication:
     user: "AbstractUser"
     text: str
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
@@ -106,7 +106,7 @@ class SiteApplication:
         return applications
 
     @login_required
-    def _process(self, action: str):
+    def _process(self, action: str) -> None:
         """
         参加申請を処理する内部メソッド
 
@@ -150,7 +150,7 @@ class SiteApplication:
             else:
                 raise e
 
-    def accept(self):
+    def accept(self) -> None:
         """
         参加申請を承認する
 
@@ -167,7 +167,7 @@ class SiteApplication:
         """
         self._process("accept")
 
-    def decline(self):
+    def decline(self) -> None:
         """
         参加申請を拒否する
 
