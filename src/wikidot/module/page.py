@@ -298,7 +298,7 @@ class PageCollection(list["Page"]):
         return PageCollection(site, pages)
 
     @staticmethod
-    def search_pages(site: "Site", query: SearchPagesQuery = SearchPagesQuery()):
+    def search_pages(site: "Site", query: SearchPagesQuery | None = None):
         """
         サイト内のページを検索する
 
@@ -309,8 +309,8 @@ class PageCollection(list["Page"]):
         ----------
         site : Site
             検索対象のサイト
-        query : SearchPagesQuery, default SearchPagesQuery()
-            検索条件
+        query : SearchPagesQuery | None, default None
+            検索条件。Noneの場合はデフォルトの検索条件を使用する。
 
         Returns
         -------
@@ -326,6 +326,8 @@ class PageCollection(list["Page"]):
         NoElementException
             レスポンスからページ情報を抽出できない場合
         """
+        if query is None:
+            query = SearchPagesQuery()
         # 初回実行
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
@@ -477,8 +479,8 @@ class PageCollection(list["Page"]):
             [{"moduleName": "viewsource/ViewSourceModule", "page_id": page.id} for page in pages]
         )
 
-        for page, responses in zip(pages, responses):
-            body = responses.json()["body"]
+        for page, response in zip(pages, responses, strict=True):
+            body = response.json()["body"]
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
             html = BeautifulSoup(body, "lxml")
@@ -541,7 +543,7 @@ class PageCollection(list["Page"]):
             ]
         )
 
-        for page, response in zip(pages, responses):
+        for page, response in zip(pages, responses, strict=True):
             body = response.json()["body"]
             revs = []
             body_html = BeautifulSoup(body, "lxml")
@@ -620,7 +622,7 @@ class PageCollection(list["Page"]):
             [{"moduleName": "pagerate/WhoRatedPageModule", "pageId": page.id} for page in pages]
         )
 
-        for page, response in zip(pages, responses):
+        for page, response in zip(pages, responses, strict=True):
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
             user_elems = html.select("span.printuser")
@@ -640,7 +642,7 @@ class PageCollection(list["Page"]):
                 else:
                     values.append(int(_v))
 
-            votes = [PageVote(page, user, vote) for user, vote in zip(users, values)]
+            votes = [PageVote(page, user, vote) for user, vote in zip(users, values, strict=True)]
             page._votes = PageVoteCollection(page, votes)
 
         return pages
@@ -1080,7 +1082,7 @@ class Page:
         deleted_metas = {k: v for k, v in current_metas.items() if k not in value}
         added_metas = {k: v for k, v in value.items() if k not in current_metas}
 
-        for name, content in deleted_metas.items():
+        for name, _content in deleted_metas.items():
             self.site.amc_request(
                 [
                     {

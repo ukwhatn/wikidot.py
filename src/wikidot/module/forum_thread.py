@@ -351,7 +351,7 @@ class ForumThreadCollection(list["ForumThread"]):
 
         threads = []
 
-        for response, thread_id in zip(responses, thread_ids):
+        for response, thread_id in zip(responses, thread_ids, strict=True):
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
 

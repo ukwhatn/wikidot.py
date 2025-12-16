@@ -109,7 +109,7 @@ class PageRevisionCollection(list["PageRevision"]):
             [{"moduleName": "history/PageSourceModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
-        for revision, response in zip(target_revisions, responses):
+        for revision, response in zip(target_revisions, responses, strict=True):
             body = response.json()["body"]
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
@@ -163,7 +163,7 @@ class PageRevisionCollection(list["PageRevision"]):
             [{"moduleName": "history/PageVersionModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
-        for revision, response in zip(target_revisions, responses):
+        for revision, response in zip(target_revisions, responses, strict=True):
             body = response.json()["body"]
             # onclick="document.getElementById('page-version-info').style.display='none'">(.*?)</a>\n\t</div>\n\n\n\n
             # 以降をソースとして取得

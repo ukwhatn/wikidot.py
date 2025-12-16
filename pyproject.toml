@@ -68,17 +68,13 @@ lint.select = [
 ]
 lint.ignore = [
     "E501",   # line too long (handled by formatter)
-    # 以下は段階的に修正予定またはコード可読性のため維持
-    "SIM102", # Combine if statements (コード可読性のため維持)
-    "SIM108", # Ternary operator (コード可読性のため維持)
-    "SIM110", # Use any() (コード可読性のため維持)
-    "SIM117", # Combine with statements (Task 3.1で対応)
-    "SIM401", # dict.get() (コード可読性のため維持)
-    "B007",   # Unused loop variable (意図的な場合あり)
-    "B008",   # Function call in default argument (既存コードの互換性)
+    # 以下はコード可読性のため維持
+    "SIM102", # Combine if statements
+    "SIM108", # Ternary operator
+    "SIM110", # Use any()
+    "SIM117", # Combine with statements (Task 3.1で対応予定)
+    "SIM401", # dict.get()
     "B009",   # getattr with constant (コード意図があるため維持)
-    "B020",   # Loop variable overrides iterable (要修正だが別タスクで対応)
-    "B905",   # zip() without strict= (Python 3.10+で段階的に対応)
 ]
 
 [tool.ruff.format]
