@@ -77,7 +77,7 @@ class PageRevisionCollection(list["PageRevision"]):
         return None
 
     @staticmethod
-    def _acquire_sources(page, revisions: list["PageRevision"]):
+    def _acquire_sources(page: "Page", revisions: list["PageRevision"]) -> list["PageRevision"]:
         """
         複数のリビジョンのソースコードを一括取得する内部メソッド
 
@@ -124,7 +124,7 @@ class PageRevisionCollection(list["PageRevision"]):
 
         return revisions
 
-    def get_sources(self):
+    def get_sources(self) -> "PageRevisionCollection":
         """
         コレクション内のすべてのリビジョンのソースコードを取得する
 
@@ -133,10 +133,13 @@ class PageRevisionCollection(list["PageRevision"]):
         PageRevisionCollection
             自身（メソッドチェーン用）
         """
-        return self._acquire_sources(self.page, self)
+        if self.page is None:
+            raise ValueError("Page is not set for this collection")
+        self._acquire_sources(self.page, self)
+        return self
 
     @staticmethod
-    def _acquire_htmls(page, revisions: list["PageRevision"]):
+    def _acquire_htmls(page: "Page", revisions: list["PageRevision"]) -> list["PageRevision"]:
         """
         複数のリビジョンのHTML表示を一括取得する内部メソッド
 
@@ -176,7 +179,7 @@ class PageRevisionCollection(list["PageRevision"]):
 
         return revisions
 
-    def get_htmls(self):
+    def get_htmls(self) -> "PageRevisionCollection":
         """
         コレクション内のすべてのリビジョンのHTML表示を取得する
 
@@ -185,7 +188,10 @@ class PageRevisionCollection(list["PageRevision"]):
         PageRevisionCollection
             自身（メソッドチェーン用）
         """
-        return self._acquire_htmls(self.page, self)
+        if self.page is None:
+            raise ValueError("Page is not set for this collection")
+        self._acquire_htmls(self.page, self)
+        return self
 
 
 @dataclass
@@ -264,7 +270,7 @@ class PageRevision:
         return self._source
 
     @source.setter
-    def source(self, value: "PageSource"):
+    def source(self, value: "PageSource") -> None:
         """
         リビジョンのソースコードを設定する
 
@@ -292,7 +298,7 @@ class PageRevision:
         return self._html
 
     @html.setter
-    def html(self, value: str):
+    def html(self, value: str) -> None:
         """
         リビジョンのHTML表示を設定する
 
