@@ -96,6 +96,7 @@ site = client.site.get("scp-jp")
 | `site.member_lookup(user_name)` | メンバー検索 → SiteMember |
 | `site.applications` | 参加申請一覧（要ログイン） → list[SiteApplication] |
 | `site.invite_user(user, text)` | ユーザー招待（要ログイン） |
+| `site.get_recent_changes(limit)` | サイト変更履歴 → list[SiteChange] |
 
 #### Siteプロパティ
 
@@ -182,6 +183,8 @@ pages = site.pages.search(
 | `page.latest_revision` | PageRevision | 最新リビジョン |
 | `page.votes` | PageVoteCollection | 投票一覧 |
 | `page.metas` | dict[str, str] | メタタグ |
+| `page.discussion` | ForumThread \| None | ディスカッションスレッド |
+| `page.files` | PageFileCollection | 添付ファイル一覧 |
 
 #### Pageメソッド（書き込み）
 
@@ -211,6 +214,18 @@ page.commit_tags()
 
 # メタタグ設定
 page.metas = {"key": "value"}
+
+# 親ページ設定
+page.set_parent("parent-page")  # 親を設定
+page.set_parent(None)           # 親を解除
+
+# ページ名変更
+page.rename("new-fullname")
+
+# 投票（要ログイン）
+new_rating = page.vote(1)      # +1投票、新rating返却
+new_rating = page.vote(-1)     # -1投票
+new_rating = page.cancel_vote() # 投票取り消し
 ```
 
 #### PageCollection操作
@@ -333,7 +348,17 @@ thread = category.create_thread(
 | `thread.url` | str | URL |
 | `thread.created_at` | datetime | 作成日時 |
 | `thread.created_by` | AbstractUser | 作成者 |
-| `thread.posts_count` | int | 投稿数 |
+| `thread.post_count` | int | 投稿数 |
+| `thread.posts` | ForumPostCollection | 投稿一覧 |
+
+#### ForumThreadメソッド
+
+```python
+# スレッドに返信（要ログイン）
+thread.reply(source="返信内容")
+thread.reply(source="返信内容", title="タイトル")
+thread.reply(source="返信内容", parent_post_id=12345)  # 特定投稿への返信
+```
 
 #### ForumPostプロパティ
 
@@ -342,8 +367,20 @@ thread = category.create_thread(
 | `post.id` | int | 投稿ID |
 | `post.title` | str | タイトル |
 | `post.text` | str | 本文（HTML） |
+| `post.source` | str | ソース（Wikidot記法） |
 | `post.created_by` | AbstractUser | 投稿者 |
 | `post.created_at` | datetime | 投稿日時 |
+| `post.edited_by` | AbstractUser \| None | 編集者 |
+| `post.edited_at` | datetime \| None | 編集日時 |
+| `post.parent_id` | int \| None | 親投稿ID |
+
+#### ForumPostメソッド
+
+```python
+# 投稿を編集（要ログイン）
+post.edit(source="新しい内容")
+post.edit(source="新しい内容", title="新しいタイトル")
+```
 
 ---
 
@@ -376,6 +413,58 @@ for vote in page.votes:
 # 特定ユーザーの投票を検索
 vote = page.votes.find(user)
 ```
+
+---
+
+### PageFile操作
+
+```python
+# ページの添付ファイル一覧
+for file in page.files:
+    print(file.name, file.size, file.mime_type)
+
+# 特定ファイルを検索
+file = page.files.find(file_id)
+file = page.files.find_by_name("image.png")
+```
+
+#### PageFileプロパティ
+
+| プロパティ | 型 | 説明 |
+|-----------|-----|------|
+| `file.id` | int | ファイルID |
+| `file.name` | str | ファイル名 |
+| `file.url` | str | ダウンロードURL |
+| `file.mime_type` | str | MIMEタイプ |
+| `file.size` | int | ファイルサイズ（バイト） |
+
+---
+
+### SiteChange操作
+
+```python
+# サイトの最近の変更履歴
+changes = site.get_recent_changes(limit=100)
+
+for change in changes:
+    print(f"{change.page_fullname} rev.{change.revision_no}")
+    print(f"  by {change.changed_by.name} at {change.changed_at}")
+    print(f"  flags: {change.flags}, comment: {change.comment}")
+```
+
+#### SiteChangeプロパティ
+
+| プロパティ | 型 | 説明 |
+|-----------|-----|------|
+| `change.page_fullname` | str | ページフルネーム |
+| `change.page_title` | str | ページタイトル |
+| `change.revision_no` | int | リビジョン番号 |
+| `change.changed_by` | AbstractUser | 変更者 |
+| `change.changed_at` | datetime | 変更日時 |
+| `change.flags` | list[str] | 変更フラグ（N/S/T/R/M/F/A） |
+| `change.comment` | str \| None | 変更コメント |
+
+変更フラグ: N=新規作成, S=ソース変更, T=タイトル変更, R=名前変更, M=移動, F=ファイル, A=削除
 
 ---
 
@@ -523,6 +612,29 @@ with wikidot.Client(username="user", password="pass") as client:
     print(f"作成: {thread.url}")
 ```
 
+### フォーラム投稿操作
+
+```python
+with wikidot.Client(username="user", password="pass") as client:
+    site = client.site.get("scp-jp")
+    thread = site.get_thread(thread_id)
+
+    # 投稿一覧
+    for post in thread.posts:
+        print(f"{post.title} by {post.created_by.name}")
+        print(f"  {post.source[:50]}...")
+
+    # スレッドに返信
+    thread.reply(source="返信内容です", title="Re: タイトル")
+
+    # 特定投稿への返信
+    thread.reply(source="返信内容", parent_post_id=post.id)
+
+    # 投稿を編集
+    post = thread.posts[0]
+    post.edit(source="編集後の内容", title="編集後のタイトル")
+```
+
 ### メンバー管理
 
 ```python
@@ -559,6 +671,51 @@ with wikidot.Client(username="user", password="pass") as client:
         subject="こんにちは",
         body="メッセージ本文です。"
     )
+```
+
+### サイト変更履歴
+
+```python
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+
+    # 最近の変更100件
+    changes = site.get_recent_changes(limit=100)
+
+    for change in changes:
+        flags_str = "".join(change.flags)
+        print(f"[{flags_str}] {change.page_fullname} (rev.{change.revision_no})")
+        print(f"    by {change.changed_by.name} at {change.changed_at}")
+```
+
+### ページディスカッション
+
+```python
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    page = site.page.get("scp-173")
+
+    # ディスカッションスレッドを取得
+    if page.discussion:
+        thread = page.discussion
+        print(f"コメント数: {thread.post_count}")
+
+        for post in thread.posts:
+            print(f"{post.created_by.name}: {post.title}")
+```
+
+### ページファイル一覧
+
+```python
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    page = site.page.get("scp-173")
+
+    # 添付ファイル一覧
+    for file in page.files:
+        print(f"{file.name} ({file.size} bytes)")
+        print(f"  URL: {file.url}")
+        print(f"  Type: {file.mime_type}")
 ```
 
 ---

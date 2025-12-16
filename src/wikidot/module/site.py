@@ -1,11 +1,15 @@
 import re
 from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 import httpx
+from bs4 import BeautifulSoup
 
 from ..common import exceptions
 from ..common.decorators import login_required
+from ..util.parser import odate as odate_parser
+from ..util.parser import user as user_parser
 from ..util.quick_module import QMCUser, QuickModule
 from .forum_category import ForumCategoryCollection
 from .forum_thread import ForumThread, ForumThreadCollection
@@ -15,7 +19,7 @@ from .site_member import SiteMember
 
 if TYPE_CHECKING:
     from .client import Client
-    from .user import User
+    from .user import AbstractUser, User
 
 
 class SitePagesMethods:
@@ -207,6 +211,58 @@ class SiteForumMethods:
             フォーラムカテゴリのコレクション
         """
         return ForumCategoryCollection.acquire_all(self.site)
+
+
+@dataclass
+class SiteChange:
+    """
+    サイトの変更履歴の1件を表すクラス
+
+    サイト内のページに対する変更（作成、編集、削除など）の情報を保持する。
+
+    Attributes
+    ----------
+    site : Site
+        変更が行われたサイト
+    page_fullname : str
+        変更されたページのフルネーム
+    page_title : str
+        変更されたページのタイトル
+    revision_no : int
+        リビジョン番号
+    changed_by : AbstractUser
+        変更を行ったユーザー
+    changed_at : datetime
+        変更日時
+    flags : list[str]
+        変更フラグ（"N"=新規作成, "S"=ソース変更, "T"=タイトル変更, "R"=名前変更, "M"=移動, "F"=ファイル, "A"=削除）
+    comment : str | None
+        変更コメント
+    """
+
+    site: "Site"
+    page_fullname: str
+    page_title: str
+    revision_no: int
+    changed_by: "AbstractUser"
+    changed_at: datetime
+    flags: list[str]
+    comment: Optional[str]
+
+    def __str__(self):
+        """
+        オブジェクトの文字列表現
+
+        Returns
+        -------
+        str
+            変更履歴の文字列表現
+        """
+        return (
+            f"SiteChange(page_fullname={self.page_fullname}, "
+            f"revision_no={self.revision_no}, changed_by={self.changed_by}, "
+            f"changed_at={self.changed_at}, flags={self.flags})"
+        )
 
 
 @dataclass
@@ -530,3 +586,116 @@ class Site:
             スレッドオブジェクトのリスト
         """
         return ForumThreadCollection.acquire_from_thread_ids(self, thread_ids)
+
+    def get_recent_changes(self, limit: int | None = None) -> list["SiteChange"]:
+        """
+        サイトの最近の変更履歴を取得する
+
+        サイト内のページに対する最近の変更（作成、編集、削除など）を取得する。
+
+        Parameters
+        ----------
+        limit : int | None, default None
+            取得する最大件数。Noneの場合は最初のページ（デフォルト件数）のみ取得
+
+        Returns
+        -------
+        list[SiteChange]
+            変更履歴のリスト（新しい順）
+
+        Raises
+        ------
+        NoElementException
+            HTML要素の解析に失敗した場合
+        """
+        from ..common.exceptions import NoElementException
+
+        changes: list["SiteChange"] = []
+        per_page = min(limit, 1000) if limit is not None else 1000
+        page_no = 1
+
+        while True:
+            response = self.amc_request(
+                [
+                    {
+                        "moduleName": "changes/SiteChangesListModule",
+                        "perpage": str(per_page),
+                        "page": page_no,
+                        "options": "{'all':true}",
+                    }
+                ]
+            )[0]
+
+            html = BeautifulSoup(response.json()["body"], "lxml")
+            items = html.select("div.changes-list-item")
+
+            if not items:
+                break
+
+            for item in items:
+                comment_elem = item.select_one("td.comments")
+                comment = comment_elem.get_text().strip() if comment_elem else None
+                if comment == "":
+                    comment = None
+
+                title_elem = item.select_one("td.title a")
+                if title_elem is None:
+                    raise NoElementException("Title element is not found.")
+
+                page_title = title_elem.get_text().strip()
+                href = title_elem.get("href", "")
+                page_fullname = str(href).strip("/")
+
+                odate_elem = item.select_one("td.mod-date span.odate")
+                if odate_elem is None:
+                    raise NoElementException("Odate element is not found.")
+                changed_at = odate_parser(odate_elem)
+
+                rev_elem = item.select_one("td.revision-no")
+                if rev_elem is None:
+                    raise NoElementException("Revision number element is not found.")
+                rev_text = rev_elem.get_text()
+                rev_match = re.search(r"(\d+)", rev_text)
+                if rev_match is None:
+                    raise NoElementException("Revision number is not found.")
+                revision_no = int(rev_match.group(1))
+
+                user_elem = item.select_one("td.mod-by span.printuser")
+                if user_elem is None:
+                    raise NoElementException("User element is not found.")
+                changed_by = user_parser(self.client, user_elem)
+
+                flags_elem = item.select("td.flags span")
+                flags = [span.get_text().strip() for span in flags_elem]
+
+                changes.append(
+                    SiteChange(
+                        site=self,
+                        page_fullname=page_fullname,
+                        page_title=page_title,
+                        revision_no=revision_no,
+                        changed_by=changed_by,
+                        changed_at=changed_at,
+                        flags=flags,
+                        comment=comment,
+                    )
+                )
+
+                if limit is not None and len(changes) >= limit:
+                    return changes
+
+            pager = html.select_one("div.pager")
+            if pager is None:
+                break
+
+            pager_links = pager.select("a")
+            if len(pager_links) < 2:
+                break
+
+            last_page = int(pager_links[-2].get_text().strip())
+            if page_no >= last_page:
+                break
+
+            page_no += 1
+
+        return changes
