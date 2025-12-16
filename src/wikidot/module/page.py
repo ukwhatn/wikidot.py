@@ -195,7 +195,7 @@ class PageCollection(list["Page"]):
         return None
 
     @staticmethod
-    def _parse(site: "Site", html_body: BeautifulSoup):
+    def _parse(site: "Site", html_body: BeautifulSoup) -> "PageCollection":
         """
         ListPagesModuleのレスポンスをパースしてページオブジェクトのリストを生成する
 
@@ -298,7 +298,7 @@ class PageCollection(list["Page"]):
         return PageCollection(site, pages)
 
     @staticmethod
-    def search_pages(site: "Site", query: SearchPagesQuery | None = None):
+    def search_pages(site: "Site", query: SearchPagesQuery | None = None) -> "PageCollection":
         """
         サイト内のページを検索する
 
@@ -377,14 +377,14 @@ class PageCollection(list["Page"]):
             responses = site.amc_request(request_bodies)
             html_bodies.extend([BeautifulSoup(response.json()["body"], "lxml") for response in responses])
 
-        pages = []
+        pages: list[Page] = []
         for html_body in html_bodies:
             pages.extend(PageCollection._parse(site, html_body))
 
         return PageCollection(site, pages)
 
     @staticmethod
-    def _acquire_page_ids(site: "Site", pages: list["Page"]):
+    def _acquire_page_ids(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページIDを取得する内部メソッド
 
@@ -435,7 +435,7 @@ class PageCollection(list["Page"]):
 
         return pages
 
-    def get_page_ids(self):
+    def get_page_ids(self) -> "PageCollection":
         """
         コレクション内の全ページのIDを取得する
 
@@ -446,10 +446,11 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_ids(self.site, self)
+        PageCollection._acquire_page_ids(self.site, self)
+        return self
 
     @staticmethod
-    def _acquire_page_sources(site: "Site", pages: list["Page"]):
+    def _acquire_page_sources(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページソースを取得する内部メソッド
 
@@ -491,7 +492,7 @@ class PageCollection(list["Page"]):
             page.source = PageSource(page, source)
         return pages
 
-    def get_page_sources(self):
+    def get_page_sources(self) -> "PageCollection":
         """
         コレクション内の全ページのソースコードを取得する
 
@@ -502,10 +503,11 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_sources(self.site, self)
+        PageCollection._acquire_page_sources(self.site, self)
+        return self
 
     @staticmethod
-    def _acquire_page_revisions(site: "Site", pages: list["Page"]):
+    def _acquire_page_revisions(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページリビジョン履歴を取得する内部メソッド
 
@@ -578,7 +580,7 @@ class PageCollection(list["Page"]):
 
         return pages
 
-    def get_page_revisions(self):
+    def get_page_revisions(self) -> "PageCollection":
         """
         コレクション内の全ページのリビジョン履歴を取得する
 
@@ -589,10 +591,11 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_revisions(self.site, self)
+        PageCollection._acquire_page_revisions(self.site, self)
+        return self
 
     @staticmethod
-    def _acquire_page_votes(site: "Site", pages: list["Page"]):
+    def _acquire_page_votes(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページへの投票情報を取得する内部メソッド
 
@@ -647,7 +650,7 @@ class PageCollection(list["Page"]):
 
         return pages
 
-    def get_page_votes(self):
+    def get_page_votes(self) -> "PageCollection":
         """
         コレクション内の全ページの投票情報を取得する
 
@@ -658,7 +661,8 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_votes(self.site, self)
+        PageCollection._acquire_page_votes(self.site, self)
+        return self
 
 
 @dataclass
@@ -791,7 +795,7 @@ class Page:
         return self._id
 
     @id.setter
-    def id(self, value: int):
+    def id(self, value: int) -> None:
         """
         ページIDを設定する
 
@@ -839,7 +843,7 @@ class Page:
         return self._source
 
     @source.setter
-    def source(self, value: PageSource):
+    def source(self, value: PageSource) -> None:
         """
         ページのソースコードを設定する
 
@@ -872,7 +876,7 @@ class Page:
         return PageRevisionCollection(self, self._revisions)
 
     @revisions.setter
-    def revisions(self, value: list["PageRevision"] | PageRevisionCollection):
+    def revisions(self, value: list["PageRevision"] | PageRevisionCollection) -> None:
         """
         ページのリビジョン履歴を設定する
 
@@ -936,7 +940,7 @@ class Page:
         return self._votes
 
     @votes.setter
-    def votes(self, value: PageVoteCollection):
+    def votes(self, value: PageVoteCollection) -> None:
         """
         ページへの投票情報を設定する
 
@@ -999,7 +1003,7 @@ class Page:
             self._files = PageFileCollection.acquire(self)
         return self._files
 
-    def destroy(self):
+    def destroy(self) -> None:
         """
         ページを削除する
 
@@ -1059,7 +1063,7 @@ class Page:
         return self._metas
 
     @metas.setter
-    def metas(self, value: dict[str, str]):
+    def metas(self, value: dict[str, str]) -> None:
         """
         ページのメタタグ情報を設定する
 
@@ -1275,7 +1279,7 @@ class Page:
             force_edit,
         )
 
-    def commit_tags(self):
+    def commit_tags(self) -> "Page":
         """
         ページのタグ情報を保存する
 
