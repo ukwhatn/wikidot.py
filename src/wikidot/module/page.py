@@ -16,6 +16,8 @@ from .page_source import PageSource
 from .page_votes import PageVote, PageVoteCollection
 
 if TYPE_CHECKING:
+    from .forum_thread import ForumThread
+    from .page_file import PageFileCollection
     from .site import Site
     from .user import User
 
@@ -744,6 +746,9 @@ class Page:
     _revisions: Optional[PageRevisionCollection] = None
     _votes: Optional[PageVoteCollection] = None
     _metas: Optional[dict[str, str]] = None
+    _discussion: Optional["ForumThread"] = None
+    _discussion_checked: bool = False
+    _files: Optional["PageFileCollection"] = None
 
     def get_url(self) -> str:
         """
@@ -939,6 +944,58 @@ class Page:
             設定する投票情報コレクション
         """
         self._votes = value
+
+    @property
+    def discussion(self) -> Optional["ForumThread"]:
+        """
+        ページのディスカッションスレッドを取得する
+
+        ページに関連付けられたフォーラムスレッド（コメント欄）を取得する。
+        ディスカッションが存在しない場合はNoneを返す。
+
+        Returns
+        -------
+        ForumThread | None
+            ディスカッションスレッド。存在しない場合はNone
+        """
+        if not self._discussion_checked:
+            response = self.site.amc_request(
+                [
+                    {
+                        "moduleName": "forum/ForumCommentsListModule",
+                        "pageId": self.id,
+                    }
+                ]
+            )[0]
+
+            body = response.json()["body"]
+            match = re.search(r"WIKIDOT\.forumThreadId = (\d+);", body)
+            if match is not None:
+                from .forum_thread import ForumThread
+
+                thread_id = int(match.group(1))
+                self._discussion = ForumThread.get_from_id(self.site, thread_id)
+            self._discussion_checked = True
+
+        return self._discussion
+
+    @property
+    def files(self) -> "PageFileCollection":
+        """
+        ページに添付されたファイル一覧を取得する
+
+        ファイル一覧が未取得の場合は自動的に取得処理を行う。
+
+        Returns
+        -------
+        PageFileCollection
+            ページに添付されたファイルのコレクション
+        """
+        if self._files is None:
+            from .page_file import PageFileCollection
+
+            self._files = PageFileCollection.acquire(self)
+        return self._files
 
     def destroy(self):
         """
