@@ -305,7 +305,7 @@ class ForumPost:
     _parent_id: int | None = None
     _source: str | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
