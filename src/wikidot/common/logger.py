@@ -8,7 +8,7 @@
 import logging
 
 
-def setup_logger(name: str = "wikidot", level=logging.INFO):
+def setup_logger(name: str = "wikidot", level: int = logging.INFO) -> logging.Logger:
     """
     ロガーを設定する関数
 
