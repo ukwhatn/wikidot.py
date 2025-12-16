@@ -5,10 +5,15 @@
 現在は認証関連のデコレータが実装されている。
 """
 
+from collections.abc import Callable
 from functools import wraps
+from typing import ParamSpec, TypeVar
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
-def login_required(func):
+def login_required(func: Callable[P, T]) -> Callable[P, T]:
     """
     ログインが必要なメソッドや関数に適用するデコレータ
 
@@ -40,7 +45,7 @@ def login_required(func):
     """
 
     @wraps(func)
-    def wrapper(*args, **kwargs):
+    def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
         client = None
         if "client" in kwargs:
             client = kwargs["client"]
@@ -69,6 +74,9 @@ def login_required(func):
 
         if client is None:
             raise ValueError("Client is not found")
+
+        if not isinstance(client, Client):
+            raise ValueError("Invalid client type")
 
         client.login_check()
 
