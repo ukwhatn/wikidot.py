@@ -14,6 +14,7 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "License :: OSI Approved :: MIT License",
 ]
 
@@ -50,8 +51,33 @@ docs = [
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-lint.select = ["E", "F", "I"]
-lint.ignore = []
+lint.select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes
+    "I",      # isort
+    "W",      # pycodestyle warnings
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+]
+lint.ignore = [
+    "E501",   # line too long (handled by formatter)
+    # 以下は段階的に修正予定（Phase 2で対応）
+    "UP045",  # Optional[T] -> T | None (Task 2.1で対応)
+    "UP037",  # Remove quotes from type annotation (Task 2.1で対応)
+    "SIM105", # contextlib.suppress (Task 2.2で対応)
+    "SIM102", # Combine if statements (コード可読性のため維持)
+    "SIM108", # Ternary operator (コード可読性のため維持)
+    "SIM110", # Use any() (コード可読性のため維持)
+    "SIM117", # Combine with statements (Task 3.1で対応)
+    "SIM401", # dict.get() (コード可読性のため維持)
+    "B007",   # Unused loop variable (意図的な場合あり)
+    "B008",   # Function call in default argument (既存コードの互換性)
+    "B009",   # getattr with constant (コード意図があるため維持)
+    "B020",   # Loop variable overrides iterable (要修正だが別タスクで対応)
+    "B905",   # zip() without strict= (Python 3.10+で段階的に対応)
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -60,3 +86,15 @@ line-ending = "auto"
 
 [tool.ruff.lint.isort]
 known-first-party = ["wikidot"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+# 以下は段階的に有効化予定
+# disallow_untyped_defs = true
+# disallow_incomplete_defs = true
+# warn_unused_ignores = true
