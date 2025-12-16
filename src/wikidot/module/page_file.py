@@ -169,7 +169,7 @@ class PageFileCollection(list["PageFile"]):
             url = f"{page.site.url}{href}"
 
             mime_elem = tds[1].select_one("span")
-            mime_type = mime_elem.get("title", "") if mime_elem else ""
+            mime_type = str(mime_elem.get("title", "")) if mime_elem else ""
 
             size_text = tds[2].get_text().strip()
             size = PageFileCollection._parse_size(size_text)

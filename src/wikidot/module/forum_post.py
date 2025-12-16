@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, Tag
 
 from ..common.exceptions import NoElementException
 from ..util.parser import odate as odate_parser
@@ -117,8 +117,8 @@ class ForumPostCollection(list["ForumPost"]):
             if parent_container is not None:
                 grandparent = parent_container.parent
                 if grandparent is not None and grandparent.name != "body":
-                    grandparent_class = grandparent.get("class", [])
-                    if "post-container" in grandparent_class:
+                    grandparent_class = grandparent.get("class")
+                    if isinstance(grandparent_class, list) and "post-container" in grandparent_class:
                         parent_post = grandparent.find("div", class_="post", recursive=False)
                         if parent_post is not None:
                             parent_id_attr = parent_post.get("id")
@@ -277,7 +277,7 @@ class ForumPost:
         投稿のタイトル
     text : str
         投稿の本文（HTMLテキスト）
-    element : BeautifulSoup
+    element : Tag
         投稿のHTML要素（解析用）
     created_by : AbstractUser
         投稿の作成者
@@ -297,7 +297,7 @@ class ForumPost:
     id: int
     title: str
     text: str
-    element: BeautifulSoup
+    element: Tag
     created_by: "AbstractUser"
     created_at: datetime
     edited_by: Optional["AbstractUser"] = None
@@ -412,7 +412,7 @@ class ForumPost:
         revision_elem = html.select_one("input[name='currentRevisionId']")
         if revision_elem is None:
             raise NoElementException("Current revision ID input is not found.")
-        current_revision_id = int(revision_elem["value"])
+        current_revision_id = int(str(revision_elem["value"]))
 
         # 編集を保存
         self.thread.site.amc_request(
