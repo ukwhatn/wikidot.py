@@ -218,7 +218,7 @@ class PageFile:
     mime_type: str
     size: int
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
