@@ -31,7 +31,7 @@ class ForumPostCollection(list["ForumPost"]):
     def __init__(
         self,
         thread: Optional["ForumThread"] = None,
-        posts: Optional[list["ForumPost"]] = None,
+        posts: list["ForumPost"] | None = None,
     ):
         """
         初期化メソッド
@@ -102,7 +102,7 @@ class ForumPostCollection(list["ForumPost"]):
         NoElementException
             必要な要素が見つからない場合
         """
-        posts: list["ForumPost"] = []
+        posts: list[ForumPost] = []
         post_elements = html.select("div.post")
 
         for post_elem in post_elements:
@@ -209,7 +209,7 @@ class ForumPostCollection(list["ForumPost"]):
         NoElementException
             HTML要素の解析に失敗した場合
         """
-        posts: list["ForumPost"] = []
+        posts: list[ForumPost] = []
 
         first_response = thread.site.amc_request(
             [
@@ -301,9 +301,9 @@ class ForumPost:
     created_by: "AbstractUser"
     created_at: datetime
     edited_by: Optional["AbstractUser"] = None
-    edited_at: Optional[datetime] = None
-    _parent_id: Optional[int] = None
-    _source: Optional[str] = None
+    edited_at: datetime | None = None
+    _parent_id: int | None = None
+    _source: str | None = None
 
     def __str__(self):
         """

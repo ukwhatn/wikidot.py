@@ -29,7 +29,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
     def __init__(
         self,
         site: Optional["Site"] = None,
-        categories: Optional[list["ForumCategory"]] = None,
+        categories: list["ForumCategory"] | None = None,
     ):
         """
         初期化メソッド
@@ -182,7 +182,7 @@ class ForumCategory:
     description: str
     threads_count: int
     posts_count: int
-    _threads: Optional[ForumThreadCollection] = None
+    _threads: ForumThreadCollection | None = None
 
     def __str__(self):
         """

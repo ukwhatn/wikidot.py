@@ -31,7 +31,7 @@ class PageRevisionCollection(list["PageRevision"]):
     def __init__(
         self,
         page: Optional["Page"] = None,
-        revisions: Optional[list["PageRevision"]] = None,
+        revisions: list["PageRevision"] | None = None,
     ):
         """
         初期化メソッド
@@ -223,7 +223,7 @@ class PageRevision:
     created_at: datetime
     comment: str
     _source: Optional["PageSource"] = None
-    _html: Optional[str] = None
+    _html: str | None = None
 
     def is_source_acquired(self) -> bool:
         """
@@ -276,7 +276,7 @@ class PageRevision:
         self._source = value
 
     @property
-    def html(self) -> Optional[str]:
+    def html(self) -> str | None:
         """
         リビジョンのHTML表示を取得する
 

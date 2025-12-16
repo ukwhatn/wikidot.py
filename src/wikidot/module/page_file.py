@@ -25,7 +25,7 @@ class PageFileCollection(list["PageFile"]):
     def __init__(
         self,
         page: Optional["Page"] = None,
-        files: Optional[list["PageFile"]] = None,
+        files: list["PageFile"] | None = None,
     ):
         """
         初期化メソッド
@@ -149,7 +149,7 @@ class PageFileCollection(list["PageFile"]):
         if files_table is None:
             return PageFileCollection(page=page, files=[])
 
-        files: list["PageFile"] = []
+        files: list[PageFile] = []
         for row in files_table.select("tbody tr[id^='file-row-']"):
             row_id = row.get("id")
             if row_id is None:

@@ -96,30 +96,30 @@ class SearchPagesQuery:
     """
 
     # selecting pages
-    pagetype: Optional[str] = "*"
-    category: Optional[str] = "*"
-    tags: Optional[str | list[str]] = None
-    parent: Optional[str] = None
-    link_to: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    created_by: Optional[Union["User", str]] = None
-    rating: Optional[str] = None
-    votes: Optional[str] = None
-    name: Optional[str] = None
-    fullname: Optional[str] = None
-    range: Optional[str] = None
+    pagetype: str | None = "*"
+    category: str | None = "*"
+    tags: str | list[str] | None = None
+    parent: str | None = None
+    link_to: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    created_by: Union["User", str] | None = None
+    rating: str | None = None
+    votes: str | None = None
+    name: str | None = None
+    fullname: str | None = None
+    range: str | None = None
 
     # ordering
     order: str = "created_at desc"
 
     # pagination
-    offset: Optional[int] = 0
-    limit: Optional[int] = None
-    perPage: Optional[int] = 250
+    offset: int | None = 0
+    limit: int | None = None
+    perPage: int | None = 250
     # layout
-    separate: Optional[str] = "no"
-    wrapper: Optional[str] = "no"
+    separate: str | None = "no"
+    wrapper: str | None = "no"
 
     def as_dict(self) -> dict[str, Any]:
         """
@@ -146,7 +146,7 @@ class PageCollection(list["Page"]):
     ページの検索、一括取得、一括操作などの機能を集約している。
     """
 
-    def __init__(self, site: Optional["Site"] = None, pages: Optional[list["Page"]] = None):
+    def __init__(self, site: Optional["Site"] = None, pages: list["Page"] | None = None):
         """
         初期化メソッド
 
@@ -740,12 +740,12 @@ class Page:
     updated_by: "User"
     updated_at: datetime
     commented_by: Optional["User"]
-    commented_at: Optional[datetime]
-    _id: Optional[int] = None
-    _source: Optional[PageSource] = None
-    _revisions: Optional[PageRevisionCollection] = None
-    _votes: Optional[PageVoteCollection] = None
-    _metas: Optional[dict[str, str]] = None
+    commented_at: datetime | None
+    _id: int | None = None
+    _source: PageSource | None = None
+    _revisions: PageRevisionCollection | None = None
+    _votes: PageVoteCollection | None = None
+    _metas: dict[str, str] | None = None
     _discussion: Optional["ForumThread"] = None
     _discussion_checked: bool = False
     _files: Optional["PageFileCollection"] = None
@@ -1228,9 +1228,9 @@ class Page:
 
     def edit(
         self,
-        title: Optional[str] = None,
-        source: Optional[str] = None,
-        comment: Optional[str] = None,
+        title: str | None = None,
+        source: str | None = None,
+        comment: str | None = None,
         force_edit: bool = False,
     ) -> "Page":
         """

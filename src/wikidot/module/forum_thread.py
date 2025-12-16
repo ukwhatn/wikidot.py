@@ -35,7 +35,7 @@ class ForumThreadCollection(list["ForumThread"]):
     def __init__(
         self,
         site: Optional["Site"] = None,
-        threads: Optional[list["ForumThread"]] = None,
+        threads: list["ForumThread"] | None = None,
     ):
         """
         初期化メソッド
@@ -272,7 +272,7 @@ class ForumThreadCollection(list["ForumThread"]):
         NoElementException
             HTML要素の解析に失敗した場合
         """
-        threads: list["ForumThread"] = []
+        threads: list[ForumThread] = []
 
         first_response = category.site.amc_request(
             [

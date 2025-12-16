@@ -61,7 +61,7 @@ class SiteMember:
         list[SiteMember]
             抽出されたメンバーのリスト
         """
-        members: list["SiteMember"] = []
+        members: list[SiteMember] = []
 
         for row in html.select("table tr"):
             tds = row.select("td")
@@ -116,7 +116,7 @@ class SiteMember:
         if group not in ["admins", "moderators", ""]:
             raise ValueError("Invalid group")
 
-        members: list["SiteMember"] = []
+        members: list[SiteMember] = []
 
         first_response = site.amc_request(
             [

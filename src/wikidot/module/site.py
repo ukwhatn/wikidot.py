@@ -247,7 +247,7 @@ class SiteChange:
     changed_by: "AbstractUser"
     changed_at: datetime
     flags: list[str]
-    comment: Optional[str]
+    comment: str | None
 
     def __str__(self):
         """
@@ -544,7 +544,7 @@ class Site:
         bool
             ユーザーがサイトメンバーである場合はTrue、そうでない場合はFalse
         """
-        users: list["QMCUser"] = QuickModule.member_lookup(self.id, user_name)
+        users: list[QMCUser] = QuickModule.member_lookup(self.id, user_name)
 
         if len(users) == 0:
             return False
@@ -610,7 +610,7 @@ class Site:
         """
         from ..common.exceptions import NoElementException
 
-        changes: list["SiteChange"] = []
+        changes: list[SiteChange] = []
         per_page = min(limit, 1000) if limit is not None else 1000
         page_no = 1
 
