@@ -1,7 +1,7 @@
 import re
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Literal, Optional, overload
 
 import httpx
 from bs4 import BeautifulSoup
@@ -41,7 +41,7 @@ class SitePagesAccessor:
         """
         self.site = site
 
-    def search(self, **kwargs) -> "PageCollection":
+    def search(self, **kwargs: Any) -> "PageCollection":
         """
         サイト内のページを検索する
 
@@ -249,7 +249,7 @@ class SiteChange:
     flags: list[str]
     comment: str | None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
@@ -301,7 +301,7 @@ class Site:
     _moderators = None
     _admins = None
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         """
         初期化後の処理
 
@@ -311,7 +311,7 @@ class Site:
         self.page = SitePageAccessor(self)
         self.forum = SiteForumAccessor(self)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
@@ -399,7 +399,19 @@ class Site:
             ssl_supported=ssl_supported,
         )
 
-    def amc_request(self, bodies: list[dict], return_exceptions: bool = False):
+    @overload
+    def amc_request(
+        self, bodies: list[dict[str, Any]], return_exceptions: Literal[False] = False
+    ) -> tuple[httpx.Response, ...]: ...
+
+    @overload
+    def amc_request(
+        self, bodies: list[dict[str, Any]], return_exceptions: Literal[True] = ...
+    ) -> tuple[httpx.Response | Exception, ...]: ...
+
+    def amc_request(
+        self, bodies: list[dict[str, Any]], return_exceptions: bool = False
+    ) -> tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]:
         """
         このサイトに対してAjax Module Connectorリクエストを実行する
 
@@ -415,10 +427,13 @@ class Site:
         list | Exception
             レスポンスのリスト、またはreturn_exceptionsがTrueの場合は例外
         """
-        return self.client.amc_client.request(bodies, return_exceptions, self.unix_name, self.ssl_supported)
+        if return_exceptions:
+            return self.client.amc_client.request(bodies, True, self.unix_name, self.ssl_supported)
+        else:
+            return self.client.amc_client.request(bodies, False, self.unix_name, self.ssl_supported)
 
     @property
-    def applications(self):
+    def applications(self) -> list[SiteApplication]:
         """
         サイトへの未処理の参加申請を取得する
 
@@ -430,7 +445,7 @@ class Site:
         return SiteApplication.acquire_all(self)
 
     @login_required
-    def invite_user(self, user: "User", text: str):
+    def invite_user(self, user: "User", text: str) -> None:
         """
         ユーザーをサイトに招待する
 
@@ -475,7 +490,7 @@ class Site:
                 raise e
 
     @property
-    def url(self):
+    def url(self) -> str:
         """
         サイトのURLを取得する
 
@@ -487,7 +502,7 @@ class Site:
         return f"http{'s' if self.ssl_supported else ''}://{self.domain}"
 
     @property
-    def members(self):
+    def members(self) -> list[SiteMember]:
         """
         サイトのメンバー一覧を取得する
 
@@ -501,7 +516,7 @@ class Site:
         return self._members
 
     @property
-    def moderators(self):
+    def moderators(self) -> list[SiteMember]:
         """
         サイトのモデレーター一覧を取得する
 
@@ -515,7 +530,7 @@ class Site:
         return self._moderators
 
     @property
-    def admins(self):
+    def admins(self) -> list[SiteMember]:
         """
         サイトの管理者一覧を取得する
 
@@ -528,7 +543,7 @@ class Site:
             self._admins = SiteMember.get(self, "admins")
         return self._admins
 
-    def member_lookup(self, user_name: str, user_id: int | None = None):
+    def member_lookup(self, user_name: str, user_id: int | None = None) -> bool:
         """
         指定されたユーザーがサイトのメンバーかどうかを確認する
 
@@ -555,7 +570,7 @@ class Site:
 
         return False
 
-    def get_thread(self, thread_id: int):
+    def get_thread(self, thread_id: int) -> ForumThread:
         """
         スレッドを取得する
 
@@ -571,7 +586,7 @@ class Site:
         """
         return ForumThread.get_from_id(self, thread_id)
 
-    def get_threads(self, thread_ids: list[int]):
+    def get_threads(self, thread_ids: list[int]) -> ForumThreadCollection:
         """
         複数のスレッドを取得する
 
