@@ -15,18 +15,35 @@
 pip install wikidot
 ```
 
-## クイックスタート
+## 基本的な使い方（メソッドチェーン）
+
+このライブラリは基本的にメソッドチェーンで利用します。
 
 ```python
 import wikidot
 
-# 認証なし
-client = wikidot.Client()
+# 認証なしの場合
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    page = site.page.get("scp-173")
+    print(page.title, page.rating)
 
-# 認証あり（コンテキストマネージャ推奨）
+# 認証ありの場合
 with wikidot.Client(username="user", password="pass") as client:
-    # 操作
-    pass
+    site = client.site.get("scp-jp")
+
+    # ページ検索
+    pages = site.pages.search(category="scp", order="rating desc", limit=10)
+    for page in pages:
+        print(page.fullname, page.rating)
+
+    # 参加申請を全て承認
+    for application in site.applications:
+        application.accept()
+
+    # PMを送信
+    user = client.user.get("target-user")
+    client.private_message.send(recipient=user, subject="件名", body="本文")
 ```
 
 ---
@@ -36,27 +53,49 @@ with wikidot.Client(username="user", password="pass") as client:
 ### Client（エントリポイント）
 
 ```python
-client = wikidot.Client(username=None, password=None)
+with wikidot.Client(username=None, password=None) as client:
+    # client.site → サイト操作
+    # client.user → ユーザー操作
+    # client.private_message → PM操作
+    pass
 ```
 
-| プロパティ/メソッド | 説明 |
-|-------------------|------|
-| `client.user` | ユーザー操作API |
-| `client.site` | サイト操作API |
-| `client.private_message` | PM操作API |
+| チェーン | 説明 |
+|---------|------|
+| `client.site.get(unix_name)` | サイト取得 → Site |
+| `client.user.get(name)` | ユーザー取得 → User |
+| `client.user.get_bulk(names)` | 複数ユーザー取得 → UserCollection |
+| `client.private_message.inbox` | 受信箱 → PrivateMessageInbox |
+| `client.private_message.sentbox` | 送信箱 → PrivateMessageSentBox |
+| `client.private_message.send(recipient, subject, body)` | PM送信 |
+| `client.private_message.get_message(id)` | メッセージ取得 |
 | `client.is_logged_in` | ログイン状態（bool） |
-| `client.me` | 現在のユーザー（User） |
-| `client.login_check()` | ログイン確認（未ログインで例外） |
+| `client.me` | 現在のユーザー |
 
 ---
 
 ### Site操作
 
-#### サイト取得
-
 ```python
 site = client.site.get("scp-jp")
 ```
+
+#### Siteからのチェーン
+
+| チェーン | 説明 |
+|---------|------|
+| `site.page.get(fullname)` | ページ取得 → Page |
+| `site.page.create(fullname, title, source, comment)` | ページ作成 → Page |
+| `site.pages.search(**kwargs)` | ページ検索 → PageCollection |
+| `site.forum.categories` | フォーラムカテゴリ → ForumCategoryCollection |
+| `site.get_thread(thread_id)` | スレッド取得 → ForumThread |
+| `site.get_threads(thread_ids)` | 複数スレッド取得 → list[ForumThread] |
+| `site.members` | メンバー一覧 → list[SiteMember] |
+| `site.moderators` | モデレーター一覧 → list[SiteMember] |
+| `site.admins` | 管理者一覧 → list[SiteMember] |
+| `site.member_lookup(user_name)` | メンバー検索 → SiteMember |
+| `site.applications` | 参加申請一覧（要ログイン） → list[SiteApplication] |
+| `site.invite_user(user, text)` | ユーザー招待（要ログイン） |
 
 #### Siteプロパティ
 
@@ -66,68 +105,41 @@ site = client.site.get("scp-jp")
 | `site.name` | str | サイト名 |
 | `site.title` | str | サイトタイトル |
 | `site.url` | str | サイトURL |
-| `site.members` | list[SiteMember] | メンバー一覧 |
-| `site.moderators` | list[SiteMember] | モデレーター一覧 |
-| `site.admins` | list[SiteMember] | 管理者一覧 |
-| `site.applications` | list[SiteApplication] | 参加申請一覧（要ログイン） |
-| `site.forum.categories` | ForumCategoryCollection | フォーラムカテゴリ |
-
-#### Siteメソッド
-
-```python
-# メンバー検索
-member = site.member_lookup(user_name="username", user_id=None)
-
-# ユーザー招待（要ログイン）
-site.invite_user(user, text="招待メッセージ")
-
-# フォーラムスレッド取得
-thread = site.get_thread(thread_id)
-threads = site.get_threads([id1, id2, id3])
-```
 
 ---
 
 ### Page操作
 
-#### ページ取得
-
 ```python
+# 取得
 page = site.page.get("scp-173")
 page = site.page.get("scp-173", raise_when_not_found=False)  # 見つからない場合None
-```
 
-#### ページ検索
-
-```python
-# 基本検索
+# 検索
 pages = site.pages.search(
     category="*",           # カテゴリ（"*"で全て）
-    tags=["scp", "euclid"], # タグフィルター
+    tags=["scp", "euclid"], # タグフィルター（-で除外: "-tale"）
     order="rating desc",    # ソート順
     limit=50                # 取得件数
 )
-
-# 詳細検索パラメータ
-pages = site.pages.search(
-    pagetype=None,          # ページタイプ
-    category="tale",        # カテゴリ
-    tags=["tag1", "-tag2"], # タグ（-で除外）
-    parent="parent-page",   # 親ページ
-    link_to="linked-page",  # リンク先
-    created_at=">2024-01-01",  # 作成日時
-    updated_at="<2024-12-31",  # 更新日時
-    created_by="username",  # 作成者
-    rating=">50",           # 評価
-    votes=">10",            # 投票数
-    name="scp-*",           # ページ名パターン
-    fullname="scp:scp-*",   # フルネームパターン
-    order="created_at desc", # ソート順
-    offset=0,               # オフセット
-    limit=100,              # 取得件数
-    perPage=250             # 1リクエストあたり件数
-)
 ```
+
+#### 検索パラメータ一覧
+
+| パラメータ | 説明 | 例 |
+|-----------|------|-----|
+| `category` | カテゴリ | `"scp"`, `"*"` |
+| `tags` | タグフィルター | `["scp", "-tale"]` |
+| `parent` | 親ページ | `"parent-page"` |
+| `created_by` | 作成者 | `"username"` |
+| `created_at` | 作成日時 | `">2024-01-01"` |
+| `updated_at` | 更新日時 | `"<2024-12-31"` |
+| `rating` | 評価 | `">50"` |
+| `votes` | 投票数 | `">10"` |
+| `name` | ページ名パターン | `"scp-*"` |
+| `order` | ソート順 | `"rating desc"`, `"created_at desc"` |
+| `limit` | 取得件数 | `100` |
+| `offset` | オフセット | `0` |
 
 #### Pageプロパティ
 
@@ -144,19 +156,15 @@ pages = site.pages.search(
 | `page.updated_by` | AbstractUser | 更新者 |
 | `page.rating` | int | 評価値 |
 | `page.rating_votes` | int | 投票数 |
-| `page.rating_percent` | float | 評価割合 |
 | `page.tags` | list[str] | タグ |
-| `page._tags` | list[str] | 隠しタグ |
 | `page.source` | PageSource | ソースコード |
+| `page.source.wiki_text` | str | Wikidot記法のソース |
 | `page.revisions` | PageRevisionCollection | リビジョン履歴 |
 | `page.latest_revision` | PageRevision | 最新リビジョン |
 | `page.votes` | PageVoteCollection | 投票一覧 |
 | `page.metas` | dict[str, str] | メタタグ |
-| `page.comments` | int | コメント数 |
-| `page.size` | int | サイズ |
-| `page.children` | int | 子ページ数 |
 
-#### ページ作成・編集・削除
+#### Pageメソッド（書き込み）
 
 ```python
 # 作成
@@ -164,29 +172,14 @@ page = site.page.create(
     fullname="test:new-page",
     title="新しいページ",
     source="ページ内容",
-    comment="作成コメント",
-    force_edit=False
-)
-
-# 作成または編集（静的メソッド）
-from wikidot.module.page import Page
-page = Page.create_or_edit(
-    site=site,
-    fullname="test:page",
-    page_id=None,           # 既存ページIDがあれば指定
-    title="タイトル",
-    source="内容",
-    comment="コメント",
-    force_edit=False,
-    raise_on_exists=False   # Trueで既存時に例外
+    comment="作成コメント"
 )
 
 # 編集
 page = page.edit(
     title="新タイトル",     # Noneで変更なし
     source="新内容",        # Noneで変更なし
-    comment="編集コメント",
-    force_edit=False
+    comment="編集コメント"
 )
 
 # 削除
@@ -195,16 +188,20 @@ page.destroy()
 # タグ変更
 page.tags.append("new-tag")
 page.tags.remove("old-tag")
-page.commit_tags()  # タグをサーバーに保存
+page.commit_tags()
 
 # メタタグ設定
 page.metas = {"key": "value"}
 ```
 
-#### PageCollection一括操作
+#### PageCollection操作
 
 ```python
 pages = site.pages.search(category="scp")
+
+# イテレーション
+for page in pages:
+    print(page.title)
 
 # 検索
 page = pages.find("scp-173")
@@ -221,11 +218,8 @@ pages.get_page_votes()      # 全ページの投票を取得
 ### User操作
 
 ```python
-# 単一ユーザー取得
 user = client.user.get("username")
-user = client.user.get("username", raise_when_not_found=False)
-
-# 複数ユーザー取得
+user = client.user.get("username", raise_when_not_found=False)  # 見つからない場合None
 users = client.user.get_bulk(["user1", "user2", "user3"])
 ```
 
@@ -240,25 +234,30 @@ users = client.user.get_bulk(["user1", "user2", "user3"])
 
 #### ユーザータイプ
 
-| クラス | 説明 |
-|-------|------|
-| `User` | 通常の登録ユーザー |
-| `DeletedUser` | 削除されたユーザー |
-| `AnonymousUser` | 匿名ユーザー |
-| `GuestUser` | ゲストユーザー |
-| `WikidotUser` | Wikidotシステムユーザー |
+`page.created_by` などで返されるユーザーは以下のいずれかの型:
+- `User` - 通常の登録ユーザー
+- `DeletedUser` - 削除されたユーザー
+- `AnonymousUser` - 匿名ユーザー
+- `GuestUser` - ゲストユーザー
+- `WikidotUser` - Wikidotシステムユーザー
 
 ---
 
 ### SiteMember操作
 
 ```python
-# メンバー取得
-members = SiteMember.get(site)
-members = SiteMember.get(site, group="moderators")  # moderators/admins
+# メンバー一覧
+for member in site.members:
+    print(member.user.name, member.joined_at)
 
-# メンバー検索
+# 特定メンバー検索
 member = site.member_lookup("username")
+
+# 権限変更（要ログイン）
+member.to_moderator()      # モデレーター昇格
+member.remove_moderator()  # モデレーター解除
+member.to_admin()          # 管理者昇格
+member.remove_admin()      # 管理者解除
 ```
 
 #### SiteMemberプロパティ
@@ -269,50 +268,41 @@ member = site.member_lookup("username")
 | `member.user` | User | ユーザー |
 | `member.joined_at` | datetime | 参加日時 |
 
-#### 権限変更（要ログイン）
-
-```python
-member.to_moderator()      # モデレーター昇格
-member.remove_moderator()  # モデレーター解除
-member.to_admin()          # 管理者昇格
-member.remove_admin()      # 管理者解除
-```
-
 ---
 
 ### SiteApplication操作（要ログイン）
 
 ```python
-# 申請一覧取得
-applications = SiteApplication.acquire_all(site)
-# または
-applications = site.applications
-
-# 申請処理
-application.accept()   # 承認
-application.decline()  # 拒否
+# 申請一覧を取得して処理
+for application in site.applications:
+    print(f"申請者: {application.user.name}")
+    application.accept()   # 承認
+    # application.decline()  # 拒否
 ```
 
 ---
 
 ### Forum操作
 
-#### カテゴリ・スレッド取得
-
 ```python
 # カテゴリ一覧
 categories = site.forum.categories
-categories = ForumCategory.acquire_all(site)
 
 # カテゴリ内スレッド
 category = categories.find(category_id)
-threads = category.threads
-category.reload_threads()  # 再読込
+for thread in category.threads:
+    print(thread.title)
 
 # スレッド取得
 thread = site.get_thread(thread_id)
-thread = ForumThread.get_from_id(site, thread_id)
 threads = site.get_threads([id1, id2, id3])
+
+# スレッド作成
+thread = category.create_thread(
+    title="スレッドタイトル",
+    description="スレッド説明",
+    source="最初の投稿内容（Wikidot記法）"
+)
 ```
 
 #### ForumThreadプロパティ
@@ -324,19 +314,7 @@ threads = site.get_threads([id1, id2, id3])
 | `thread.url` | str | URL |
 | `thread.created_at` | datetime | 作成日時 |
 | `thread.created_by` | AbstractUser | 作成者 |
-| `thread.last_post_at` | datetime | 最終投稿日時 |
-| `thread.last_post_by` | AbstractUser | 最終投稿者 |
 | `thread.posts_count` | int | 投稿数 |
-
-#### スレッド作成
-
-```python
-thread = category.create_thread(
-    title="スレッドタイトル",
-    description="スレッド説明",
-    source="最初の投稿内容（Wikidot記法）"
-)
-```
 
 #### ForumPostプロパティ
 
@@ -347,10 +325,6 @@ thread = category.create_thread(
 | `post.text` | str | 本文（HTML） |
 | `post.created_by` | AbstractUser | 投稿者 |
 | `post.created_at` | datetime | 投稿日時 |
-| `post.edited_by` | AbstractUser/None | 編集者 |
-| `post.edited_at` | datetime/None | 編集日時 |
-| `post._parent` | ForumPost/None | 親投稿 |
-| `post._source` | str/None | ソース（Wikidot記法） |
 
 ---
 
@@ -358,44 +332,18 @@ thread = category.create_thread(
 
 ```python
 # リビジョン一覧
-revisions = page.revisions
-
-# 検索
-revision = revisions.find(revision_id)
+for revision in page.revisions:
+    print(revision.id, revision.created_at, revision.created_by.name)
 
 # 最新リビジョン
 latest = page.latest_revision
-```
 
-#### PageRevisionプロパティ
-
-| プロパティ | 型 | 説明 |
-|-----------|-----|------|
-| `revision.id` | int | リビジョンID |
-| `revision.created_at` | datetime | 作成日時 |
-| `revision.created_by` | AbstractUser | 作成者 |
-| `revision.source` | PageSource | ソース（遅延取得） |
-| `revision.html` | str | HTML（遅延取得） |
-
-#### 一括取得
-
-```python
-# ソース取得済みか確認
-revision.is_source_acquired()
-revision.is_html_acquired()
+# ソース取得
+wiki_text = revision.source.wiki_text
 
 # 一括取得（効率的）
-revisions.get_sources()  # 全リビジョンのソースを取得
-revisions.get_htmls()    # 全リビジョンのHTMLを取得
-```
-
----
-
-### PageSource
-
-```python
-source = page.source
-wiki_text = source.wiki_text  # Wikidot記法のソースコード
+page.revisions.get_sources()  # 全リビジョンのソースを取得
+page.revisions.get_htmls()    # 全リビジョンのHTMLを取得
 ```
 
 ---
@@ -403,34 +351,36 @@ wiki_text = source.wiki_text  # Wikidot記法のソースコード
 ### PageVote操作
 
 ```python
-votes = page.votes
+for vote in page.votes:
+    print(vote.user.name, vote.value)  # value: +1 or -1
 
-# 検索
-vote = votes.find(user)
+# 特定ユーザーの投票を検索
+vote = page.votes.find(user)
 ```
-
-#### PageVoteプロパティ
-
-| プロパティ | 型 | 説明 |
-|-----------|-----|------|
-| `vote.page` | Page | 対象ページ |
-| `vote.user` | AbstractUser | 投票者 |
-| `vote.value` | int | 投票値（+1/-1） |
 
 ---
 
 ### PrivateMessage操作（要ログイン）
 
-#### メッセージ取得
-
 ```python
-# 受信箱・送信箱
-inbox = client.private_message.inbox
-sentbox = client.private_message.sentbox
+# PM送信
+user = client.user.get("target-user")
+client.private_message.send(
+    recipient=user,
+    subject="件名",
+    body="本文"
+)
+
+# 受信箱
+for message in client.private_message.inbox:
+    print(message.subject, message.sender.name)
+
+# 送信箱
+for message in client.private_message.sentbox:
+    print(message.subject, message.recipient.name)
 
 # 個別取得
 message = client.private_message.get_message(message_id)
-messages = client.private_message.get_messages([id1, id2, id3])
 ```
 
 #### PrivateMessageプロパティ
@@ -444,26 +394,9 @@ messages = client.private_message.get_messages([id1, id2, id3])
 | `message.recipient` | AbstractUser | 受信者 |
 | `message.created_at` | datetime | 送信日時 |
 
-#### メッセージ送信
-
-```python
-# インスタンスメソッド
-client.private_message.send(
-    recipient=user,
-    subject="件名",
-    body="本文"
-)
-
-# 静的メソッド
-from wikidot.module.private_message import PrivateMessage
-PrivateMessage.send(client, recipient, "件名", "本文")
-```
-
 ---
 
 ## 例外クラス
-
-### 例外階層
 
 ```
 WikidotException                    # 基底例外
@@ -481,30 +414,13 @@ WikidotException                    # 基底例外
     └── ResponseDataException       # レスポンス不正
 ```
 
-### 例外の使い方
-
 ```python
-from wikidot.common.exceptions import (
-    WikidotException,
-    NotFoundException,
-    LoginRequiredException,
-    ForbiddenException
-)
+from wikidot.common.exceptions import NotFoundException, LoginRequiredException
 
 try:
     page = site.page.get("nonexistent")
 except NotFoundException:
     print("ページが見つかりません")
-
-try:
-    client.login_check()
-except LoginRequiredException:
-    print("ログインが必要です")
-
-try:
-    site.invite_user(user, "招待")
-except ForbiddenException:
-    print("権限がありません")
 ```
 
 ---
@@ -516,44 +432,26 @@ except ForbiddenException:
 ```python
 import wikidot
 
-client = wikidot.Client()
-site = client.site.get("scp-jp")
-page = site.page.get("scp-173")
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    page = site.page.get("scp-173")
 
-print(f"タイトル: {page.title}")
-print(f"評価: {page.rating}")
-print(f"作成者: {page.created_by.name}")
-print(f"作成日: {page.created_at}")
-print(f"タグ: {page.tags}")
+    print(f"タイトル: {page.title}")
+    print(f"評価: {page.rating}")
+    print(f"作成者: {page.created_by.name}")
+    print(f"タグ: {page.tags}")
+    print(f"ソース: {page.source.wiki_text[:100]}...")
 ```
 
-### ページ検索（評価順）
+### ページ検索（評価順TOP10）
 
 ```python
-pages = site.pages.search(
-    category="scp",
-    order="rating desc",
-    limit=10
-)
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    pages = site.pages.search(category="scp", order="rating desc", limit=10)
 
-for page in pages:
-    print(f"{page.fullname}: {page.rating}")
-```
-
-### ソースコード取得
-
-```python
-page = site.page.get("scp-173")
-source = page.source.wiki_text
-print(source)
-```
-
-### リビジョン履歴
-
-```python
-page = site.page.get("scp-173")
-for revision in page.revisions:
-    print(f"Rev {revision.id}: {revision.created_at} by {revision.created_by.name}")
+    for page in pages:
+        print(f"{page.fullname}: {page.rating}")
 ```
 
 ### ページ作成・編集・削除
@@ -570,11 +468,7 @@ with wikidot.Client(username="user", password="pass") as client:
     )
 
     # 編集
-    page = page.edit(
-        title="更新されたタイトル",
-        source="更新された内容",
-        comment="内容を更新"
-    )
+    page = page.edit(title="更新タイトル", source="更新内容")
 
     # タグ変更
     page.tags.append("test")
@@ -584,13 +478,23 @@ with wikidot.Client(username="user", password="pass") as client:
     page.destroy()
 ```
 
+### リビジョン履歴
+
+```python
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    page = site.page.get("scp-173")
+
+    for revision in page.revisions:
+        print(f"Rev {revision.id}: {revision.created_at} by {revision.created_by.name}")
+```
+
 ### フォーラムスレッド作成
 
 ```python
 with wikidot.Client(username="user", password="pass") as client:
     site = client.site.get("scp-jp")
-    categories = site.forum.categories
-    category = categories.find(category_id)
+    category = site.forum.categories.find(category_id)
 
     thread = category.create_thread(
         title="新しいスレッド",
@@ -598,18 +502,6 @@ with wikidot.Client(username="user", password="pass") as client:
         source="最初の投稿内容"
     )
     print(f"作成: {thread.url}")
-```
-
-### プライベートメッセージ送信
-
-```python
-with wikidot.Client(username="user", password="pass") as client:
-    recipient = client.user.get("target-user")
-    client.private_message.send(
-        recipient=recipient,
-        subject="こんにちは",
-        body="メッセージ本文です。"
-    )
 ```
 
 ### メンバー管理
@@ -633,9 +525,21 @@ with wikidot.Client(username="admin", password="pass") as client:
 with wikidot.Client(username="admin", password="pass") as client:
     site = client.site.get("my-site")
 
-    for app in site.applications:
-        print(f"申請者: {app.user.name}")
-        app.accept()  # または app.decline()
+    for application in site.applications:
+        print(f"申請者: {application.user.name}")
+        application.accept()
+```
+
+### PM送信
+
+```python
+with wikidot.Client(username="user", password="pass") as client:
+    user = client.user.get("target-user")
+    client.private_message.send(
+        recipient=user,
+        subject="こんにちは",
+        body="メッセージ本文です。"
+    )
 ```
 
 ---
