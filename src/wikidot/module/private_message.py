@@ -8,9 +8,8 @@ Wikidotのプライベートメッセージを扱うモジュール
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional, cast
+from typing import TYPE_CHECKING, Optional
 
-import httpx
 from bs4 import BeautifulSoup, ResultSet, Tag
 
 from ..common import exceptions
@@ -31,7 +30,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
     受信箱や送信箱など、特定のメッセージグループを表現するために継承される。
     """
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
@@ -110,7 +109,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                 }
             )
 
-        responses: tuple[httpx.Response | Exception] = client.amc_client.request(bodies, return_exceptions=True)
+        responses = client.amc_client.request(bodies, return_exceptions=True)
 
         messages = []
 
@@ -146,7 +145,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 
     @staticmethod
     @login_required
-    def _acquire(client: "Client", module_name: str):
+    def _acquire(client: "Client", module_name: str) -> "PrivateMessageCollection":
         """
         特定のモジュールからプライベートメッセージを取得する内部メソッド
 
@@ -171,7 +170,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
             ログインしていない場合
         """
         # pager取得
-        response: httpx.Response = cast(httpx.Response, client.amc_client.request([{"moduleName": module_name}])[0])
+        response = client.amc_client.request([{"moduleName": module_name}])[0]
 
         html = BeautifulSoup(response.json()["body"], "lxml")
         # pagerの最後から2番目の要素を取得
@@ -183,10 +182,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
             # メッセージ取得
             bodies = [{"page": page, "moduleName": module_name} for page in range(1, max_page + 1)]
 
-            responses: tuple[httpx.Response] = cast(
-                tuple[httpx.Response],
-                client.amc_client.request(bodies, return_exceptions=False),
-            )
+            responses = client.amc_client.request(bodies, return_exceptions=False)
         else:
             responses = (response,)
 
@@ -227,7 +223,7 @@ class PrivateMessageInbox(PrivateMessageCollection):
         return PrivateMessageInbox(PrivateMessageCollection.from_ids(client, message_ids))
 
     @staticmethod
-    def acquire(client: "Client"):
+    def acquire(client: "Client") -> "PrivateMessageInbox":
         """
         ログイン中のユーザーの受信箱メッセージをすべて取得する
 
@@ -333,7 +329,7 @@ class PrivateMessage:
     body: str
     created_at: datetime
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
