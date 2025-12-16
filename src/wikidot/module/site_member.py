@@ -159,7 +159,7 @@ class SiteMember:
 
         return members
 
-    def _change_group(self, event: str):
+    def _change_group(self, event: str) -> None:
         """
         メンバーのグループ（権限）を変更する内部メソッド
 
@@ -211,7 +211,7 @@ class SiteMember:
 
             raise e
 
-    def to_moderator(self):
+    def to_moderator(self) -> None:
         """
         メンバーをモデレーターに昇格させる
 
@@ -226,7 +226,7 @@ class SiteMember:
         """
         self._change_group("toModerators")
 
-    def remove_moderator(self):
+    def remove_moderator(self) -> None:
         """
         メンバーのモデレーター権限を削除する
 
@@ -241,7 +241,7 @@ class SiteMember:
         """
         self._change_group("removeModerator")
 
-    def to_admin(self):
+    def to_admin(self) -> None:
         """
         メンバーを管理者に昇格させる
 
@@ -256,7 +256,7 @@ class SiteMember:
         """
         self._change_group("toAdmins")
 
-    def remove_admin(self):
+    def remove_admin(self) -> None:
         """
         メンバーの管理者権限を削除する
 
