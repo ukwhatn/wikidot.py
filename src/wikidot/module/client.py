@@ -14,7 +14,7 @@ from .site import Site
 from .user import AbstractUser, User, UserCollection
 
 
-class ClientUserMethods:
+class ClientUserAccessor:
     """
     ユーザー関連の操作を提供するクラス
 
@@ -72,7 +72,7 @@ class ClientUserMethods:
         return UserCollection.from_names(self.client, names, raise_when_not_found)
 
 
-class ClientPrivateMessageMethods:
+class ClientPrivateMessageAccessor:
     """
     プライベートメッセージ関連の操作を提供するクラス
 
@@ -163,7 +163,7 @@ class ClientPrivateMessageMethods:
         return PrivateMessage.from_id(self.client, message_id)
 
 
-class ClientSiteMethods:
+class ClientSiteAccessor:
     """
     サイト関連の操作を提供するクラス
 
@@ -249,9 +249,9 @@ class Client:
         # 以下メソッド
         # ----------
 
-        self.user = ClientUserMethods(self)
-        self.private_message = ClientPrivateMessageMethods(self)
-        self.site = ClientSiteMethods(self)
+        self.user = ClientUserAccessor(self)
+        self.private_message = ClientPrivateMessageAccessor(self)
+        self.site = ClientSiteAccessor(self)
 
         # ------------
         # メソッド終わり

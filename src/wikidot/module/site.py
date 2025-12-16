@@ -22,7 +22,7 @@ if TYPE_CHECKING:
     from .user import AbstractUser, User
 
 
-class SitePagesMethods:
+class SitePagesAccessor:
     """
     サイト内のページコレクションに対する操作を提供するクラス
 
@@ -88,7 +88,7 @@ class SitePagesMethods:
         return PageCollection.search_pages(self.site, query)
 
 
-class SitePageMethods:
+class SitePageAccessor:
     """
     サイト内の個別ページに対する操作を提供するクラス
 
@@ -181,7 +181,7 @@ class SitePageMethods:
         )
 
 
-class SiteForumMethods:
+class SiteForumAccessor:
     """
     サイト内のフォーラム機能に対する操作を提供するクラス
 
@@ -307,9 +307,9 @@ class Site:
 
         サイト関連の機能を提供する各サブクラスのインスタンスを初期化する。
         """
-        self.pages = SitePagesMethods(self)
-        self.page = SitePageMethods(self)
-        self.forum = SiteForumMethods(self)
+        self.pages = SitePagesAccessor(self)
+        self.page = SitePageAccessor(self)
+        self.forum = SiteForumAccessor(self)
 
     def __str__(self):
         """
