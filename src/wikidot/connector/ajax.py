@@ -8,7 +8,7 @@ WikidotのAjax Module Connectorとの通信を担当するモジュール
 import asyncio
 import json.decoder
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, overload
 
 import httpx
 
@@ -61,7 +61,7 @@ class AjaxRequestHeader:
             self.cookie.update(cookie)
         return
 
-    def set_cookie(self, name, value) -> None:
+    def set_cookie(self, name: str, value: Any) -> None:
         """
         Cookieを設定する
 
@@ -75,7 +75,7 @@ class AjaxRequestHeader:
         self.cookie[name] = value
         return
 
-    def delete_cookie(self, name) -> None:
+    def delete_cookie(self, name: str) -> None:
         """
         Cookieを削除する
 
@@ -162,7 +162,7 @@ class AjaxModuleConnectorClient:
         # ヘッダの初期化
         self.header: AjaxRequestHeader = AjaxRequestHeader()
 
-    def _check_existence_and_ssl(self):
+    def _check_existence_and_ssl(self) -> bool:
         """
         サイトの存在とSSL対応状況を確認する
 
@@ -197,13 +197,31 @@ class AjaxModuleConnectorClient:
             and response.headers["Location"].startswith("https")
         )
 
+    @overload
+    def request(
+        self,
+        bodies: list[dict[str, Any]],
+        return_exceptions: Literal[False] = False,
+        site_name: str | None = None,
+        site_ssl_supported: bool | None = None,
+    ) -> tuple[httpx.Response, ...]: ...
+
+    @overload
+    def request(
+        self,
+        bodies: list[dict[str, Any]],
+        return_exceptions: Literal[True],
+        site_name: str | None = None,
+        site_ssl_supported: bool | None = None,
+    ) -> tuple[httpx.Response | Exception, ...]: ...
+
     def request(
         self,
         bodies: list[dict[str, Any]],
         return_exceptions: bool = False,
         site_name: str | None = None,
         site_ssl_supported: bool | None = None,
-    ) -> tuple[httpx.Response | Exception]:
+    ) -> tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]:
         """
         Ajax Module Connectorにリクエストを送信し、レスポンスを取得する
 
@@ -222,7 +240,7 @@ class AjaxModuleConnectorClient:
 
         Returns
         -------
-        tuple[httpx.Response | Exception]
+        tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]
             レスポンスまたは例外のタプル（リクエストと同じ順序）
 
         Raises
@@ -330,11 +348,15 @@ class AjaxModuleConnectorClient:
                 # レスポンスを返す
                 return response
 
-        async def _execute_requests():
+        async def _execute_requests() -> list[httpx.Response | BaseException]:
             return await asyncio.gather(
                 *[_request(body) for body in bodies],
                 return_exceptions=return_exceptions,
             )
 
         # 処理を実行
-        return asyncio.run(_execute_requests())
+        results = asyncio.run(_execute_requests())
+        return tuple(
+            r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))
+            for r in results
+        )
