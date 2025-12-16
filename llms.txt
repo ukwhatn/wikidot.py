@@ -126,20 +126,39 @@ pages = site.pages.search(
 
 #### 検索パラメータ一覧
 
+パラメータはWikidotの[ListPagesモジュール](https://www.wikidot.com/doc-modules:listpages-module)を継承しています。
+
+**Selection（ページ選択）**
+
 | パラメータ | 説明 | 例 |
 |-----------|------|-----|
-| `category` | カテゴリ | `"scp"`, `"*"` |
-| `tags` | タグフィルター | `["scp", "-tale"]` |
-| `parent` | 親ページ | `"parent-page"` |
-| `created_by` | 作成者 | `"username"` |
-| `created_at` | 作成日時 | `">2024-01-01"` |
-| `updated_at` | 更新日時 | `"<2024-12-31"` |
-| `rating` | 評価 | `">50"` |
-| `votes` | 投票数 | `">10"` |
-| `name` | ページ名パターン | `"scp-*"` |
-| `order` | ソート順 | `"rating desc"`, `"created_at desc"` |
-| `limit` | 取得件数 | `100` |
-| `offset` | オフセット | `0` |
+| `pagetype` | ページタイプ | `"*"`（全て）, `"normal"`, `"hidden"` |
+| `category` | カテゴリ | `"*"`（全て）, `"scp"`, `"."`（現在） |
+| `tags` | タグフィルター（空白区切りでOR、-で除外） | `["scp", "euclid"]`, `["scp", "-tale"]` |
+| `parent` | 親ページ | `"parent-page"`, `"."`（子ページ）, `"-"`（親なし） |
+| `link_to` | リンク先ページ | `"scp-173"` |
+| `created_by` | 作成者 | `"username"` またはUserオブジェクト |
+| `created_at` | 作成日時 | `"2024"`, `"last 7 day"`, `">2024-01-01"` |
+| `updated_at` | 更新日時 | `"last 1 week"`, `"<2024-12-31"` |
+| `rating` | 評価値 | `">50"`, `">=100"` |
+| `votes` | 投票数 | `">10"`, `">=5"` |
+| `name` | ページ名パターン | `"scp-*"`, `"about"` |
+| `fullname` | フルネーム（完全一致） | `"scp:scp-173"` |
+| `range` | 範囲指定 | ページ範囲 |
+
+**Ordering（並べ替え）**
+
+| パラメータ | 説明 | 例 |
+|-----------|------|-----|
+| `order` | ソート順（プロパティ名 + desc/asc） | `"created_at desc"`（デフォルト）, `"rating desc"`, `"name"`, `"updated_at"`, `"size"`, `"random"` |
+
+**Pagination（ページネーション）**
+
+| パラメータ | 説明 | デフォルト |
+|-----------|------|-----------|
+| `limit` | 取得件数上限 | 制限なし |
+| `offset` | 取得開始位置 | `0` |
+| `perPage` | 1リクエストあたりの取得件数 | `250`（最大250） |
 
 #### Pageプロパティ
 
