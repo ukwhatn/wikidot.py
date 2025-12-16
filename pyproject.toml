@@ -43,6 +43,11 @@ docs = [
     "myst-parser>=2.0.0",
     "sphinx-autodoc-typehints>=1.25.3",
 ]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+]
 
 [project.urls]
 "Homepage" = "https://github.com/ukwhatn/wikidot.py"
@@ -98,3 +103,27 @@ warn_redundant_casts = true
 # disallow_untyped_defs = true
 # disallow_incomplete_defs = true
 # warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-v --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["src/wikidot"]
+branch = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+fail_under = 0  # 初期段階では0%、Task 4.1完了後に引き上げ

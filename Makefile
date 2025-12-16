@@ -45,6 +45,23 @@ lint-fix:
 	uv sync --extra lint
 	uv run ruff check $(FORMAT_DIR) --fix
 
+# テスト関連のコマンド
+test:
+	uv sync --extra test
+	uv run pytest tests/ -v
+
+test-cov:
+	uv sync --extra test
+	uv run pytest tests/ -v --cov=src/wikidot --cov-report=term-missing --cov-report=html
+
+test-unit:
+	uv sync --extra test
+	uv run pytest tests/unit/ -v
+
+test-integration:
+	uv sync --extra test
+	uv run pytest tests/integration/ -v
+
 # ドキュメント関連のコマンド
 docs-install:
 	uv sync --extra docs
@@ -65,4 +82,4 @@ docs-github:
 	touch $(DOCS_BUILD)/.nojekyll
 	@echo "GitHub Pages用のドキュメントが生成されました。docs/buildディレクトリの内容をgh-pagesブランチにプッシュしてください。"
 
-.PHONY: build release release_from-develop update-version format commit lint lint-fix docs-install docs-build docs-clean docs-serve docs-github
+.PHONY: build release release_from-develop update-version format commit lint lint-fix test test-cov test-unit test-integration docs-install docs-build docs-clean docs-serve docs-github
