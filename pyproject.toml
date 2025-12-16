@@ -72,7 +72,6 @@ lint.ignore = [
     "SIM102", # Combine if statements
     "SIM108", # Ternary operator
     "SIM110", # Use any()
-    "SIM117", # Combine with statements (Task 3.1で対応予定)
     "SIM401", # dict.get()
     "B009",   # getattr with constant (コード意図があるため維持)
 ]

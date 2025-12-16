@@ -247,21 +247,20 @@ class AjaxModuleConnectorClient:
                 try:
                     response = None
                     # Semaphoreで同時実行数制御
-                    async with semaphore_instance:
-                        async with httpx.AsyncClient() as client:
-                            url = (
-                                f"http{'s' if site_ssl_supported else ''}://{site_name}.wikidot.com/"
-                                f"ajax-module-connector.php"
-                            )
-                            _body["wikidot_token7"] = 123456
-                            wd_logger.debug(f"Ajax Request: {url} -> {_body}")
-                            response = await client.post(
-                                url,
-                                headers=self.header.get_header(),
-                                data=_body,
-                                timeout=self.config.request_timeout,
-                            )
-                            response.raise_for_status()
+                    async with semaphore_instance, httpx.AsyncClient() as client:
+                        url = (
+                            f"http{'s' if site_ssl_supported else ''}://{site_name}.wikidot.com/"
+                            f"ajax-module-connector.php"
+                        )
+                        _body["wikidot_token7"] = 123456
+                        wd_logger.debug(f"Ajax Request: {url} -> {_body}")
+                        response = await client.post(
+                            url,
+                            headers=self.header.get_header(),
+                            data=_body,
+                            timeout=self.config.request_timeout,
+                        )
+                        response.raise_for_status()
                 except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
                     # HTTPステータスエラーまたはタイムアウトの場合はリトライ
                     retry_count += 1

@@ -35,14 +35,12 @@ class RequestUtil:
         semaphore = asyncio.Semaphore(config.semaphore_limit)
 
         async def _get(url: str) -> httpx.Response:
-            async with semaphore:
-                async with httpx.AsyncClient() as _client:
-                    return await _client.get(url)
+            async with semaphore, httpx.AsyncClient() as _client:
+                return await _client.get(url)
 
         async def _post(url: str) -> httpx.Response:
-            async with semaphore:
-                async with httpx.AsyncClient() as _client:
-                    return await _client.post(url)
+            async with semaphore, httpx.AsyncClient() as _client:
+                return await _client.post(url)
 
         async def _execute():
             if method == "GET":
