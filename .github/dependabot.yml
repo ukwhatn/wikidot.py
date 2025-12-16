@@ -1,9 +1,18 @@
 version: 2
 updates:
-  - package-ecosystem: "pip"
+  - package-ecosystem: "uv"
     directory: "/"
     schedule:
       interval: "daily"
+    target-branch: "develop"
+    assignees:
+      - "ukwhatn"
+    reviewers:
+      - "ukwhatn"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
     target-branch: "develop"
     assignees:
       - "ukwhatn"
