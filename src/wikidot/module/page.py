@@ -1247,3 +1247,160 @@ class Page:
             ]
         )
         return self
+
+    def set_parent(self, parent_fullname: str | None) -> "Page":
+        """
+        親ページを設定する
+
+        指定した親ページをこのページの親として設定する。
+        Noneまたは空文字列を指定すると親ページの設定を解除する。
+
+        Parameters
+        ----------
+        parent_fullname : str | None
+            親ページのフルネーム。Noneまたは空文字列で親を解除
+
+        Returns
+        -------
+        Page
+            自身（メソッドチェーン用）
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            親ページの設定に失敗した場合
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "WikiPageAction",
+                    "event": "setParentPage",
+                    "moduleName": "Empty",
+                    "pageId": str(self.id),
+                    "parentName": parent_fullname or "",
+                }
+            ]
+        )
+        self.parent_fullname = parent_fullname
+        return self
+
+    def rename(self, new_fullname: str) -> "Page":
+        """
+        ページ名を変更する
+
+        ページのフルネームを新しい名前に変更する。
+        カテゴリも含めた完全なフルネームを指定する必要がある。
+
+        Parameters
+        ----------
+        new_fullname : str
+            新しいフルネーム（例: "component:new-name"）
+
+        Returns
+        -------
+        Page
+            自身（メソッドチェーン用）
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            ページ名の変更に失敗した場合（同名ページが存在する場合など）
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "WikiPageAction",
+                    "event": "renamePage",
+                    "moduleName": "Empty",
+                    "page_id": self.id,
+                    "new_name": new_fullname,
+                }
+            ]
+        )
+        self.fullname = new_fullname
+        if ":" in new_fullname:
+            self.category, self.name = new_fullname.split(":", 1)
+        else:
+            self.category = "_default"
+            self.name = new_fullname
+        return self
+
+    def vote(self, value: int) -> int:
+        """
+        ページに投票する
+
+        ページに対して+1または-1の投票を行う。
+        既に投票している場合は上書きされる。
+
+        Parameters
+        ----------
+        value : int
+            投票値（1または-1）
+
+        Returns
+        -------
+        int
+            投票後の新しいレーティング値
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            投票に失敗した場合
+        """
+        self.site.client.login_check()
+        response = self.site.amc_request(
+            [
+                {
+                    "action": "RateAction",
+                    "event": "ratePage",
+                    "moduleName": "Empty",
+                    "pageId": self.id,
+                    "points": value,
+                    "force": "yes",
+                }
+            ]
+        )[0]
+        new_rating = int(response.json()["points"])
+        self.rating = new_rating
+        return new_rating
+
+    def cancel_vote(self) -> int:
+        """
+        投票をキャンセルする
+
+        このページに対する自分の投票を取り消す。
+
+        Returns
+        -------
+        int
+            キャンセル後の新しいレーティング値
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            投票キャンセルに失敗した場合
+        """
+        self.site.client.login_check()
+        response = self.site.amc_request(
+            [
+                {
+                    "action": "RateAction",
+                    "event": "cancelVote",
+                    "moduleName": "Empty",
+                    "pageId": self.id,
+                }
+            ]
+        )[0]
+        new_rating = int(response.json()["points"])
+        self.rating = new_rating
+        return new_rating
