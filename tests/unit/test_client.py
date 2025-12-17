@@ -96,7 +96,14 @@ class TestClient:
             client.close()
             mock_logout.assert_not_called()
 
-            client.is_logged_in = True
+        with (
+            patch("wikidot.module.client.AjaxModuleConnectorClient"),
+            patch("wikidot.module.client.HTTPAuthentication.login"),
+            patch("wikidot.module.client.HTTPAuthentication.logout") as mock_logout,
+            patch("wikidot.module.client.User.from_name") as mock_from_name,
+        ):
+            mock_from_name.return_value = MagicMock()
+            client = Client(username="test-user", password="test-password")
             client.close()
             mock_logout.assert_called_once()
 

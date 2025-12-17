@@ -54,7 +54,11 @@ def setup_console_handler(logger: logging.Logger, level: str | int = logging.WAR
 
     # ログレベルを設定（文字列の場合は変換）
     if isinstance(level, str):
-        level = getattr(logging, level.upper(), logging.WARNING)
+        level_attr = level.upper()
+        level_value = getattr(logging, level_attr, None)
+        if level_value is None:
+            raise ValueError(f"Invalid logging level: {level}")
+        level = level_value
     logger.setLevel(level)
 
 

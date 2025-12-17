@@ -8,8 +8,9 @@ Wikidotページの編集履歴（リビジョン）を扱うモジュール
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
+import httpx
 from bs4 import BeautifulSoup
 
 from ..common.exceptions import NoElementException
@@ -82,7 +83,7 @@ class PageRevisionCollection(list["PageRevision"]):
         revisions: list["PageRevision"],
         check_acquired_func: Callable[["PageRevision"], bool],
         module_name: str,
-        process_response_func: Callable[["PageRevision", Any, "Page"], None],
+        process_response_func: Callable[["PageRevision", httpx.Response, "Page"], None],
     ) -> list["PageRevision"]:
         """
         リビジョンデータを一括取得する汎用メソッド
@@ -144,7 +145,7 @@ class PageRevisionCollection(list["PageRevision"]):
             ソース要素が見つからない場合
         """
 
-        def process_source_response(revision: "PageRevision", response: Any, page: "Page") -> None:
+        def process_source_response(revision: "PageRevision", response: httpx.Response, page: "Page") -> None:
             body = response.json()["body"]
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
@@ -199,7 +200,7 @@ class PageRevisionCollection(list["PageRevision"]):
             HTML情報が更新されたリビジョンのリスト
         """
 
-        def process_html_response(revision: "PageRevision", response: Any, page: "Page") -> None:
+        def process_html_response(revision: "PageRevision", response: httpx.Response, page: "Page") -> None:
             body = response.json()["body"]
             # onclick="document.getElementById('page-version-info').style.display='none'">(.*?)</a>\n\t</div>\n\n\n\n
             # 以降をソースとして取得

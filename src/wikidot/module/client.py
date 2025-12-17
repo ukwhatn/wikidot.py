@@ -296,9 +296,9 @@ class Client:
         if self.is_logged_in:
             try:
                 HTTPAuthentication.logout(self)
-            except Exception:
+            except Exception as e:
                 # ログアウトエラーは記録するが、再度raiseはしない
-                pass
+                wd_logger.warning(f"Error during logout: {e}", exc_info=True)
             finally:
                 self.is_logged_in = False
                 self.username = None
@@ -349,9 +349,9 @@ class Client:
         if self.is_logged_in:
             try:
                 HTTPAuthentication.logout(self)
-            except Exception:
+            except Exception as e:
                 # ログアウトエラーは記録するが、再度raiseはしない
-                pass
+                wd_logger.warning(f"Error during logout: {e}", exc_info=True)
             finally:
                 self.is_logged_in = False
                 self.username = None

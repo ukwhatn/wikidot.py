@@ -1,5 +1,6 @@
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, TypeVar
 
 import httpx
 
@@ -34,6 +35,9 @@ class QMCPage:
 
     title: str
     unix_name: str
+
+
+T = TypeVar("T", QMCUser, QMCPage)
 
 
 class QuickModule:
@@ -74,9 +78,9 @@ class QuickModule:
         site_id: int,
         query: str,
         response_key: str,
-        item_class: type,
-        item_mapping: Any,
-    ) -> list[Any]:
+        item_class: type[T],
+        item_mapping: Callable[[type[T], dict[str, Any]], T],
+    ) -> list[T]:
         """
         汎用的な検索メソッド
 

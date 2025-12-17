@@ -8,9 +8,10 @@ Wikidotのプライベートメッセージを扱うモジュール
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Any, Optional
+from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup, ResultSet, Tag
+from typing_extensions import Self
 
 from ..common import exceptions
 from ..common.decorators import login_required
@@ -195,7 +196,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         return PrivateMessageCollection.from_ids(client, message_ids)
 
     @classmethod
-    def _factory_from_ids(cls, client: "Client", message_ids: list[int]) -> Any:
+    def _factory_from_ids(cls, client: "Client", message_ids: list[int]) -> Self:
         """
         メッセージIDのリストからメッセージコレクションを取得する汎用ファクトリメソッド
 
@@ -214,7 +215,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         return cls(PrivateMessageCollection.from_ids(client, message_ids))
 
     @classmethod
-    def _factory_acquire(cls, client: "Client", module_name: str) -> Any:
+    def _factory_acquire(cls, client: "Client", module_name: str) -> Self:
         """
         指定したモジュールからメッセージを取得する汎用ファクトリメソッド
 

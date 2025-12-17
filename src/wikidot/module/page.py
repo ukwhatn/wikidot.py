@@ -196,11 +196,7 @@ class SearchPagesQuery:
         dict[str, Any]
             APIリクエスト用の辞書形式パラメータ
         """
-        res = {}
-        for field in self._VALID_FIELDS:
-            value = getattr(self, field)
-            if value is not None:
-                res[field] = value
+        res = {k: v for k, v in self.__dict__.items() if v is not None and k in self._VALID_FIELDS}
 
         if "tags" in res and isinstance(res["tags"], list):
             res["tags"] = " ".join(res["tags"])
