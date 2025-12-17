@@ -1,6 +1,4 @@
 FORMAT_DIR = src tests
-DOCS_SOURCE = docs/source
-DOCS_BUILD = docs/build
 
 release_from-develop:
 	gh pr create --base main --head develop --title "Release v$(version)"
@@ -62,24 +60,4 @@ test-integration:
 	uv sync --extra test
 	uv run pytest tests/integration/ -v
 
-# ドキュメント関連のコマンド
-docs-install:
-	uv sync --extra docs
-
-docs-build:
-	make docs-install
-	uv run sphinx-build -b html $(DOCS_SOURCE) $(DOCS_BUILD)
-
-docs-clean:
-	rm -rf $(DOCS_BUILD)
-
-docs-serve:
-	cd $(DOCS_BUILD) && uv run python -m http.server
-
-docs-github:
-	make docs-clean
-	make docs-build
-	touch $(DOCS_BUILD)/.nojekyll
-	@echo "GitHub Pages用のドキュメントが生成されました。docs/buildディレクトリの内容をgh-pagesブランチにプッシュしてください。"
-
-.PHONY: build release release_from-develop update-version format commit lint lint-fix test test-cov test-unit test-integration docs-install docs-build docs-clean docs-serve docs-github
+.PHONY: build release release_from-develop update-version format commit lint lint-fix test test-cov test-unit test-integration
