@@ -80,5 +80,13 @@ jobs:
     - name: Set up Python ${{ matrix.python-version }}
       run: uv python install ${{ matrix.python-version }}
 
-    - name: Run tests
-      run: make test
+    - name: Run tests with coverage
+      run: make test-cov
+
+    - name: Upload coverage report
+      if: matrix.python-version == '3.10'
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: htmlcov/
+        retention-days: 7
