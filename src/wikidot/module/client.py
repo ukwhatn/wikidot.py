@@ -229,8 +229,10 @@ class Client:
         logging_level : str, default "WARNING"
             ロギングレベル
         """
-        # 最初にロギングレベルを決定する
-        wd_logger.setLevel(logging_level)
+        # ロギング設定を行う
+        from wikidot.common.logger import setup_console_handler
+
+        setup_console_handler(wd_logger, logging_level)
 
         # AMCClientを初期化
         self.amc_client = AjaxModuleConnectorClient(site_name=None, config=amc_config)
@@ -257,26 +259,6 @@ class Client:
         # ------------
         # メソッド終わり
         # ------------
-
-    def _cleanup(self) -> None:
-        """
-        リソースのクリーンアップ処理
-
-        ログイン中であればログアウト処理を行い、セッション状態をリセットする。
-        __del__と__exit__から共通で呼び出される。
-        """
-        if self.is_logged_in:
-            HTTPAuthentication.logout(self)
-            self.is_logged_in = False
-            self.username = None
-
-    def __del__(self) -> None:
-        """
-        デストラクタ - クライアントの使用終了時の後処理
-
-        ログイン中であればログアウト処理を行い、リソースを解放する。
-        """
-        self._cleanup()
 
     def __enter__(self) -> "Client":
         """
@@ -311,7 +293,15 @@ class Client:
         traceback : traceback
             例外のトレースバック
         """
-        self._cleanup()
+        if self.is_logged_in:
+            try:
+                HTTPAuthentication.logout(self)
+            except Exception:
+                # ログアウトエラーは記録するが、再度raiseはしない
+                pass
+            finally:
+                self.is_logged_in = False
+                self.username = None
 
     def __str__(self) -> str:
         """
@@ -339,3 +329,29 @@ class Client:
         if not self.is_logged_in:
             raise LoginRequiredException("Login is required to execute this function")
         return
+
+    def close(self) -> None:
+        """
+        クライアントのリソースを明示的に解放
+
+        ログイン中であればログアウト処理を行い、関連するリソースをクリーンアップする。
+        with文を使用しない場合は、このメソッドを明示的に呼び出してリソースを解放すること。
+
+        Examples
+        --------
+        >>> client = Client(username="user", password="pass")
+        >>> try:
+        ...     # 何か処理
+        ...     pass
+        ... finally:
+        ...     client.close()
+        """
+        if self.is_logged_in:
+            try:
+                HTTPAuthentication.logout(self)
+            except Exception:
+                # ログアウトエラーは記録するが、再度raiseはしない
+                pass
+            finally:
+                self.is_logged_in = False
+                self.username = None
