@@ -86,15 +86,19 @@ class TestClient:
             assert "Client(" in str(client)
             assert "is_logged_in=False" in str(client)
 
-    def test_cleanup_called_only_when_logged_in(self):
-        """クリーンアップはログイン時のみログアウトを呼ぶ"""
+    def test_close_called_only_when_logged_in(self):
+        """close()はログイン時のみログアウトを呼ぶ"""
         with (
             patch("wikidot.module.client.AjaxModuleConnectorClient"),
             patch("wikidot.module.client.HTTPAuthentication.logout") as mock_logout,
         ):
             client = Client()
-            client._cleanup()
+            client.close()
             mock_logout.assert_not_called()
+
+            client.is_logged_in = True
+            client.close()
+            mock_logout.assert_called_once()
 
     def test_accessors_are_initialized(self):
         """各アクセサが初期化される"""
