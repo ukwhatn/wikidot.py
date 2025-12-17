@@ -171,3 +171,55 @@ class TestSearchPagesQueryUseCases:
         )
         result = query.as_dict()
         assert result["fullname"] == "scp-173"
+
+
+class TestSearchPagesQueryValidation:
+    """SearchPagesQueryのバリデーションテスト"""
+
+    def test_invalid_parameter_raises_value_error(self):
+        """無効なパラメータでValueErrorが発生すること"""
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid query parameters"):
+            SearchPagesQuery(invalid_param="value")
+
+    def test_multiple_invalid_parameters_raises_value_error(self):
+        """複数の無効なパラメータでValueErrorが発生すること"""
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid query parameters"):
+            SearchPagesQuery(invalid_param1="value1", invalid_param2="value2")
+
+    def test_mixed_valid_invalid_parameters_raises_value_error(self):
+        """有効なパラメータと無効なパラメータが混在する場合にValueErrorが発生すること"""
+        import pytest
+
+        with pytest.raises(ValueError, match="Invalid query parameters"):
+            SearchPagesQuery(category="scp", invalid_param="value")
+
+    def test_all_valid_parameters_work(self):
+        """すべて有効なパラメータは正常に動作すること"""
+        query = SearchPagesQuery(
+            pagetype="normal",
+            category="scp",
+            tags="tale",
+            parent="scp-001",
+            link_to="scp-002",
+            created_at=">=2020-01-01",
+            updated_at="<=2023-12-31",
+            created_by="test-user",
+            rating=">=50",
+            votes=">=10",
+            name="test-page",
+            fullname="scp-173",
+            range="1-100",
+            order="rating desc",
+            offset=10,
+            limit=50,
+            perPage=100,
+            separate="yes",
+            wrapper="yes",
+        )
+        result = query.as_dict()
+        assert result["category"] == "scp"
+        assert result["tags"] == "tale"

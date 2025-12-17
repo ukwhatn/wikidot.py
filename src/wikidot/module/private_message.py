@@ -11,6 +11,7 @@ from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup, ResultSet, Tag
+from typing_extensions import Self
 
 from ..common import exceptions
 from ..common.decorators import login_required
@@ -194,6 +195,49 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 
         return PrivateMessageCollection.from_ids(client, message_ids)
 
+    @classmethod
+    def _factory_from_ids(cls, client: "Client", message_ids: list[int]) -> Self:
+        """
+        メッセージIDのリストからメッセージコレクションを取得する汎用ファクトリメソッド
+
+        Parameters
+        ----------
+        client : Client
+            クライアントインスタンス
+        message_ids : list[int]
+            取得するメッセージIDのリスト
+
+        Returns
+        -------
+        cls
+            呼び出し元のクラスのインスタンス
+        """
+        return cls(PrivateMessageCollection.from_ids(client, message_ids))
+
+    @classmethod
+    def _factory_acquire(cls, client: "Client", module_name: str) -> Self:
+        """
+        指定したモジュールからメッセージを取得する汎用ファクトリメソッド
+
+        Parameters
+        ----------
+        client : Client
+            クライアントインスタンス
+        module_name : str
+            取得に使用するモジュール名
+
+        Returns
+        -------
+        cls
+            呼び出し元のクラスのインスタンス
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        """
+        return cls(PrivateMessageCollection._acquire(client, module_name))
+
 
 class PrivateMessageInbox(PrivateMessageCollection):
     """
@@ -203,8 +247,8 @@ class PrivateMessageInbox(PrivateMessageCollection):
     PrivateMessageCollectionの特殊化クラス。
     """
 
-    @staticmethod
-    def from_ids(client: "Client", message_ids: list[int]) -> "PrivateMessageInbox":
+    @classmethod
+    def from_ids(cls, client: "Client", message_ids: list[int]) -> "PrivateMessageInbox":
         """
         メッセージIDのリストから受信箱のメッセージコレクションを取得する
 
@@ -220,10 +264,10 @@ class PrivateMessageInbox(PrivateMessageCollection):
         PrivateMessageInbox
             受信箱メッセージのコレクション
         """
-        return PrivateMessageInbox(PrivateMessageCollection.from_ids(client, message_ids))
+        return cls._factory_from_ids(client, message_ids)
 
-    @staticmethod
-    def acquire(client: "Client") -> "PrivateMessageInbox":
+    @classmethod
+    def acquire(cls, client: "Client") -> "PrivateMessageInbox":
         """
         ログイン中のユーザーの受信箱メッセージをすべて取得する
 
@@ -242,7 +286,7 @@ class PrivateMessageInbox(PrivateMessageCollection):
         LoginRequiredException
             ログインしていない場合
         """
-        return PrivateMessageInbox(PrivateMessageCollection._acquire(client, "dashboard/messages/DMInboxModule"))
+        return cls._factory_acquire(client, "dashboard/messages/DMInboxModule")
 
 
 class PrivateMessageSentBox(PrivateMessageCollection):
@@ -253,8 +297,8 @@ class PrivateMessageSentBox(PrivateMessageCollection):
     PrivateMessageCollectionの特殊化クラス。
     """
 
-    @staticmethod
-    def from_ids(client: "Client", message_ids: list[int]) -> "PrivateMessageSentBox":
+    @classmethod
+    def from_ids(cls, client: "Client", message_ids: list[int]) -> "PrivateMessageSentBox":
         """
         メッセージIDのリストから送信箱のメッセージコレクションを取得する
 
@@ -270,10 +314,10 @@ class PrivateMessageSentBox(PrivateMessageCollection):
         PrivateMessageSentBox
             送信箱メッセージのコレクション
         """
-        return PrivateMessageSentBox(PrivateMessageCollection.from_ids(client, message_ids))
+        return cls._factory_from_ids(client, message_ids)
 
-    @staticmethod
-    def acquire(client: "Client") -> "PrivateMessageSentBox":
+    @classmethod
+    def acquire(cls, client: "Client") -> "PrivateMessageSentBox":
         """
         ログイン中のユーザーの送信箱メッセージをすべて取得する
 
@@ -292,7 +336,7 @@ class PrivateMessageSentBox(PrivateMessageCollection):
         LoginRequiredException
             ログインしていない場合
         """
-        return PrivateMessageSentBox(PrivateMessageCollection._acquire(client, "dashboard/messages/DMSentModule"))
+        return cls._factory_acquire(client, "dashboard/messages/DMSentModule")
 
 
 @dataclass
