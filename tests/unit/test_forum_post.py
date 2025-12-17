@@ -23,9 +23,7 @@ if TYPE_CHECKING:
 class TestForumPostCollectionInit:
     """ForumPostCollectionの初期化テスト"""
 
-    def test_init_with_thread_and_empty_posts(
-        self, mock_forum_thread_no_http: ForumThread
-    ) -> None:
+    def test_init_with_thread_and_empty_posts(self, mock_forum_thread_no_http: ForumThread) -> None:
         """スレッドと空の投稿リストで初期化できる"""
         collection = ForumPostCollection(mock_forum_thread_no_http, [])
         assert collection.thread == mock_forum_thread_no_http
@@ -35,26 +33,18 @@ class TestForumPostCollectionInit:
         self, mock_forum_thread_no_http: ForumThread, mock_forum_post_no_http: ForumPost
     ) -> None:
         """スレッドと投稿リストで初期化できる"""
-        collection = ForumPostCollection(
-            mock_forum_thread_no_http, [mock_forum_post_no_http]
-        )
+        collection = ForumPostCollection(mock_forum_thread_no_http, [mock_forum_post_no_http])
         assert collection.thread == mock_forum_thread_no_http
         assert len(collection) == 1
 
-    def test_find_existing(
-        self, mock_forum_thread_no_http: ForumThread, mock_forum_post_no_http: ForumPost
-    ) -> None:
+    def test_find_existing(self, mock_forum_thread_no_http: ForumThread, mock_forum_post_no_http: ForumPost) -> None:
         """存在する投稿をIDで検索できる"""
-        collection = ForumPostCollection(
-            mock_forum_thread_no_http, [mock_forum_post_no_http]
-        )
+        collection = ForumPostCollection(mock_forum_thread_no_http, [mock_forum_post_no_http])
         found = collection.find(5001)
         assert found is not None
         assert found.id == 5001
 
-    def test_find_nonexistent(
-        self, mock_forum_thread_no_http: ForumThread
-    ) -> None:
+    def test_find_nonexistent(self, mock_forum_thread_no_http: ForumThread) -> None:
         """存在しない投稿を検索するとNoneを返す"""
         collection = ForumPostCollection(mock_forum_thread_no_http, [])
         found = collection.find(9999)
@@ -64,17 +54,13 @@ class TestForumPostCollectionInit:
 class TestForumPostCollectionParse:
     """ForumPostCollection._parseのテスト"""
 
-    def test_parse_success(
-        self, mock_forum_thread_no_http: ForumThread, forum_posts_in_thread: dict[str, Any]
-    ) -> None:
+    def test_parse_success(self, mock_forum_thread_no_http: ForumThread, forum_posts_in_thread: dict[str, Any]) -> None:
         """投稿一覧を正常にパースできる"""
         html = BeautifulSoup(forum_posts_in_thread["body"], "lxml")
         posts = ForumPostCollection._parse(mock_forum_thread_no_http, html)
         assert len(posts) == 2
 
-    def test_parse_fields(
-        self, mock_forum_thread_no_http: ForumThread, forum_posts_in_thread: dict[str, Any]
-    ) -> None:
+    def test_parse_fields(self, mock_forum_thread_no_http: ForumThread, forum_posts_in_thread: dict[str, Any]) -> None:
         """投稿の各フィールドが正しくパースされる"""
         html = BeautifulSoup(forum_posts_in_thread["body"], "lxml")
         posts = ForumPostCollection._parse(mock_forum_thread_no_http, html)
@@ -100,7 +86,7 @@ class TestForumPostCollectionAcquireAll:
         """単一ページの投稿一覧を取得できる"""
         mock_response = MagicMock()
         mock_response.json.return_value = forum_posts_in_thread
-        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])  # type: ignore[method-assign]
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
 
         collection = ForumPostCollection.acquire_all_in_thread(mock_forum_thread_no_http)
         assert len(collection) == 2
@@ -110,14 +96,17 @@ class TestForumPostCollectionAcquireAll:
     ) -> None:
         """複数ページの投稿一覧を取得できる（ページャーあり）"""
         # ページャー付きのレスポンスを作成
-        body_with_pager = forum_posts_in_thread["body"] + '<div class="pager"><span class="target">1</span><span class="target">2</span><span class="target">next</span></div>'
+        body_with_pager = (
+            forum_posts_in_thread["body"]
+            + '<div class="pager"><span class="target">1</span><span class="target">2</span><span class="target">next</span></div>'
+        )
         first_response = MagicMock()
         first_response.json.return_value = {"status": "ok", "body": body_with_pager}
 
         second_response = MagicMock()
         second_response.json.return_value = forum_posts_in_thread
 
-        mock_forum_thread_no_http.site.amc_request = MagicMock(side_effect=[[first_response], [second_response]])  # type: ignore[method-assign]
+        mock_forum_thread_no_http.site.amc_request = MagicMock(side_effect=[[first_response], [second_response]])
 
         collection = ForumPostCollection.acquire_all_in_thread(mock_forum_thread_no_http)
         # 最初のページで2件 + 2ページ目で2件 = 4件
@@ -156,14 +145,12 @@ class TestForumPostSource:
         """sourceプロパティがAPIを呼び出す"""
         mock_response = MagicMock()
         mock_response.json.return_value = forum_editpost_form
-        mock_forum_post_no_http.thread.site.amc_request = MagicMock(return_value=[mock_response])  # type: ignore[method-assign]
+        mock_forum_post_no_http.thread.site.amc_request = MagicMock(return_value=[mock_response])
 
         source = mock_forum_post_no_http.source
         assert source == "Test source content in wikidot syntax"
 
-    def test_source_property_cached(
-        self, mock_forum_post_no_http: ForumPost
-    ) -> None:
+    def test_source_property_cached(self, mock_forum_post_no_http: ForumPost) -> None:
         """sourceプロパティがキャッシュされる"""
         mock_forum_post_no_http._source = "cached source"
         assert mock_forum_post_no_http.source == "cached source"
@@ -172,12 +159,10 @@ class TestForumPostSource:
 class TestForumPostEdit:
     """ForumPost.editのテスト"""
 
-    def test_edit_not_logged_in(
-        self, mock_forum_post_no_http: ForumPost
-    ) -> None:
+    def test_edit_not_logged_in(self, mock_forum_post_no_http: ForumPost) -> None:
         """ログインしていない場合に例外"""
         mock_forum_post_no_http.thread.site.client.is_logged_in = False
-        mock_forum_post_no_http.thread.site.client.login_check = MagicMock(  # type: ignore[method-assign]
+        mock_forum_post_no_http.thread.site.client.login_check = MagicMock(
             side_effect=exceptions.LoginRequiredException("Login required")
         )
 
@@ -192,7 +177,7 @@ class TestForumPostEdit:
     ) -> None:
         """編集が成功する"""
         mock_forum_post_no_http.thread.site.client.is_logged_in = True
-        mock_forum_post_no_http.thread.site.client.login_check = MagicMock()  # type: ignore[method-assign]
+        mock_forum_post_no_http.thread.site.client.login_check = MagicMock()
 
         # 最初の呼び出しはフォーム取得、2回目は保存
         form_response = MagicMock()
@@ -200,7 +185,7 @@ class TestForumPostEdit:
         save_response = MagicMock()
         save_response.json.return_value = amc_ok_response
 
-        mock_forum_post_no_http.thread.site.amc_request = MagicMock(side_effect=[[form_response], [save_response]])  # type: ignore[method-assign]
+        mock_forum_post_no_http.thread.site.amc_request = MagicMock(side_effect=[[form_response], [save_response]])
 
         result = mock_forum_post_no_http.edit(source="Updated source")
 
@@ -215,14 +200,14 @@ class TestForumPostEdit:
     ) -> None:
         """タイトル付きで編集できる"""
         mock_forum_post_no_http.thread.site.client.is_logged_in = True
-        mock_forum_post_no_http.thread.site.client.login_check = MagicMock()  # type: ignore[method-assign]
+        mock_forum_post_no_http.thread.site.client.login_check = MagicMock()
 
         form_response = MagicMock()
         form_response.json.return_value = forum_editpost_form
         save_response = MagicMock()
         save_response.json.return_value = amc_ok_response
 
-        mock_forum_post_no_http.thread.site.amc_request = MagicMock(side_effect=[[form_response], [save_response]])  # type: ignore[method-assign]
+        mock_forum_post_no_http.thread.site.amc_request = MagicMock(side_effect=[[form_response], [save_response]])
 
         mock_forum_post_no_http.edit(source="Updated source", title="New Title")
 

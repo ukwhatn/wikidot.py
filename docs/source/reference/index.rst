@@ -5,7 +5,7 @@ APIリファレンス
 
 .. toctree::
    :maxdepth: 2
-   
+
    client
    site
    page

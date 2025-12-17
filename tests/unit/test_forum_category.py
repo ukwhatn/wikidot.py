@@ -22,9 +22,7 @@ if TYPE_CHECKING:
 class TestForumCategoryCollectionInit:
     """ForumCategoryCollectionの初期化テスト"""
 
-    def test_init_with_site_and_empty_categories(
-        self, mock_site_no_http: Site
-    ) -> None:
+    def test_init_with_site_and_empty_categories(self, mock_site_no_http: Site) -> None:
         """サイトと空のカテゴリリストで初期化できる"""
         collection = ForumCategoryCollection(mock_site_no_http, [])
         assert collection.site == mock_site_no_http
@@ -34,19 +32,13 @@ class TestForumCategoryCollectionInit:
         self, mock_site_no_http: Site, mock_forum_category_no_http: ForumCategory
     ) -> None:
         """サイトとカテゴリリストで初期化できる"""
-        collection = ForumCategoryCollection(
-            mock_site_no_http, [mock_forum_category_no_http]
-        )
+        collection = ForumCategoryCollection(mock_site_no_http, [mock_forum_category_no_http])
         assert collection.site == mock_site_no_http
         assert len(collection) == 1
 
-    def test_find_existing(
-        self, mock_site_no_http: Site, mock_forum_category_no_http: ForumCategory
-    ) -> None:
+    def test_find_existing(self, mock_site_no_http: Site, mock_forum_category_no_http: ForumCategory) -> None:
         """存在するカテゴリをIDで検索できる"""
-        collection = ForumCategoryCollection(
-            mock_site_no_http, [mock_forum_category_no_http]
-        )
+        collection = ForumCategoryCollection(mock_site_no_http, [mock_forum_category_no_http])
         found = collection.find(1001)
         assert found is not None
         assert found.id == 1001
@@ -61,24 +53,20 @@ class TestForumCategoryCollectionInit:
 class TestForumCategoryCollectionAcquireAll:
     """ForumCategoryCollection.acquire_allのテスト"""
 
-    def test_acquire_all_success(
-        self, mock_site_no_http: Site, forum_start: dict[str, Any]
-    ) -> None:
+    def test_acquire_all_success(self, mock_site_no_http: Site, forum_start: dict[str, Any]) -> None:
         """カテゴリ一覧を正常に取得できる"""
         mock_response = MagicMock()
         mock_response.json.return_value = forum_start
-        mock_site_no_http.amc_request = MagicMock(return_value=[mock_response])  # type: ignore[method-assign]
+        mock_site_no_http.amc_request = MagicMock(return_value=[mock_response])
 
         collection = ForumCategoryCollection.acquire_all(mock_site_no_http)
         assert len(collection) == 2
 
-    def test_acquire_all_parse_fields(
-        self, mock_site_no_http: Site, forum_start: dict[str, Any]
-    ) -> None:
+    def test_acquire_all_parse_fields(self, mock_site_no_http: Site, forum_start: dict[str, Any]) -> None:
         """カテゴリの各フィールドが正しくパースされる"""
         mock_response = MagicMock()
         mock_response.json.return_value = forum_start
-        mock_site_no_http.amc_request = MagicMock(return_value=[mock_response])  # type: ignore[method-assign]
+        mock_site_no_http.amc_request = MagicMock(return_value=[mock_response])
 
         collection = ForumCategoryCollection.acquire_all(mock_site_no_http)
 
@@ -95,13 +83,11 @@ class TestForumCategoryCollectionAcquireAll:
         assert category2.id == 1002
         assert category2.title == "Another Category"
 
-    def test_acquire_all_empty(
-        self, mock_site_no_http: Site, forum_start_empty: dict[str, Any]
-    ) -> None:
+    def test_acquire_all_empty(self, mock_site_no_http: Site, forum_start_empty: dict[str, Any]) -> None:
         """空のカテゴリ一覧を取得できる"""
         mock_response = MagicMock()
         mock_response.json.return_value = forum_start_empty
-        mock_site_no_http.amc_request = MagicMock(return_value=[mock_response])  # type: ignore[method-assign]
+        mock_site_no_http.amc_request = MagicMock(return_value=[mock_response])
 
         collection = ForumCategoryCollection.acquire_all(mock_site_no_http)
         assert len(collection) == 0
@@ -122,9 +108,7 @@ class TestForumCategoryBasic:
         assert "id=1001" in result
         assert "Test Category" in result
 
-    def test_threads_setter(
-        self, mock_forum_category_no_http: ForumCategory
-    ) -> None:
+    def test_threads_setter(self, mock_forum_category_no_http: ForumCategory) -> None:
         """threadsプロパティのsetterが動作する"""
         from wikidot.module.forum_thread import ForumThreadCollection
 
@@ -136,12 +120,10 @@ class TestForumCategoryBasic:
 class TestForumCategoryCreateThread:
     """ForumCategory.create_threadのテスト"""
 
-    def test_create_thread_not_logged_in(
-        self, mock_forum_category_no_http: ForumCategory
-    ) -> None:
+    def test_create_thread_not_logged_in(self, mock_forum_category_no_http: ForumCategory) -> None:
         """ログインしていない場合に例外"""
         mock_forum_category_no_http.site.client.is_logged_in = False
-        mock_forum_category_no_http.site.client.login_check = MagicMock(  # type: ignore[method-assign]
+        mock_forum_category_no_http.site.client.login_check = MagicMock(
             side_effect=exceptions.LoginRequiredException("Login required")
         )
 
@@ -160,7 +142,7 @@ class TestForumCategoryCreateThread:
     ) -> None:
         """スレッド作成が成功する"""
         mock_forum_category_no_http.site.client.is_logged_in = True
-        mock_forum_category_no_http.site.client.login_check = MagicMock()  # type: ignore[method-assign]
+        mock_forum_category_no_http.site.client.login_check = MagicMock()
 
         # 1回目: newThread, 2回目: get_from_id
         create_response = MagicMock()
@@ -168,9 +150,7 @@ class TestForumCategoryCreateThread:
         detail_response = MagicMock()
         detail_response.json.return_value = forum_thread_detail
 
-        mock_forum_category_no_http.site.amc_request = MagicMock(  # type: ignore[method-assign]
-            side_effect=[[create_response], [detail_response]]
-        )
+        mock_forum_category_no_http.site.amc_request = MagicMock(side_effect=[[create_response], [detail_response]])
 
         thread = mock_forum_category_no_http.create_thread(
             title="Test Thread",
