@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "wikidot"
-version = "4.0.0"
+version = "4.0.1"
 authors = [{ name = "ukwhatn", email = "ukwhatn@gmail.com" }]
 description = "Wikidot Utility Library"
 readme = "README.md"
