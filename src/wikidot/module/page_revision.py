@@ -5,10 +5,10 @@ Wikidotページの編集履歴（リビジョン）を扱うモジュール
 リビジョンの取得、ソースの取得、HTML表示などの操作が可能。
 """
 
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Any, Optional
 
 from bs4 import BeautifulSoup
 
@@ -77,6 +77,49 @@ class PageRevisionCollection(list["PageRevision"]):
         return None
 
     @staticmethod
+    def _generic_acquire(
+        page: "Page",
+        revisions: list["PageRevision"],
+        check_acquired_func: Callable[["PageRevision"], bool],
+        module_name: str,
+        process_response_func: Callable[["PageRevision", Any, "Page"], None],
+    ) -> list["PageRevision"]:
+        """
+        リビジョンデータを一括取得する汎用メソッド
+
+        Parameters
+        ----------
+        page : Page
+            リビジョンが属するページ
+        revisions : list[PageRevision]
+            データを取得するリビジョンのリスト
+        check_acquired_func : callable
+            データが既に取得済みかチェックする関数
+        module_name : str
+            AMCリクエストで使用するモジュール名
+        process_response_func : callable
+            レスポンスを処理する関数 (revision, response, page) -> None
+
+        Returns
+        -------
+        list[PageRevision]
+            データが更新されたリビジョンのリスト
+        """
+        target_revisions = [revision for revision in revisions if not check_acquired_func(revision)]
+
+        if len(target_revisions) == 0:
+            return revisions
+
+        responses = page.site.amc_request(
+            [{"moduleName": module_name, "revision_id": revision.id} for revision in target_revisions]
+        )
+
+        for revision, response in zip(target_revisions, responses, strict=True):
+            process_response_func(revision, response, page)
+
+        return revisions
+
+    @staticmethod
     def _acquire_sources(page: "Page", revisions: list["PageRevision"]) -> list["PageRevision"]:
         """
         複数のリビジョンのソースコードを一括取得する内部メソッド
@@ -100,16 +143,8 @@ class PageRevisionCollection(list["PageRevision"]):
         NoElementException
             ソース要素が見つからない場合
         """
-        target_revisions = [revision for revision in revisions if not revision.is_source_acquired()]
 
-        if len(target_revisions) == 0:
-            return revisions
-
-        responses = page.site.amc_request(
-            [{"moduleName": "history/PageSourceModule", "revision_id": revision.id} for revision in target_revisions]
-        )
-
-        for revision, response in zip(target_revisions, responses, strict=True):
+        def process_source_response(revision: "PageRevision", response: Any, page: "Page") -> None:
             body = response.json()["body"]
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
@@ -122,7 +157,13 @@ class PageRevisionCollection(list["PageRevision"]):
                 wiki_text=wiki_text_elem.get_text().strip(),
             )
 
-        return revisions
+        return PageRevisionCollection._generic_acquire(
+            page,
+            revisions,
+            lambda r: r.is_source_acquired(),
+            "history/PageSourceModule",
+            process_source_response,
+        )
 
     def get_sources(self) -> "PageRevisionCollection":
         """
@@ -157,16 +198,8 @@ class PageRevisionCollection(list["PageRevision"]):
         list[PageRevision]
             HTML情報が更新されたリビジョンのリスト
         """
-        target_revisions = [revision for revision in revisions if not revision.is_html_acquired()]
 
-        if len(target_revisions) == 0:
-            return revisions
-
-        responses = page.site.amc_request(
-            [{"moduleName": "history/PageVersionModule", "revision_id": revision.id} for revision in target_revisions]
-        )
-
-        for revision, response in zip(target_revisions, responses, strict=True):
+        def process_html_response(revision: "PageRevision", response: Any, page: "Page") -> None:
             body = response.json()["body"]
             # onclick="document.getElementById('page-version-info').style.display='none'">(.*?)</a>\n\t</div>\n\n\n\n
             # 以降をソースとして取得
@@ -177,7 +210,13 @@ class PageRevisionCollection(list["PageRevision"]):
             source = source.split("</a>\n\t</div>\n\n\n\n", maxsplit=1)[1]
             revision._html = source
 
-        return revisions
+        return PageRevisionCollection._generic_acquire(
+            page,
+            revisions,
+            lambda r: r.is_html_acquired(),
+            "history/PageVersionModule",
+            process_html_response,
+        )
 
     def get_htmls(self) -> "PageRevisionCollection":
         """
