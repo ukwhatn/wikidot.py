@@ -29,7 +29,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
     def __init__(
         self,
         site: Optional["Site"] = None,
-        categories: Optional[list["ForumCategory"]] = None,
+        categories: list["ForumCategory"] | None = None,
     ):
         """
         初期化メソッド
@@ -81,7 +81,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
         return None
 
     @staticmethod
-    def acquire_all(site: "Site"):
+    def acquire_all(site: "Site") -> "ForumCategoryCollection":
         """
         サイトのすべてのフォーラムカテゴリを取得する
 
@@ -182,9 +182,9 @@ class ForumCategory:
     description: str
     threads_count: int
     posts_count: int
-    _threads: Optional[ForumThreadCollection] = None
+    _threads: ForumThreadCollection | None = None
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
@@ -216,7 +216,7 @@ class ForumCategory:
         return self._threads
 
     @threads.setter
-    def threads(self, value):
+    def threads(self, value: ForumThreadCollection) -> None:
         """
         カテゴリ内のスレッド一覧を設定する
 
@@ -227,7 +227,7 @@ class ForumCategory:
         """
         self._threads = value
 
-    def reload_threads(self):
+    def reload_threads(self) -> ForumThreadCollection:
         """
         カテゴリ内のスレッド一覧を再取得する
 
@@ -241,7 +241,7 @@ class ForumCategory:
         self._threads = ForumThreadCollection.acquire_all_in_category(self)
         return self._threads
 
-    def create_thread(self, title: str, description: str, source: str):
+    def create_thread(self, title: str, description: str, source: str) -> ForumThread:
         """
         カテゴリ内に新しいスレッドを作成する
 

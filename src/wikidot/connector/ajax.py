@@ -7,8 +7,9 @@ WikidotのAjax Module Connectorとの通信を担当するモジュール
 
 import asyncio
 import json.decoder
+import random
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, overload
 
 import httpx
 
@@ -61,7 +62,7 @@ class AjaxRequestHeader:
             self.cookie.update(cookie)
         return
 
-    def set_cookie(self, name, value) -> None:
+    def set_cookie(self, name: str, value: Any) -> None:
         """
         Cookieを設定する
 
@@ -75,7 +76,7 @@ class AjaxRequestHeader:
         self.cookie[name] = value
         return
 
-    def delete_cookie(self, name) -> None:
+    def delete_cookie(self, name: str) -> None:
         """
         Cookieを削除する
 
@@ -118,16 +119,76 @@ class AjaxModuleConnectorConfig:
         リクエストのタイムアウト秒数
     attempt_limit : int, default 3
         エラー発生時のリトライ上限回数
-    retry_interval : int, default 5
-        リトライ間隔（秒）
+    retry_interval : float, default 1.0
+        リトライの基本間隔（秒）。指数バックオフの基準値
+    max_backoff : float, default 60.0
+        リトライ間隔の最大値（秒）
+    backoff_factor : float, default 2.0
+        指数バックオフの係数（各リトライごとに間隔がこの係数倍される）
     semaphore_limit : int, default 10
         非同期リクエストの最大並行数
     """
 
     request_timeout: int = 20
     attempt_limit: int = 3
-    retry_interval: int = 5
+    retry_interval: float = 1.0
+    max_backoff: float = 60.0
+    backoff_factor: float = 2.0
     semaphore_limit: int = 10
+
+
+def _mask_sensitive_data(body: dict[str, Any]) -> dict[str, Any]:
+    """
+    ログ出力用に機密情報をマスクする
+
+    Parameters
+    ----------
+    body : dict[str, Any]
+        マスク対象のリクエストボディ
+
+    Returns
+    -------
+    dict[str, Any]
+        機密情報がマスクされた辞書
+    """
+    masked = body.copy()
+    sensitive_keys = {"password", "login", "WIKIDOT_SESSION_ID", "wikidot_token7"}
+    for key in sensitive_keys:
+        if key in masked:
+            masked[key] = "***MASKED***"
+    return masked
+
+
+def _calculate_backoff(
+    retry_count: int,
+    base_interval: float,
+    backoff_factor: float,
+    max_backoff: float,
+) -> float:
+    """
+    指数バックオフ間隔を計算する（ジッター付き）
+
+    Parameters
+    ----------
+    retry_count : int
+        現在のリトライ回数（1から開始）
+    base_interval : float
+        基本間隔（秒）
+    backoff_factor : float
+        バックオフ係数（各リトライごとに間隔がこの係数倍される）
+    max_backoff : float
+        最大バックオフ間隔（秒）
+
+    Returns
+    -------
+    float
+        計算されたバックオフ間隔（秒）
+    """
+    # backoff_factor^(retry_count-1) * base_interval
+    backoff = (backoff_factor ** (retry_count - 1)) * base_interval
+    # 10%のジッターを追加
+    jitter = random.uniform(0, backoff * 0.1)
+    return min(backoff + jitter, max_backoff)
 
 
 class AjaxModuleConnectorClient:
@@ -162,7 +223,7 @@ class AjaxModuleConnectorClient:
         # ヘッダの初期化
         self.header: AjaxRequestHeader = AjaxRequestHeader()
 
-    def _check_existence_and_ssl(self):
+    def _check_existence_and_ssl(self) -> bool:
         """
         サイトの存在とSSL対応状況を確認する
 
@@ -197,13 +258,31 @@ class AjaxModuleConnectorClient:
             and response.headers["Location"].startswith("https")
         )
 
+    @overload
+    def request(
+        self,
+        bodies: list[dict[str, Any]],
+        return_exceptions: Literal[False] = False,
+        site_name: str | None = None,
+        site_ssl_supported: bool | None = None,
+    ) -> tuple[httpx.Response, ...]: ...
+
+    @overload
+    def request(
+        self,
+        bodies: list[dict[str, Any]],
+        return_exceptions: Literal[True],
+        site_name: str | None = None,
+        site_ssl_supported: bool | None = None,
+    ) -> tuple[httpx.Response | Exception, ...]: ...
+
     def request(
         self,
         bodies: list[dict[str, Any]],
         return_exceptions: bool = False,
         site_name: str | None = None,
         site_ssl_supported: bool | None = None,
-    ) -> tuple[httpx.Response | Exception]:
+    ) -> tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]:
         """
         Ajax Module Connectorにリクエストを送信し、レスポンスを取得する
 
@@ -222,7 +301,7 @@ class AjaxModuleConnectorClient:
 
         Returns
         -------
-        tuple[httpx.Response | Exception]
+        tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]
             レスポンスまたは例外のタプル（リクエストと同じ順序）
 
         Raises
@@ -241,49 +320,55 @@ class AjaxModuleConnectorClient:
 
         async def _request(_body: dict[str, Any]) -> httpx.Response:
             retry_count = 0
+            response: httpx.Response | None = None
 
             while True:
                 # リクエスト実行
                 try:
-                    response = None
                     # Semaphoreで同時実行数制御
-                    async with semaphore_instance:
-                        async with httpx.AsyncClient() as client:
-                            url = (
-                                f"http{'s' if site_ssl_supported else ''}://{site_name}.wikidot.com/"
-                                f"ajax-module-connector.php"
-                            )
-                            _body["wikidot_token7"] = 123456
-                            wd_logger.debug(f"Ajax Request: {url} -> {_body}")
-                            response = await client.post(
-                                url,
-                                headers=self.header.get_header(),
-                                data=_body,
-                                timeout=self.config.request_timeout,
-                            )
-                            response.raise_for_status()
+                    async with semaphore_instance, httpx.AsyncClient() as client:
+                        url = (
+                            f"http{'s' if site_ssl_supported else ''}://{site_name}.wikidot.com/"
+                            f"ajax-module-connector.php"
+                        )
+                        _body["wikidot_token7"] = 123456
+                        wd_logger.debug(f"Ajax Request: {url} -> {_mask_sensitive_data(_body)}")
+                        response = await client.post(
+                            url,
+                            headers=self.header.get_header(),
+                            data=_body,
+                            timeout=self.config.request_timeout,
+                        )
+                        response.raise_for_status()
                 except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
                     # HTTPステータスエラーまたはタイムアウトの場合はリトライ
                     retry_count += 1
 
                     # リトライ回数上限に達した場合は例外送出
-                    if retry_count > self.config.attempt_limit:
+                    if retry_count >= self.config.attempt_limit:
                         wd_logger.error(
                             f"AMC is respond HTTP error code: "
-                            f"{response.status_code if response is not None else 'timeout'} -> {_body}"
+                            f"{response.status_code if response is not None else 'timeout'} -> "
+                            f"{_mask_sensitive_data(_body)}"
                         )
                         raise AMCHttpStatusCodeException(
                             f"AMC is respond HTTP error code: "
-                            f"{response.status_code if response is not None else 'timeout'} -> {_body}",
+                            f"{response.status_code if response is not None else 'timeout'}",
                             response.status_code if response is not None else 999,
                         ) from e
 
-                    # 間隔を空けてリトライ
+                    # 指数バックオフで間隔を空けてリトライ
+                    backoff = _calculate_backoff(
+                        retry_count,
+                        self.config.retry_interval,
+                        self.config.backoff_factor,
+                        self.config.max_backoff,
+                    )
                     wd_logger.info(
                         f"AMC is respond status: {response.status_code if response is not None else 'timeout'} "
-                        f"(retry: {retry_count}) -> {_body}"
+                        f"(retry: {retry_count}, backoff: {backoff:.2f}s) -> {_mask_sensitive_data(_body)}"
                     )
-                    await asyncio.sleep(self.config.retry_interval)
+                    await asyncio.sleep(backoff)
                     continue
 
                 # bodyをJSONデータとしてパース
@@ -291,12 +376,12 @@ class AjaxModuleConnectorClient:
                     _response_body = response.json()
                 except json.decoder.JSONDecodeError as e:
                     # パースできなかったらエラーとして扱う
-                    wd_logger.error(f'AMC is respond non-json data: "{response.text}" -> {_body}')
+                    wd_logger.error(f'AMC is respond non-json data: "{response.text}" -> {_mask_sensitive_data(_body)}')
                     raise ResponseDataException(f'AMC is respond non-json data: "{response.text}"') from e
 
                 # レスポンスが空だったらエラーとして扱う
                 if _response_body is None or len(_response_body) == 0:
-                    wd_logger.error(f"AMC is respond empty data -> {_body}")
+                    wd_logger.error(f"AMC is respond empty data -> {_mask_sensitive_data(_body)}")
                     raise ResponseDataException("AMC is respond empty data")
 
                 # 中身のstatusがokでなかったらエラーとして扱う
@@ -305,11 +390,20 @@ class AjaxModuleConnectorClient:
                     if _response_body["status"] == "try_again":
                         retry_count += 1
                         if retry_count >= self.config.attempt_limit:
-                            wd_logger.error(f'AMC is respond status: "try_again" -> {_body}')
+                            wd_logger.error(f'AMC is respond status: "try_again" -> {_mask_sensitive_data(_body)}')
                             raise WikidotStatusCodeException('AMC is respond status: "try_again"', "try_again")
 
-                        wd_logger.info(f'AMC is respond status: "try_again" (retry: {retry_count})')
-                        await asyncio.sleep(self.config.retry_interval)
+                        # 指数バックオフで間隔を空けてリトライ
+                        backoff = _calculate_backoff(
+                            retry_count,
+                            self.config.retry_interval,
+                            self.config.backoff_factor,
+                            self.config.max_backoff,
+                        )
+                        wd_logger.info(
+                            f'AMC is respond status: "try_again" (retry: {retry_count}, backoff: {backoff:.2f}s)'
+                        )
+                        await asyncio.sleep(backoff)
                         continue
 
                     elif _response_body["status"] == "no_permission":
@@ -322,7 +416,10 @@ class AjaxModuleConnectorClient:
 
                     # それ以外でstatusがokでない場合はエラーとして扱う
                     elif _response_body["status"] != "ok":
-                        wd_logger.error(f'AMC is respond error status: "{_response_body["status"]}" -> {_body}')
+                        wd_logger.error(
+                            f'AMC is respond error status: "{_response_body["status"]}" -> '
+                            f"{_mask_sensitive_data(_body)}"
+                        )
                         raise WikidotStatusCodeException(
                             f'AMC is respond error status: "{_response_body["status"]}"',
                             _response_body["status"],
@@ -331,11 +428,20 @@ class AjaxModuleConnectorClient:
                 # レスポンスを返す
                 return response
 
-        async def _execute_requests():
+        async def _execute_requests() -> list[httpx.Response | BaseException]:
             return await asyncio.gather(
                 *[_request(body) for body in bodies],
                 return_exceptions=return_exceptions,
             )
 
         # 処理を実行
-        return asyncio.run(_execute_requests())
+        # 新しいイベントループを作成して実行（既存のループがある環境でも安全に動作）
+        loop = asyncio.new_event_loop()
+        try:
+            results = loop.run_until_complete(_execute_requests())
+        finally:
+            loop.close()
+        return tuple(
+            r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))
+            for r in results
+        )

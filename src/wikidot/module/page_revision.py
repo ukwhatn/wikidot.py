@@ -31,7 +31,7 @@ class PageRevisionCollection(list["PageRevision"]):
     def __init__(
         self,
         page: Optional["Page"] = None,
-        revisions: Optional[list["PageRevision"]] = None,
+        revisions: list["PageRevision"] | None = None,
     ):
         """
         初期化メソッド
@@ -77,7 +77,7 @@ class PageRevisionCollection(list["PageRevision"]):
         return None
 
     @staticmethod
-    def _acquire_sources(page, revisions: list["PageRevision"]):
+    def _acquire_sources(page: "Page", revisions: list["PageRevision"]) -> list["PageRevision"]:
         """
         複数のリビジョンのソースコードを一括取得する内部メソッド
 
@@ -109,7 +109,7 @@ class PageRevisionCollection(list["PageRevision"]):
             [{"moduleName": "history/PageSourceModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
-        for revision, response in zip(target_revisions, responses):
+        for revision, response in zip(target_revisions, responses, strict=True):
             body = response.json()["body"]
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
@@ -124,7 +124,7 @@ class PageRevisionCollection(list["PageRevision"]):
 
         return revisions
 
-    def get_sources(self):
+    def get_sources(self) -> "PageRevisionCollection":
         """
         コレクション内のすべてのリビジョンのソースコードを取得する
 
@@ -133,10 +133,13 @@ class PageRevisionCollection(list["PageRevision"]):
         PageRevisionCollection
             自身（メソッドチェーン用）
         """
-        return self._acquire_sources(self.page, self)
+        if self.page is None:
+            raise ValueError("Page is not set for this collection")
+        self._acquire_sources(self.page, self)
+        return self
 
     @staticmethod
-    def _acquire_htmls(page, revisions: list["PageRevision"]):
+    def _acquire_htmls(page: "Page", revisions: list["PageRevision"]) -> list["PageRevision"]:
         """
         複数のリビジョンのHTML表示を一括取得する内部メソッド
 
@@ -163,7 +166,7 @@ class PageRevisionCollection(list["PageRevision"]):
             [{"moduleName": "history/PageVersionModule", "revision_id": revision.id} for revision in target_revisions]
         )
 
-        for revision, response in zip(target_revisions, responses):
+        for revision, response in zip(target_revisions, responses, strict=True):
             body = response.json()["body"]
             # onclick="document.getElementById('page-version-info').style.display='none'">(.*?)</a>\n\t</div>\n\n\n\n
             # 以降をソースとして取得
@@ -176,7 +179,7 @@ class PageRevisionCollection(list["PageRevision"]):
 
         return revisions
 
-    def get_htmls(self):
+    def get_htmls(self) -> "PageRevisionCollection":
         """
         コレクション内のすべてのリビジョンのHTML表示を取得する
 
@@ -185,7 +188,10 @@ class PageRevisionCollection(list["PageRevision"]):
         PageRevisionCollection
             自身（メソッドチェーン用）
         """
-        return self._acquire_htmls(self.page, self)
+        if self.page is None:
+            raise ValueError("Page is not set for this collection")
+        self._acquire_htmls(self.page, self)
+        return self
 
 
 @dataclass
@@ -223,7 +229,7 @@ class PageRevision:
     created_at: datetime
     comment: str
     _source: Optional["PageSource"] = None
-    _html: Optional[str] = None
+    _html: str | None = None
 
     def is_source_acquired(self) -> bool:
         """
@@ -264,7 +270,7 @@ class PageRevision:
         return self._source
 
     @source.setter
-    def source(self, value: "PageSource"):
+    def source(self, value: "PageSource") -> None:
         """
         リビジョンのソースコードを設定する
 
@@ -276,7 +282,7 @@ class PageRevision:
         self._source = value
 
     @property
-    def html(self) -> Optional[str]:
+    def html(self) -> str | None:
         """
         リビジョンのHTML表示を取得する
 
@@ -292,7 +298,7 @@ class PageRevision:
         return self._html
 
     @html.setter
-    def html(self, value: str):
+    def html(self, value: str) -> None:
         """
         リビジョンのHTML表示を設定する
 

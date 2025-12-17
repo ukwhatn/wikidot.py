@@ -1,6 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "wikidot"
-version = "3.1.0dev13"
+version = "4.0.0"
 authors = [{ name = "ukwhatn", email = "ukwhatn@gmail.com" }]
 description = "Wikidot Utility Library"
 readme = "README.md"
@@ -10,6 +14,8 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "License :: OSI Approved :: MIT License",
 ]
 
@@ -27,16 +33,20 @@ build = [
 lint = [
     "ruff",
     "mypy",
+    "types-beautifulsoup4",
+    "lxml-stubs",
 ]
 format = [
     "ruff",
 ]
-docs = [
-    "sphinx>=7.2.6",
-    "sphinx-rtd-theme>=2.0.0",
-    "sphinx-intl>=2.1.0",
-    "myst-parser>=2.0.0",
-    "sphinx-autodoc-typehints>=1.25.3",
+dev = [
+    "pre-commit>=3.6.0",
+]
+test = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+    "pytest-cov>=4.1.0",
+    "pytest-httpx>=0.35.0",
 ]
 
 [project.urls]
@@ -46,8 +56,25 @@ docs = [
 [tool.ruff]
 target-version = "py310"
 line-length = 120
-lint.select = ["E", "F", "I"]
-lint.ignore = []
+lint.select = [
+    "E",      # pycodestyle errors
+    "F",      # Pyflakes
+    "I",      # isort
+    "W",      # pycodestyle warnings
+    "UP",     # pyupgrade
+    "B",      # flake8-bugbear
+    "C4",     # flake8-comprehensions
+    "SIM",    # flake8-simplify
+]
+lint.ignore = [
+    "E501",   # line too long (handled by formatter)
+    # 以下はコード可読性のため維持
+    "SIM102", # Combine if statements
+    "SIM108", # Ternary operator
+    "SIM110", # Use any()
+    "SIM401", # dict.get()
+    "B009",   # getattr with constant (コード意図があるため維持)
+]
 
 [tool.ruff.format]
 quote-style = "double"
@@ -56,3 +83,65 @@ line-ending = "auto"
 
 [tool.ruff.lint.isort]
 known-first-party = ["wikidot"]
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = false
+warn_unused_configs = true
+check_untyped_defs = true
+no_implicit_optional = true
+warn_redundant_casts = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+warn_unused_ignores = true
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disable_error_code = ["method-assign", "arg-type"]
+
+[[tool.mypy.overrides]]
+module = [
+    "pytest",
+    "pytest_httpx",
+    "_pytest.*",
+    "httpx",
+    "httpx.*",
+    "bs4",
+    "bs4.*",
+    "lxml",
+    "lxml.*",
+]
+ignore_missing_imports = true
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportMissingTypeStubs = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+addopts = "-v --strict-markers"
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "integration: marks tests as integration tests",
+]
+
+[tool.coverage.run]
+source = ["src/wikidot"]
+branch = true
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise NotImplementedError",
+    "if TYPE_CHECKING:",
+]
+fail_under = 80

@@ -1,3 +1,4 @@
+import contextlib
 from typing import TYPE_CHECKING
 
 import httpx
@@ -20,7 +21,7 @@ class HTTPAuthentication:
         client: "Client",
         username: str,
         password: str,
-    ):
+    ) -> None:
         """
         ユーザー名とパスワードでWikidotにログインする
 
@@ -69,7 +70,7 @@ class HTTPAuthentication:
         client.amc_client.header.set_cookie("WIKIDOT_SESSION_ID", response.cookies["WIKIDOT_SESSION_ID"])
 
     @staticmethod
-    def logout(client: "Client"):
+    def logout(client: "Client") -> None:
         """
         Wikidotからログアウトする
 
@@ -82,9 +83,7 @@ class HTTPAuthentication:
         -----
         ログアウト処理でエラーが発生しても無視され、Cookieの削除は常に行われる。
         """
-        try:
+        with contextlib.suppress(Exception):
             client.amc_client.request([{"action": "Login2Action", "event": "logout", "moduleName": "Empty"}])
-        except Exception:
-            pass
 
         client.amc_client.header.delete_cookie("WIKIDOT_SESSION_ID")

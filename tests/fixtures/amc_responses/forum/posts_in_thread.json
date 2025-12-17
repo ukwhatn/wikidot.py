@@ -1,0 +1,5 @@
+{
+  "status": "ok",
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "<div class=\"post-container\" id=\"fpc-5001\"><div class=\"post\" id=\"post-5001\"><div class=\"long\"><div class=\"head\"><div class=\"title\" id=\"post-title-5001\">Test Post Title</div><div class=\"info\"><span class=\"printuser\"><a href=\"http://www.wikidot.com/user:info/test-user\" onclick=\"WIKIDOT.page.listeners.userInfo(12345); return false;\">test_user</a></span> <span class=\"odate time_1700000000\">17 Dec 2025</span></div></div><div class=\"content\" id=\"post-content-5001\"><p>Test post content</p></div></div></div><div class=\"post-container\" id=\"fpc-5002\"><div class=\"post\" id=\"post-5002\"><div class=\"long\"><div class=\"head\"><div class=\"title\" id=\"post-title-5002\">Second Post</div><div class=\"info\"><span class=\"printuser\"><a href=\"http://www.wikidot.com/user:info/test-user\" onclick=\"WIKIDOT.page.listeners.userInfo(12345); return false;\">test_user</a></span> <span class=\"odate time_1700000100\">17 Dec 2025</span></div></div><div class=\"content\" id=\"post-content-5002\"><p>Second post content</p></div></div></div></div>"
+}

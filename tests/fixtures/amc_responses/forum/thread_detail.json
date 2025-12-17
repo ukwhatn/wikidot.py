@@ -1,0 +1,5 @@
+{
+  "status": "ok",
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "<div class=\"forum-breadcrumbs\"><a href=\"/forum/start\">Forum</a> / <a href=\"/forum/c-1001/test-category\">Test Category</a> » Test Thread Title</div><div class=\"description-block\">Test thread description<div class=\"statistics\">Started by: <span class=\"printuser\"><a href=\"http://www.wikidot.com/user:info/test-user\" onclick=\"WIKIDOT.page.listeners.userInfo(12345); return false;\">test_user</a></span><br/>Date: <span class=\"odate time_1700000000\">17 Dec 2025</span><br/>Number of posts: 5<br/><br/></div></div><script type=\"text/javascript\">WIKIDOT.forumThreadId = 3001;</script><div class=\"forum-thread-box\"><div class=\"post-container\"></div></div>"
+}

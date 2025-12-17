@@ -1,3 +1,4 @@
+from types import TracebackType
 from typing import Optional
 
 from ..common import wd_logger
@@ -14,7 +15,7 @@ from .site import Site
 from .user import AbstractUser, User, UserCollection
 
 
-class ClientUserMethods:
+class ClientUserAccessor:
     """
     ユーザー関連の操作を提供するクラス
 
@@ -72,7 +73,7 @@ class ClientUserMethods:
         return UserCollection.from_names(self.client, names, raise_when_not_found)
 
 
-class ClientPrivateMessageMethods:
+class ClientPrivateMessageAccessor:
     """
     プライベートメッセージ関連の操作を提供するクラス
 
@@ -163,7 +164,7 @@ class ClientPrivateMessageMethods:
         return PrivateMessage.from_id(self.client, message_id)
 
 
-class ClientSiteMethods:
+class ClientSiteAccessor:
     """
     サイト関連の操作を提供するクラス
 
@@ -249,27 +250,35 @@ class Client:
         # 以下メソッド
         # ----------
 
-        self.user = ClientUserMethods(self)
-        self.private_message = ClientPrivateMessageMethods(self)
-        self.site = ClientSiteMethods(self)
+        self.user = ClientUserAccessor(self)
+        self.private_message = ClientPrivateMessageAccessor(self)
+        self.site = ClientSiteAccessor(self)
 
         # ------------
         # メソッド終わり
         # ------------
 
-    def __del__(self):
+    def _cleanup(self) -> None:
         """
-        デストラクタ - クライアントの使用終了時の後処理
+        リソースのクリーンアップ処理
 
-        ログイン中であればログアウト処理を行い、リソースを解放する。
+        ログイン中であればログアウト処理を行い、セッション状態をリセットする。
+        __del__と__exit__から共通で呼び出される。
         """
         if self.is_logged_in:
             HTTPAuthentication.logout(self)
             self.is_logged_in = False
             self.username = None
-        del self
 
-    def __enter__(self):
+    def __del__(self) -> None:
+        """
+        デストラクタ - クライアントの使用終了時の後処理
+
+        ログイン中であればログアウト処理を行い、リソースを解放する。
+        """
+        self._cleanup()
+
+    def __enter__(self) -> "Client":
         """
         コンテキストマネージャプロトコルのエントリーポイント
 
@@ -282,7 +291,12 @@ class Client:
         """
         return self
 
-    def __exit__(self, exc_type, exc_value, traceback):
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
         """
         コンテキストマネージャプロトコルの終了処理
 
@@ -297,10 +311,9 @@ class Client:
         traceback : traceback
             例外のトレースバック
         """
-        self.__del__()
-        return
+        self._cleanup()
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 

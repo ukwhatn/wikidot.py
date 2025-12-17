@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+from typing import Any
 
 import httpx
 
@@ -41,7 +42,7 @@ class QuickModule:
         module_name: str,
         site_id: int,
         query: str,
-    ):
+    ) -> dict[str, Any]:
         """リクエストを送信する
 
         Parameters
@@ -68,7 +69,7 @@ class QuickModule:
         return response.json()
 
     @staticmethod
-    def member_lookup(site_id: int, query: str):
+    def member_lookup(site_id: int, query: str) -> list[QMCUser]:
         """メンバーを検索する
 
         Parameters
@@ -89,7 +90,7 @@ class QuickModule:
         return [QMCUser(id=int(user["user_id"]), name=user["name"]) for user in users]
 
     @staticmethod
-    def user_lookup(site_id: int, query: str):
+    def user_lookup(site_id: int, query: str) -> list[QMCUser]:
         """ユーザーを検索する
 
         Parameters
@@ -108,7 +109,7 @@ class QuickModule:
         return [QMCUser(id=int(user["user_id"]), name=user["name"]) for user in users]
 
     @staticmethod
-    def page_lookup(site_id: int, query: str):
+    def page_lookup(site_id: int, query: str) -> list[QMCPage]:
         """ページを検索する
 
         Parameters

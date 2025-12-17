@@ -1,0 +1,13 @@
+{
+  "status": "ok",
+  "mode": "page",
+  "page_revision_id": 1000003,
+  "timeLeft": 900,
+  "lock_id": "abc123",
+  "lock_secret": "secret456",
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "",
+  "jsInclude": [],
+  "cssInclude": [],
+  "callbackIndex": "0"
+}

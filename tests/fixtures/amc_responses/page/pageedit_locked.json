@@ -1,0 +1,10 @@
+{
+  "status": "ok",
+  "mode": "page",
+  "locked": true,
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "<div class=\"owindow error\"><div class=\"title\">Locked Page</div><div class=\"content\"><h1>Page Lock Conflict</h1><p>This page is currently locked by another user.</p><p>Locked by: <span class=\"printuser\"><a href=\"http://www.wikidot.com/user:info/other-user\" onclick=\"WIKIDOT.page.listeners.userInfo(99999); return false;\">other-user</a></span><br/>Lock mode: page<br/>Started: <span class=\"odate time_1699999900\">14 Nov 2023</span> (100 seconds ago)<br/>Lock expires in 800 seconds</p></div></div>",
+  "jsInclude": [],
+  "cssInclude": [],
+  "callbackIndex": "0"
+}

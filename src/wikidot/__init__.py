@@ -13,11 +13,11 @@ import sys
 from .module.client import Client
 
 __all__ = ["Client"]
-__version__ = "3.1.0dev13"
+__version__ = "4.0.0"
 
 
 # 全クラス・モジュールを公開する
-def _import_submodules():
+def _import_submodules() -> None:
     """
     パッケージ内の全サブモジュールからクラスをインポートしトップレベルで公開する関数
 

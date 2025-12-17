@@ -1,0 +1,5 @@
+{
+  "status": "ok",
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "<h2>Users who rated:</h2>\n\n<div style=\"-moz-column-count:3\"><span class=\"printuser avatarhover\"><a href=\"http://www.wikidot.com/user:info/voter1\" onclick=\"WIKIDOT.page.listeners.userInfo(11111); return false;\">voter1</a></span>\n        <span style=\"color:#777\">\n                    +              </span><br/><span class=\"printuser avatarhover\"><a href=\"http://www.wikidot.com/user:info/voter2\" onclick=\"WIKIDOT.page.listeners.userInfo(22222); return false;\">voter2</a></span>\n        <span style=\"color:#777\">\n                    +              </span><br/><span class=\"printuser avatarhover\"><a href=\"http://www.wikidot.com/user:info/voter3\" onclick=\"WIKIDOT.page.listeners.userInfo(33333); return false;\">voter3</a></span>\n        <span style=\"color:#777\">\n                    -              </span><br/></div>"
+}

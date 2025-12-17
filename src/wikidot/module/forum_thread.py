@@ -7,7 +7,7 @@ Wikidotフォーラムのスレッドを扱うモジュール
 
 import re
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
 
@@ -19,6 +19,7 @@ from ..util.parser import user as user_parser
 
 if TYPE_CHECKING:
     from .forum_category import ForumCategory
+    from .forum_post import ForumPostCollection
     from .site import Site
     from .user import AbstractUser
 
@@ -34,7 +35,7 @@ class ForumThreadCollection(list["ForumThread"]):
     def __init__(
         self,
         site: Optional["Site"] = None,
-        threads: Optional[list["ForumThread"]] = None,
+        threads: list["ForumThread"] | None = None,
     ):
         """
         初期化メソッド
@@ -229,10 +230,15 @@ class ForumThreadCollection(list["ForumThread"]):
 
         # id取得処理
         # WIKIDOT.forumThreadId = xxxxxx;を全体から検索
-        script_elem = html.find("script", text=re.compile(r"WIKIDOT.forumThreadId = \d+;"))
-        if script_elem is None:
+        thread_id_pattern = re.compile(r"WIKIDOT.forumThreadId = \d+;")
+        script_elem = None
+        for script in html.find_all("script"):
+            if script.string and thread_id_pattern.search(script.string):
+                script_elem = script
+                break
+        if script_elem is None or script_elem.string is None:
             raise NoElementException("Script element is not found.")
-        thread_id_match = re.search(r"(\d+)", script_elem.text)
+        thread_id_match = re.search(r"(\d+)", script_elem.string)
         if thread_id_match is None:
             raise NoElementException("Thread ID is not found in script.")
         thread_id = int(thread_id_match.group(1))
@@ -271,7 +277,7 @@ class ForumThreadCollection(list["ForumThread"]):
         NoElementException
             HTML要素の解析に失敗した場合
         """
-        threads: list["ForumThread"] = []
+        threads: list[ForumThread] = []
 
         first_response = category.site.amc_request(
             [
@@ -350,7 +356,7 @@ class ForumThreadCollection(list["ForumThread"]):
 
         threads = []
 
-        for response, thread_id in zip(responses, thread_ids):
+        for response, thread_id in zip(responses, thread_ids, strict=True):
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
 
@@ -388,6 +394,8 @@ class ForumThread:
         スレッド内の投稿数
     category : ForumCategory | None, default None
         スレッドが属するフォーラムカテゴリ
+    _posts : ForumPostCollection | None, default None
+        スレッド内の投稿コレクション（遅延取得）
     """
 
     site: "Site"
@@ -398,8 +406,9 @@ class ForumThread:
     created_at: datetime
     post_count: int
     category: Optional["ForumCategory"] = None
+    _posts: Optional["ForumPostCollection"] = field(default=None, repr=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
         """
         オブジェクトの文字列表現
 
@@ -427,6 +436,71 @@ class ForumThread:
             スレッドのURL
         """
         return f"{self.site.url}/forum/t-{self.id}/"
+
+    @property
+    def posts(self) -> "ForumPostCollection":
+        """
+        スレッド内の全投稿を取得する
+
+        投稿が未取得の場合は自動的に取得処理を行う。
+
+        Returns
+        -------
+        ForumPostCollection
+            スレッド内のすべての投稿を含むコレクション
+        """
+        if self._posts is None:
+            from .forum_post import ForumPostCollection
+
+            self._posts = ForumPostCollection.acquire_all_in_thread(self)
+        return self._posts
+
+    def reply(self, source: str, title: str = "", parent_post_id: int | None = None) -> "ForumThread":
+        """
+        スレッドに返信を投稿する
+
+        スレッドに新しい投稿を追加する。親投稿IDを指定すると、
+        その投稿への返信として投稿される。
+
+        Parameters
+        ----------
+        source : str
+            投稿の本文（Wikidot記法）
+        title : str, default ""
+            投稿のタイトル
+        parent_post_id : int | None, default None
+            返信先の投稿ID（スレッドへの直接返信の場合はNone）
+
+        Returns
+        -------
+        ForumThread
+            自身（メソッドチェーン用）
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            投稿に失敗した場合
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "threadId": str(self.id),
+                    "parentId": str(parent_post_id) if parent_post_id is not None else "",
+                    "title": title,
+                    "source": source,
+                    "action": "ForumAction",
+                    "event": "savePost",
+                    "moduleName": "Empty",
+                }
+            ]
+        )
+        # キャッシュをクリアして次回アクセス時に再取得
+        self._posts = None
+        self.post_count += 1
+        return self
 
     @staticmethod
     def get_from_id(site: "Site", thread_id: int, category: Optional["ForumCategory"] = None) -> "ForumThread":

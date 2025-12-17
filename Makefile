@@ -1,6 +1,4 @@
-FORMAT_DIR = src
-DOCS_SOURCE = docs/source
-DOCS_BUILD = docs/build
+FORMAT_DIR = src tests
 
 release_from-develop:
 	gh pr create --base main --head develop --title "Release v$(version)"
@@ -9,8 +7,7 @@ release_from-develop:
 
 build:
 	rm -rf dist
-	pip install -e .[build]
-	python -m build
+	uv build
 
 update-version:
 	@echo "Updating version to $(version)"
@@ -34,36 +31,33 @@ commit:
 	git commit -m '$(message)'
 
 format:
-	pip install -e .[format]
-	python -m ruff format $(FORMAT_DIR)
+	uv sync --extra format
+	uv run ruff format $(FORMAT_DIR)
 
 lint:
-	pip install -e .[lint]
-	python -m ruff check $(FORMAT_DIR)
-	python -m mypy $(FORMAT_DIR) --install-types --non-interactive
+	uv sync --extra lint
+	uv run ruff check $(FORMAT_DIR)
+	uv run mypy $(FORMAT_DIR) --install-types --non-interactive
 
 lint-fix:
-	pip install -e .[lint]
-	python -m ruff check $(FORMAT_DIR) --fix
+	uv sync --extra lint
+	uv run ruff check $(FORMAT_DIR) --fix
 
-# ドキュメント関連のコマンド
-docs-install:
-	pip install -e .[docs]
+# テスト関連のコマンド
+test:
+	uv sync --extra test
+	uv run pytest tests/ -v
 
-docs-build:
-	make docs-install
-	sphinx-build -b html $(DOCS_SOURCE) $(DOCS_BUILD)
+test-cov:
+	uv sync --extra test
+	uv run pytest tests/ -v --cov=src/wikidot --cov-report=term-missing --cov-report=html
 
-docs-clean:
-	rm -rf $(DOCS_BUILD)
+test-unit:
+	uv sync --extra test
+	uv run pytest tests/unit/ -v
 
-docs-serve:
-	cd $(DOCS_BUILD) && python -m http.server
+test-integration:
+	uv sync --extra test
+	uv run pytest tests/integration/ -v
 
-docs-github:
-	make docs-clean
-	make docs-build
-	touch $(DOCS_BUILD)/.nojekyll
-	@echo "GitHub Pages用のドキュメントが生成されました。docs/buildディレクトリの内容をgh-pagesブランチにプッシュしてください。"
-
-PHONY: build release release_from-develop update-version format commit docs-install docs-build docs-clean docs-serve docs-github
+.PHONY: build release release_from-develop update-version format commit lint lint-fix test test-cov test-unit test-integration

@@ -1,0 +1,8 @@
+{
+  "status": "ok",
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "<div class=\"page-header\">\n<h1>Applications<small>Users applying to your wiki</small></h1>\n</div>\n<p>\nSorry, no applications. Not a single soul wants to join this Site... ;-)</p>",
+  "jsInclude": [],
+  "cssInclude": [],
+  "callbackIndex": "1"
+}

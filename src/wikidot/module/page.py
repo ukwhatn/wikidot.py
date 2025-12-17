@@ -16,8 +16,24 @@ from .page_source import PageSource
 from .page_votes import PageVote, PageVoteCollection
 
 if TYPE_CHECKING:
+    from .forum_thread import ForumThread
+    from .page_file import PageFileCollection
     from .site import Site
     from .user import User
+
+
+class PageConstants:
+    """
+    ページモジュールで使用される定数を一元管理するクラス
+
+    Attributes
+    ----------
+    DEFAULT_PER_PAGE : int
+        ListPagesModuleのデフォルト1ページあたり件数
+    """
+
+    DEFAULT_PER_PAGE: int = 250
+
 
 DEFAULT_MODULE_BODY = [
     "fullname",  # ページのフルネーム(str)
@@ -94,30 +110,30 @@ class SearchPagesQuery:
     """
 
     # selecting pages
-    pagetype: Optional[str] = "*"
-    category: Optional[str] = "*"
-    tags: Optional[str | list[str]] = None
-    parent: Optional[str] = None
-    link_to: Optional[str] = None
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
-    created_by: Optional[Union["User", str]] = None
-    rating: Optional[str] = None
-    votes: Optional[str] = None
-    name: Optional[str] = None
-    fullname: Optional[str] = None
-    range: Optional[str] = None
+    pagetype: str | None = "*"
+    category: str | None = "*"
+    tags: str | list[str] | None = None
+    parent: str | None = None
+    link_to: str | None = None
+    created_at: str | None = None
+    updated_at: str | None = None
+    created_by: Union["User", str] | None = None
+    rating: str | None = None
+    votes: str | None = None
+    name: str | None = None
+    fullname: str | None = None
+    range: str | None = None
 
     # ordering
     order: str = "created_at desc"
 
     # pagination
-    offset: Optional[int] = 0
-    limit: Optional[int] = None
-    perPage: Optional[int] = 250
+    offset: int | None = 0
+    limit: int | None = None
+    perPage: int | None = PageConstants.DEFAULT_PER_PAGE
     # layout
-    separate: Optional[str] = "no"
-    wrapper: Optional[str] = "no"
+    separate: str | None = "no"
+    wrapper: str | None = "no"
 
     def as_dict(self) -> dict[str, Any]:
         """
@@ -144,7 +160,7 @@ class PageCollection(list["Page"]):
     ページの検索、一括取得、一括操作などの機能を集約している。
     """
 
-    def __init__(self, site: Optional["Site"] = None, pages: Optional[list["Page"]] = None):
+    def __init__(self, site: Optional["Site"] = None, pages: list["Page"] | None = None):
         """
         初期化メソッド
 
@@ -193,7 +209,7 @@ class PageCollection(list["Page"]):
         return None
 
     @staticmethod
-    def _parse(site: "Site", html_body: BeautifulSoup):
+    def _parse(site: "Site", html_body: BeautifulSoup) -> "PageCollection":
         """
         ListPagesModuleのレスポンスをパースしてページオブジェクトのリストを生成する
 
@@ -217,7 +233,7 @@ class PageCollection(list["Page"]):
         pages = []
 
         for page_element in html_body.select("div.page"):
-            page_params = {}
+            page_params: dict[str, Any] = {}
 
             # レーティング方式を判定
             is_5star_rating = page_element.select_one("span.rating span.page-rate-list-pages-start") is not None
@@ -226,7 +242,8 @@ class PageCollection(list["Page"]):
             for set_element in page_element.select("span.set"):
                 key_element = set_element.select_one("span.name")
                 if key_element is None:
-                    raise exceptions.NoElementException("Cannot find key element")
+                    page_name = page_params.get("fullname", "unknown")
+                    raise exceptions.NoElementException(f"Cannot find key element in set for page: {page_name}")
                 key = key_element.text.strip()
                 value_element = set_element.select_one("span.value")
 
@@ -296,7 +313,7 @@ class PageCollection(list["Page"]):
         return PageCollection(site, pages)
 
     @staticmethod
-    def search_pages(site: "Site", query: SearchPagesQuery = SearchPagesQuery()):
+    def search_pages(site: "Site", query: SearchPagesQuery | None = None) -> "PageCollection":
         """
         サイト内のページを検索する
 
@@ -307,8 +324,8 @@ class PageCollection(list["Page"]):
         ----------
         site : Site
             検索対象のサイト
-        query : SearchPagesQuery, default SearchPagesQuery()
-            検索条件
+        query : SearchPagesQuery | None, default None
+            検索条件。Noneの場合はデフォルトの検索条件を使用する。
 
         Returns
         -------
@@ -324,6 +341,8 @@ class PageCollection(list["Page"]):
         NoElementException
             レスポンスからページ情報を抽出できない場合
         """
+        if query is None:
+            query = SearchPagesQuery()
         # 初回実行
         query_dict = query.as_dict()
         query_dict["moduleName"] = "list/ListPagesModule"
@@ -367,20 +386,20 @@ class PageCollection(list["Page"]):
             request_bodies = []
             for i in range(1, total):
                 _query_dict = query_dict.copy()
-                _query_dict["offset"] = i * (query.perPage or 250)
+                _query_dict["offset"] = i * (query.perPage or PageConstants.DEFAULT_PER_PAGE)
                 request_bodies.append(_query_dict)
 
             responses = site.amc_request(request_bodies)
             html_bodies.extend([BeautifulSoup(response.json()["body"], "lxml") for response in responses])
 
-        pages = []
+        pages: list[Page] = []
         for html_body in html_bodies:
             pages.extend(PageCollection._parse(site, html_body))
 
         return PageCollection(site, pages)
 
     @staticmethod
-    def _acquire_page_ids(site: "Site", pages: list["Page"]):
+    def _acquire_page_ids(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページIDを取得する内部メソッド
 
@@ -431,7 +450,7 @@ class PageCollection(list["Page"]):
 
         return pages
 
-    def get_page_ids(self):
+    def get_page_ids(self) -> "PageCollection":
         """
         コレクション内の全ページのIDを取得する
 
@@ -442,10 +461,11 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_ids(self.site, self)
+        PageCollection._acquire_page_ids(self.site, self)
+        return self
 
     @staticmethod
-    def _acquire_page_sources(site: "Site", pages: list["Page"]):
+    def _acquire_page_sources(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページソースを取得する内部メソッド
 
@@ -475,19 +495,21 @@ class PageCollection(list["Page"]):
             [{"moduleName": "viewsource/ViewSourceModule", "page_id": page.id} for page in pages]
         )
 
-        for page, responses in zip(pages, responses):
-            body = responses.json()["body"]
+        for page, response in zip(pages, responses, strict=True):
+            body = response.json()["body"]
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
             html = BeautifulSoup(body, "lxml")
             source_element = html.select_one("div.page-source")
             if source_element is None:
-                raise exceptions.NoElementException("Cannot find source element")
+                raise exceptions.NoElementException(
+                    f"Cannot find source element for page: {page.fullname} (id={page.id})"
+                )
             source = source_element.get_text().strip().removeprefix("\t")
             page.source = PageSource(page, source)
         return pages
 
-    def get_page_sources(self):
+    def get_page_sources(self) -> "PageCollection":
         """
         コレクション内の全ページのソースコードを取得する
 
@@ -498,10 +520,11 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_sources(self.site, self)
+        PageCollection._acquire_page_sources(self.site, self)
+        return self
 
     @staticmethod
-    def _acquire_page_revisions(site: "Site", pages: list["Page"]):
+    def _acquire_page_revisions(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページリビジョン履歴を取得する内部メソッド
 
@@ -539,7 +562,7 @@ class PageCollection(list["Page"]):
             ]
         )
 
-        for page, response in zip(pages, responses):
+        for page, response in zip(pages, responses, strict=True):
             body = response.json()["body"]
             revs = []
             body_html = BeautifulSoup(body, "lxml")
@@ -550,12 +573,16 @@ class PageCollection(list["Page"]):
                 rev_no = int(tds[0].text.strip().removesuffix("."))
                 created_by_elem = tds[4].select_one("span.printuser")
                 if created_by_elem is None:
-                    raise exceptions.NoElementException("Cannot find created by element")
+                    raise exceptions.NoElementException(
+                        f"Cannot find created by element for page: {page.fullname}, revision: {rev_id}"
+                    )
                 created_by = user_parser(page.site.client, created_by_elem)
 
                 created_at_elem = tds[5].select_one("span.odate")
                 if created_at_elem is None:
-                    raise exceptions.NoElementException("Cannot find created at element")
+                    raise exceptions.NoElementException(
+                        f"Cannot find created at element for page: {page.fullname}, revision: {rev_id}"
+                    )
                 created_at = odate_parser(created_at_elem)
 
                 comment = tds[6].text.strip()
@@ -574,7 +601,7 @@ class PageCollection(list["Page"]):
 
         return pages
 
-    def get_page_revisions(self):
+    def get_page_revisions(self) -> "PageCollection":
         """
         コレクション内の全ページのリビジョン履歴を取得する
 
@@ -585,10 +612,11 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_revisions(self.site, self)
+        PageCollection._acquire_page_revisions(self.site, self)
+        return self
 
     @staticmethod
-    def _acquire_page_votes(site: "Site", pages: list["Page"]):
+    def _acquire_page_votes(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
         ページへの投票情報を取得する内部メソッド
 
@@ -618,7 +646,7 @@ class PageCollection(list["Page"]):
             [{"moduleName": "pagerate/WhoRatedPageModule", "pageId": page.id} for page in pages]
         )
 
-        for page, response in zip(pages, responses):
+        for page, response in zip(pages, responses, strict=True):
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
             user_elems = html.select("span.printuser")
@@ -638,12 +666,12 @@ class PageCollection(list["Page"]):
                 else:
                     values.append(int(_v))
 
-            votes = [PageVote(page, user, vote) for user, vote in zip(users, values)]
+            votes = [PageVote(page, user, vote) for user, vote in zip(users, values, strict=True)]
             page._votes = PageVoteCollection(page, votes)
 
         return pages
 
-    def get_page_votes(self):
+    def get_page_votes(self) -> "PageCollection":
         """
         コレクション内の全ページの投票情報を取得する
 
@@ -654,7 +682,8 @@ class PageCollection(list["Page"]):
         PageCollection
             自身（メソッドチェーン用）
         """
-        return PageCollection._acquire_page_votes(self.site, self)
+        PageCollection._acquire_page_votes(self.site, self)
+        return self
 
 
 @dataclass
@@ -738,12 +767,15 @@ class Page:
     updated_by: "User"
     updated_at: datetime
     commented_by: Optional["User"]
-    commented_at: Optional[datetime]
-    _id: Optional[int] = None
-    _source: Optional[PageSource] = None
-    _revisions: Optional[PageRevisionCollection] = None
-    _votes: Optional[PageVoteCollection] = None
-    _metas: Optional[dict[str, str]] = None
+    commented_at: datetime | None
+    _id: int | None = None
+    _source: PageSource | None = None
+    _revisions: PageRevisionCollection | None = None
+    _votes: PageVoteCollection | None = None
+    _metas: dict[str, str] | None = None
+    _discussion: Optional["ForumThread"] = None
+    _discussion_checked: bool = False
+    _files: Optional["PageFileCollection"] = None
 
     def get_url(self) -> str:
         """
@@ -784,7 +816,7 @@ class Page:
         return self._id
 
     @id.setter
-    def id(self, value: int):
+    def id(self, value: int) -> None:
         """
         ページIDを設定する
 
@@ -832,7 +864,7 @@ class Page:
         return self._source
 
     @source.setter
-    def source(self, value: PageSource):
+    def source(self, value: PageSource) -> None:
         """
         ページのソースコードを設定する
 
@@ -865,7 +897,7 @@ class Page:
         return PageRevisionCollection(self, self._revisions)
 
     @revisions.setter
-    def revisions(self, value: list["PageRevision"] | PageRevisionCollection):
+    def revisions(self, value: list["PageRevision"] | PageRevisionCollection) -> None:
         """
         ページのリビジョン履歴を設定する
 
@@ -929,7 +961,7 @@ class Page:
         return self._votes
 
     @votes.setter
-    def votes(self, value: PageVoteCollection):
+    def votes(self, value: PageVoteCollection) -> None:
         """
         ページへの投票情報を設定する
 
@@ -940,7 +972,59 @@ class Page:
         """
         self._votes = value
 
-    def destroy(self):
+    @property
+    def discussion(self) -> Optional["ForumThread"]:
+        """
+        ページのディスカッションスレッドを取得する
+
+        ページに関連付けられたフォーラムスレッド（コメント欄）を取得する。
+        ディスカッションが存在しない場合はNoneを返す。
+
+        Returns
+        -------
+        ForumThread | None
+            ディスカッションスレッド。存在しない場合はNone
+        """
+        if not self._discussion_checked:
+            response = self.site.amc_request(
+                [
+                    {
+                        "moduleName": "forum/ForumCommentsListModule",
+                        "pageId": self.id,
+                    }
+                ]
+            )[0]
+
+            body = response.json()["body"]
+            match = re.search(r"WIKIDOT\.forumThreadId = (\d+);", body)
+            if match is not None:
+                from .forum_thread import ForumThread
+
+                thread_id = int(match.group(1))
+                self._discussion = ForumThread.get_from_id(self.site, thread_id)
+            self._discussion_checked = True
+
+        return self._discussion
+
+    @property
+    def files(self) -> "PageFileCollection":
+        """
+        ページに添付されたファイル一覧を取得する
+
+        ファイル一覧が未取得の場合は自動的に取得処理を行う。
+
+        Returns
+        -------
+        PageFileCollection
+            ページに添付されたファイルのコレクション
+        """
+        if self._files is None:
+            from .page_file import PageFileCollection
+
+            self._files = PageFileCollection.acquire(self)
+        return self._files
+
+    def destroy(self) -> None:
         """
         ページを削除する
 
@@ -1000,7 +1084,7 @@ class Page:
         return self._metas
 
     @metas.setter
-    def metas(self, value: dict[str, str]):
+    def metas(self, value: dict[str, str]) -> None:
         """
         ページのメタタグ情報を設定する
 
@@ -1023,7 +1107,7 @@ class Page:
         deleted_metas = {k: v for k, v in current_metas.items() if k not in value}
         added_metas = {k: v for k, v in value.items() if k not in current_metas}
 
-        for name, content in deleted_metas.items():
+        for name, _content in deleted_metas.items():
             self.site.amc_request(
                 [
                     {
@@ -1122,7 +1206,7 @@ class Page:
         page_lock_response = site.amc_request([page_lock_request_body])[0]
         page_lock_response_data = page_lock_response.json()
 
-        if "locked" in page_lock_response_data or "other_locks" in page_lock_response_data:
+        if page_lock_response_data.get("locked") or page_lock_response_data.get("other_locks"):
             raise exceptions.TargetErrorException(
                 f"Page {fullname} is locked or other locks exist",
             )
@@ -1171,9 +1255,9 @@ class Page:
 
     def edit(
         self,
-        title: Optional[str] = None,
-        source: Optional[str] = None,
-        comment: Optional[str] = None,
+        title: str | None = None,
+        source: str | None = None,
+        comment: str | None = None,
         force_edit: bool = False,
     ) -> "Page":
         """
@@ -1216,7 +1300,7 @@ class Page:
             force_edit,
         )
 
-    def commit_tags(self):
+    def commit_tags(self) -> "Page":
         """
         ページのタグ情報を保存する
 
@@ -1247,3 +1331,160 @@ class Page:
             ]
         )
         return self
+
+    def set_parent(self, parent_fullname: str | None) -> "Page":
+        """
+        親ページを設定する
+
+        指定した親ページをこのページの親として設定する。
+        Noneまたは空文字列を指定すると親ページの設定を解除する。
+
+        Parameters
+        ----------
+        parent_fullname : str | None
+            親ページのフルネーム。Noneまたは空文字列で親を解除
+
+        Returns
+        -------
+        Page
+            自身（メソッドチェーン用）
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            親ページの設定に失敗した場合
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "WikiPageAction",
+                    "event": "setParentPage",
+                    "moduleName": "Empty",
+                    "pageId": str(self.id),
+                    "parentName": parent_fullname or "",
+                }
+            ]
+        )
+        self.parent_fullname = parent_fullname
+        return self
+
+    def rename(self, new_fullname: str) -> "Page":
+        """
+        ページ名を変更する
+
+        ページのフルネームを新しい名前に変更する。
+        カテゴリも含めた完全なフルネームを指定する必要がある。
+
+        Parameters
+        ----------
+        new_fullname : str
+            新しいフルネーム（例: "component:new-name"）
+
+        Returns
+        -------
+        Page
+            自身（メソッドチェーン用）
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            ページ名の変更に失敗した場合（同名ページが存在する場合など）
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "WikiPageAction",
+                    "event": "renamePage",
+                    "moduleName": "Empty",
+                    "page_id": self.id,
+                    "new_name": new_fullname,
+                }
+            ]
+        )
+        self.fullname = new_fullname
+        if ":" in new_fullname:
+            self.category, self.name = new_fullname.split(":", 1)
+        else:
+            self.category = "_default"
+            self.name = new_fullname
+        return self
+
+    def vote(self, value: int) -> int:
+        """
+        ページに投票する
+
+        ページに対して+1または-1の投票を行う。
+        既に投票している場合は上書きされる。
+
+        Parameters
+        ----------
+        value : int
+            投票値（1または-1）
+
+        Returns
+        -------
+        int
+            投票後の新しいレーティング値
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            投票に失敗した場合
+        """
+        self.site.client.login_check()
+        response = self.site.amc_request(
+            [
+                {
+                    "action": "RateAction",
+                    "event": "ratePage",
+                    "moduleName": "Empty",
+                    "pageId": self.id,
+                    "points": value,
+                    "force": "yes",
+                }
+            ]
+        )[0]
+        new_rating = int(response.json()["points"])
+        self.rating = new_rating
+        return new_rating
+
+    def cancel_vote(self) -> int:
+        """
+        投票をキャンセルする
+
+        このページに対する自分の投票を取り消す。
+
+        Returns
+        -------
+        int
+            キャンセル後の新しいレーティング値
+
+        Raises
+        ------
+        LoginRequiredException
+            ログインしていない場合
+        WikidotStatusCodeException
+            投票キャンセルに失敗した場合
+        """
+        self.site.client.login_check()
+        response = self.site.amc_request(
+            [
+                {
+                    "action": "RateAction",
+                    "event": "cancelVote",
+                    "moduleName": "Empty",
+                    "pageId": self.id,
+                }
+            ]
+        )[0]
+        new_rating = int(response.json()["points"])
+        self.rating = new_rating
+        return new_rating
