@@ -1,0 +1,7 @@
+{
+  "status": "ok",
+  "body": "<h1>Page Source</h1>\n\n<div class=\"page-source\">\n\tThis is the **page content** in wiki syntax.\n\n[[module ListPages]]\n</div>\n",
+  "jsInclude": [],
+  "cssInclude": [],
+  "callbackIndex": "0"
+}

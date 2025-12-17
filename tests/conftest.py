@@ -244,3 +244,290 @@ def user_profile_html() -> str:
 def user_profile_not_found_html() -> str:
     """存在しないユーザーのプロファイルHTML"""
     return _load_html("user_profile_notfound.html")
+
+
+# ============================================================
+# Page関連フィクスチャ
+# ============================================================
+
+
+@pytest.fixture
+def mock_page_no_http(mock_site_no_http: Site) -> Any:
+    """HTTPリクエストなしでPageを作成"""
+    from wikidot.module.page import Page
+
+    return Page(
+        site=mock_site_no_http,
+        fullname="test-page",
+        name="test-page",
+        category="_default",
+        title="Test Page Title",
+        children_count=0,
+        comments_count=0,
+        size=1000,
+        rating=10,
+        votes_count=5,
+        rating_percent=None,  # type: ignore[arg-type]
+        revisions_count=3,
+        parent_fullname=None,
+        tags=["tag1", "tag2"],
+        created_by=None,  # type: ignore[arg-type]
+        created_at=None,  # type: ignore[arg-type]
+        updated_by=None,  # type: ignore[arg-type]
+        updated_at=None,  # type: ignore[arg-type]
+        commented_by=None,
+        commented_at=None,
+    )
+
+
+@pytest.fixture
+def mock_page_with_id(mock_page_no_http: Any) -> Any:
+    """page_idを持つPage"""
+    mock_page_no_http._id = 12345
+    return mock_page_no_http
+
+
+@pytest.fixture
+def page_listpages_single() -> dict[str, Any]:
+    """単一ページのListPagesレスポンス"""
+    return _load_json("page", "listpages_single.json")
+
+
+@pytest.fixture
+def page_listpages_multiple() -> dict[str, Any]:
+    """複数ページのListPagesレスポンス"""
+    return _load_json("page", "listpages_multiple.json")
+
+
+@pytest.fixture
+def page_listpages_empty() -> dict[str, Any]:
+    """空のListPagesレスポンス"""
+    return _load_json("page", "listpages_empty.json")
+
+
+@pytest.fixture
+def page_viewsource() -> dict[str, Any]:
+    """ソース取得レスポンス"""
+    return _load_json("page", "viewsource.json")
+
+
+@pytest.fixture
+def page_revisionlist() -> dict[str, Any]:
+    """リビジョン一覧レスポンス"""
+    return _load_json("page", "revisionlist.json")
+
+
+@pytest.fixture
+def page_whorated() -> dict[str, Any]:
+    """投票者一覧レスポンス"""
+    return _load_json("page", "whorated.json")
+
+
+@pytest.fixture
+def page_pageedit_locked() -> dict[str, Any]:
+    """ロック済みページレスポンス"""
+    return _load_json("page", "pageedit_locked.json")
+
+
+@pytest.fixture
+def page_pageedit_success() -> dict[str, Any]:
+    """ロック取得成功レスポンス（新規ページ）"""
+    return _load_json("page", "pageedit_success.json")
+
+
+@pytest.fixture
+def page_pageedit_existing() -> dict[str, Any]:
+    """ロック取得成功レスポンス（既存ページ）"""
+    return _load_json("page", "pageedit_existing.json")
+
+
+@pytest.fixture
+def page_savepage_success() -> dict[str, Any]:
+    """ページ保存成功レスポンス"""
+    return _load_json("page", "savepage_success.json")
+
+
+@pytest.fixture
+def page_savetags_success() -> dict[str, Any]:
+    """タグ保存成功レスポンス"""
+    return _load_json("page", "savetags_success.json")
+
+
+@pytest.fixture
+def page_setparent_success() -> dict[str, Any]:
+    """親設定成功レスポンス"""
+    return _load_json("page", "setparent_success.json")
+
+
+@pytest.fixture
+def page_rename_success() -> dict[str, Any]:
+    """名前変更成功レスポンス"""
+    return _load_json("page", "rename_success.json")
+
+
+@pytest.fixture
+def page_delete_success() -> dict[str, Any]:
+    """削除成功レスポンス"""
+    return _load_json("page", "delete_success.json")
+
+
+@pytest.fixture
+def page_ratepage_success() -> dict[str, Any]:
+    """投票成功レスポンス"""
+    return _load_json("page", "ratepage_success.json")
+
+
+@pytest.fixture
+def page_ratepage_pm_success() -> dict[str, Any]:
+    """PM投票成功レスポンス"""
+    return _load_json("page", "ratepage_pm_success.json")
+
+
+@pytest.fixture
+def page_cancelvote_success() -> dict[str, Any]:
+    """投票キャンセル成功レスポンス"""
+    return _load_json("page", "cancelvote_success.json")
+
+
+@pytest.fixture
+def page_listpages_pm_rating() -> dict[str, Any]:
+    """PM評価システムのListPagesレスポンス"""
+    return _load_json("page", "listpages_pm_rating.json")
+
+
+@pytest.fixture
+def page_listpages_missing_fields() -> dict[str, Any]:
+    """オプションフィールドが空のListPagesレスポンス"""
+    return _load_json("page", "listpages_missing_fields.json")
+
+
+@pytest.fixture
+def page_listpages_invalid() -> dict[str, Any]:
+    """不正なListPagesレスポンス（必須要素欠損）"""
+    return _load_json("page", "listpages_invalid.json")
+
+
+# ============================================================
+# ForumCategory関連フィクスチャ
+# ============================================================
+
+
+@pytest.fixture
+def mock_forum_category_no_http(mock_site_no_http: Site) -> Any:
+    """HTTPリクエストなしでForumCategoryを作成"""
+    from wikidot.module.forum_category import ForumCategory
+
+    return ForumCategory(
+        site=mock_site_no_http,
+        id=1001,
+        title="Test Category",
+        description="Test category description",
+        threads_count=10,
+        posts_count=50,
+    )
+
+
+@pytest.fixture
+def forum_start() -> dict[str, Any]:
+    """フォーラムカテゴリ一覧レスポンス"""
+    return _load_json("forum", "forum_start.json")
+
+
+@pytest.fixture
+def forum_start_empty() -> dict[str, Any]:
+    """空のフォーラムカテゴリ一覧レスポンス"""
+    return _load_json("forum", "forum_start_empty.json")
+
+
+@pytest.fixture
+def forum_newthread_success() -> dict[str, Any]:
+    """スレッド作成成功レスポンス"""
+    return _load_json("forum", "newthread_success.json")
+
+
+# ============================================================
+# ForumThread関連フィクスチャ
+# ============================================================
+
+
+@pytest.fixture
+def mock_forum_thread_no_http(mock_forum_category_no_http: Any) -> Any:
+    """HTTPリクエストなしでForumThreadを作成"""
+    from wikidot.module.forum_thread import ForumThread
+
+    return ForumThread(
+        site=mock_forum_category_no_http.site,
+        id=3001,
+        title="Test Thread",
+        description="Test thread description",
+        created_by=None,  # type: ignore[arg-type]
+        created_at=None,  # type: ignore[arg-type]
+        post_count=5,
+        category=mock_forum_category_no_http,
+    )
+
+
+@pytest.fixture
+def forum_threads_in_category() -> dict[str, Any]:
+    """カテゴリ内スレッド一覧レスポンス"""
+    return _load_json("forum", "threads_in_category.json")
+
+
+@pytest.fixture
+def forum_thread_detail() -> dict[str, Any]:
+    """スレッド詳細レスポンス"""
+    return _load_json("forum", "thread_detail.json")
+
+
+# ============================================================
+# ForumPost関連フィクスチャ
+# ============================================================
+
+
+@pytest.fixture
+def mock_forum_post_no_http(mock_forum_thread_no_http: Any) -> Any:
+    """HTTPリクエストなしでForumPostを作成"""
+    from bs4 import BeautifulSoup
+
+    from wikidot.module.forum_post import ForumPost
+
+    # elementはダミーのTag
+    html = BeautifulSoup('<div class="post" id="post-5001"></div>', "lxml")
+    element = html.select_one("div.post")
+
+    return ForumPost(
+        thread=mock_forum_thread_no_http,
+        id=5001,
+        title="Test Post Title",
+        text="<p>Test post content</p>",
+        element=element,  # type: ignore[arg-type]
+        created_by=None,  # type: ignore[arg-type]
+        created_at=None,  # type: ignore[arg-type]
+        edited_by=None,
+        edited_at=None,
+        _parent_id=None,
+    )
+
+
+@pytest.fixture
+def forum_posts_in_thread() -> dict[str, Any]:
+    """スレッド内投稿一覧レスポンス"""
+    return _load_json("forum", "posts_in_thread.json")
+
+
+@pytest.fixture
+def forum_posts_nested() -> dict[str, Any]:
+    """ネスト投稿レスポンス"""
+    return _load_json("forum", "posts_nested.json")
+
+
+@pytest.fixture
+def forum_editpost_form() -> dict[str, Any]:
+    """投稿編集フォームレスポンス"""
+    return _load_json("forum", "editpost_form.json")
+
+
+@pytest.fixture
+def forum_savepost_success() -> dict[str, Any]:
+    """投稿保存成功レスポンス"""
+    return _load_json("forum", "savepost_success.json")

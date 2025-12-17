@@ -1,0 +1,6 @@
+{
+  "status": "ok",
+  "postId": "5001",
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "<div id=\"edit-post-div\"><form id=\"edit-post-form\"><input type=\"hidden\" name=\"postId\" value=\"5001\"/><input type=\"hidden\" name=\"currentRevisionId\" value=\"9001\"/><input class=\"text\" id=\"np-title\" type=\"text\" name=\"title\" value=\"Test Post Title\"/><textarea id=\"np-text\" name=\"source\">Test source content in wikidot syntax</textarea></form></div>"
+}

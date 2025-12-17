@@ -1185,7 +1185,7 @@ class Page:
         page_lock_response = site.amc_request([page_lock_request_body])[0]
         page_lock_response_data = page_lock_response.json()
 
-        if "locked" in page_lock_response_data or "other_locks" in page_lock_response_data:
+        if page_lock_response_data.get("locked") or page_lock_response_data.get("other_locks"):
             raise exceptions.TargetErrorException(
                 f"Page {fullname} is locked or other locks exist",
             )
