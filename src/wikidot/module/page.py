@@ -21,6 +21,20 @@ if TYPE_CHECKING:
     from .site import Site
     from .user import User
 
+
+class PageConstants:
+    """
+    ページモジュールで使用される定数を一元管理するクラス
+
+    Attributes
+    ----------
+    DEFAULT_PER_PAGE : int
+        ListPagesModuleのデフォルト1ページあたり件数
+    """
+
+    DEFAULT_PER_PAGE: int = 250
+
+
 DEFAULT_MODULE_BODY = [
     "fullname",  # ページのフルネーム(str)
     "category",  # カテゴリ(str)
@@ -116,7 +130,7 @@ class SearchPagesQuery:
     # pagination
     offset: int | None = 0
     limit: int | None = None
-    perPage: int | None = 250
+    perPage: int | None = PageConstants.DEFAULT_PER_PAGE
     # layout
     separate: str | None = "no"
     wrapper: str | None = "no"
@@ -219,7 +233,7 @@ class PageCollection(list["Page"]):
         pages = []
 
         for page_element in html_body.select("div.page"):
-            page_params = {}
+            page_params: dict[str, Any] = {}
 
             # レーティング方式を判定
             is_5star_rating = page_element.select_one("span.rating span.page-rate-list-pages-start") is not None
@@ -228,7 +242,8 @@ class PageCollection(list["Page"]):
             for set_element in page_element.select("span.set"):
                 key_element = set_element.select_one("span.name")
                 if key_element is None:
-                    raise exceptions.NoElementException("Cannot find key element")
+                    page_name = page_params.get("fullname", "unknown")
+                    raise exceptions.NoElementException(f"Cannot find key element in set for page: {page_name}")
                 key = key_element.text.strip()
                 value_element = set_element.select_one("span.value")
 
@@ -371,7 +386,7 @@ class PageCollection(list["Page"]):
             request_bodies = []
             for i in range(1, total):
                 _query_dict = query_dict.copy()
-                _query_dict["offset"] = i * (query.perPage or 250)
+                _query_dict["offset"] = i * (query.perPage or PageConstants.DEFAULT_PER_PAGE)
                 request_bodies.append(_query_dict)
 
             responses = site.amc_request(request_bodies)
@@ -487,7 +502,9 @@ class PageCollection(list["Page"]):
             html = BeautifulSoup(body, "lxml")
             source_element = html.select_one("div.page-source")
             if source_element is None:
-                raise exceptions.NoElementException("Cannot find source element")
+                raise exceptions.NoElementException(
+                    f"Cannot find source element for page: {page.fullname} (id={page.id})"
+                )
             source = source_element.get_text().strip().removeprefix("\t")
             page.source = PageSource(page, source)
         return pages
@@ -556,12 +573,16 @@ class PageCollection(list["Page"]):
                 rev_no = int(tds[0].text.strip().removesuffix("."))
                 created_by_elem = tds[4].select_one("span.printuser")
                 if created_by_elem is None:
-                    raise exceptions.NoElementException("Cannot find created by element")
+                    raise exceptions.NoElementException(
+                        f"Cannot find created by element for page: {page.fullname}, revision: {rev_id}"
+                    )
                 created_by = user_parser(page.site.client, created_by_elem)
 
                 created_at_elem = tds[5].select_one("span.odate")
                 if created_at_elem is None:
-                    raise exceptions.NoElementException("Cannot find created at element")
+                    raise exceptions.NoElementException(
+                        f"Cannot find created at element for page: {page.fullname}, revision: {rev_id}"
+                    )
                 created_at = odate_parser(created_at_elem)
 
                 comment = tds[6].text.strip()

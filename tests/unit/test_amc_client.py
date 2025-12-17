@@ -79,7 +79,9 @@ class TestAjaxModuleConnectorConfig:
 
         assert config.request_timeout == 20
         assert config.attempt_limit == 3
-        assert config.retry_interval == 5
+        assert config.retry_interval == 1.0
+        assert config.max_backoff == 60.0
+        assert config.backoff_factor == 2.0
         assert config.semaphore_limit == 10
 
     def test_custom_values(self) -> None:
@@ -87,13 +89,17 @@ class TestAjaxModuleConnectorConfig:
         config = AjaxModuleConnectorConfig(
             request_timeout=30,
             attempt_limit=5,
-            retry_interval=10,
+            retry_interval=2.0,
+            max_backoff=120.0,
+            backoff_factor=3.0,
             semaphore_limit=20,
         )
 
         assert config.request_timeout == 30
         assert config.attempt_limit == 5
-        assert config.retry_interval == 10
+        assert config.retry_interval == 2.0
+        assert config.max_backoff == 120.0
+        assert config.backoff_factor == 3.0
         assert config.semaphore_limit == 20
 
 
