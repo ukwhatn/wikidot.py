@@ -531,3 +531,91 @@ def forum_editpost_form() -> dict[str, Any]:
 def forum_savepost_success() -> dict[str, Any]:
     """投稿保存成功レスポンス"""
     return _load_json("forum", "savepost_success.json")
+
+
+# ============================================================
+# QuickModule関連フィクスチャ
+# ============================================================
+
+
+@pytest.fixture
+def quickmodule_member_lookup() -> dict[str, Any]:
+    """メンバー検索レスポンス"""
+    return _load_json("quickmodule", "member_lookup.json")
+
+
+@pytest.fixture
+def quickmodule_member_lookup_empty() -> dict[str, Any]:
+    """メンバー検索（結果なし）レスポンス"""
+    return _load_json("quickmodule", "member_lookup_empty.json")
+
+
+@pytest.fixture
+def quickmodule_user_lookup() -> dict[str, Any]:
+    """ユーザー検索レスポンス"""
+    return _load_json("quickmodule", "user_lookup.json")
+
+
+@pytest.fixture
+def quickmodule_user_lookup_empty() -> dict[str, Any]:
+    """ユーザー検索（結果なし）レスポンス"""
+    return _load_json("quickmodule", "user_lookup_empty.json")
+
+
+@pytest.fixture
+def quickmodule_page_lookup() -> dict[str, Any]:
+    """ページ検索レスポンス"""
+    return _load_json("quickmodule", "page_lookup.json")
+
+
+@pytest.fixture
+def quickmodule_page_lookup_empty() -> dict[str, Any]:
+    """ページ検索（結果なし）レスポンス"""
+    return _load_json("quickmodule", "page_lookup_empty.json")
+
+
+# ============================================================
+# Site関連フィクスチャ
+# ============================================================
+
+
+@pytest.fixture
+def site_invite_member_success() -> dict[str, Any]:
+    """メンバー招待成功レスポンス"""
+    return _load_json("site", "invite_member_success.json")
+
+
+@pytest.fixture
+def site_invite_member_already_invited() -> dict[str, Any]:
+    """メンバー招待（既に招待済み）レスポンス"""
+    return _load_json("site", "invite_member_already_invited.json")
+
+
+@pytest.fixture
+def site_invite_member_already_member() -> dict[str, Any]:
+    """メンバー招待（既にメンバー）レスポンス"""
+    return _load_json("site", "invite_member_already_member.json")
+
+
+@pytest.fixture
+def site_changes() -> dict[str, Any]:
+    """サイト変更履歴レスポンス"""
+    return _load_json("site", "site_changes.json")
+
+
+@pytest.fixture
+def site_changes_empty() -> dict[str, Any]:
+    """サイト変更履歴（空）レスポンス"""
+    return _load_json("site", "site_changes_empty.json")
+
+
+@pytest.fixture
+def site_applications() -> dict[str, Any]:
+    """サイト参加申請レスポンス"""
+    return _load_json("site", "applications.json")
+
+
+@pytest.fixture
+def site_applications_empty() -> dict[str, Any]:
+    """サイト参加申請（空）レスポンス"""
+    return _load_json("site", "applications_empty.json")

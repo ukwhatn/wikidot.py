@@ -1,0 +1,8 @@
+{
+  "status": "ok",
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "<div class=\"page-header\">\n<h1>Applications<small>Users applying to your wiki</small></h1>\n</div>\n<h3>Membership application from <span class=\"printuser avatarhover\"><a href=\"http://www.wikidot.com/user:info/test-user\" onclick=\"WIKIDOT.page.listeners.userInfo(12345); return false;\" ><img class=\"small\" src=\"http://www.wikidot.com/avatar.php?userid=12345&amp;amp;size=small&amp;amp;timestamp=1700000000\" alt=\"test-user\" style=\"background-image:url(http://www.wikidot.com/userkarma.php?u=12345)\"/></a><a href=\"http://www.wikidot.com/user:info/test-user\" onclick=\"WIKIDOT.page.listeners.userInfo(12345); return false;\" >test-user</a></span></h3>\n<table class=\"form alignleft\">\n<tr>\n<td>\nApplication text:</td>\n<td>\ntest application\n</td>\n</tr>\n<tr>\n<td>\nOptions:</td>\n<td>\n<a href=\"javascript:;\" onclick=\"WIKIDOT.modules.ManageSiteMembersApplicationsModule.listeners.accept(event, 12345, 'test-user', 'accept')\" class=\"btn btn-primary\">accept</a>\n<a href=\"javascript:;\" onclick=\"WIKIDOT.modules.ManageSiteMembersApplicationsModule.listeners.accept(event, 12345, 'test-user', 'decline')\" class=\"btn btn-danger\">decline</a>\n</td>\n</tr>\n</table>",
+  "jsInclude": [],
+  "cssInclude": [],
+  "callbackIndex": "1"
+}
