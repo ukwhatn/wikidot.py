@@ -32,6 +32,8 @@ build = [
 lint = [
     "ruff",
     "mypy",
+    "types-beautifulsoup4",
+    "lxml-stubs",
 ]
 format = [
     "ruff",
@@ -104,14 +106,27 @@ module = "tests.*"
 disallow_untyped_defs = false
 disallow_incomplete_defs = false
 check_untyped_defs = false
+disable_error_code = ["method-assign", "arg-type"]
 
 [[tool.mypy.overrides]]
 module = [
     "pytest",
     "pytest_httpx",
     "_pytest.*",
+    "httpx",
+    "httpx.*",
+    "bs4",
+    "bs4.*",
+    "lxml",
+    "lxml.*",
 ]
 ignore_missing_imports = true
+
+[tool.pyright]
+pythonVersion = "3.10"
+typeCheckingMode = "basic"
+reportMissingImports = false
+reportMissingTypeStubs = false
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

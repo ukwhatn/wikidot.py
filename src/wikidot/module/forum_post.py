@@ -120,7 +120,7 @@ class ForumPostCollection(list["ForumPost"]):
                     grandparent_class = grandparent.get("class")
                     if isinstance(grandparent_class, list) and "post-container" in grandparent_class:
                         parent_post = grandparent.find("div", class_="post", recursive=False)
-                        if parent_post is not None:
+                        if parent_post is not None and hasattr(parent_post, "get"):
                             parent_id_attr = parent_post.get("id")
                             if parent_id_attr is not None:
                                 parent_id = int(str(parent_id_attr).removeprefix("post-"))
@@ -366,6 +366,8 @@ class ForumPost:
                 raise NoElementException("Source textarea is not found.")
             self._source = source_elem.get_text()
 
+        # self._source is guaranteed to be str here (either from cache or just fetched)
+        assert self._source is not None
         return self._source
 
     def edit(self, source: str, title: str | None = None) -> "ForumPost":

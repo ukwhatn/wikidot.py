@@ -267,14 +267,14 @@ def mock_page_no_http(mock_site_no_http: Site) -> Any:
         size=1000,
         rating=10,
         votes_count=5,
-        rating_percent=None,  # type: ignore[arg-type]
+        rating_percent=None,
         revisions_count=3,
         parent_fullname=None,
         tags=["tag1", "tag2"],
-        created_by=None,  # type: ignore[arg-type]
-        created_at=None,  # type: ignore[arg-type]
-        updated_by=None,  # type: ignore[arg-type]
-        updated_at=None,  # type: ignore[arg-type]
+        created_by=None,
+        created_at=None,
+        updated_by=None,
+        updated_at=None,
         commented_by=None,
         commented_at=None,
     )
@@ -460,8 +460,8 @@ def mock_forum_thread_no_http(mock_forum_category_no_http: Any) -> Any:
         id=3001,
         title="Test Thread",
         description="Test thread description",
-        created_by=None,  # type: ignore[arg-type]
-        created_at=None,  # type: ignore[arg-type]
+        created_by=None,
+        created_at=None,
         post_count=5,
         category=mock_forum_category_no_http,
     )
@@ -500,9 +500,9 @@ def mock_forum_post_no_http(mock_forum_thread_no_http: Any) -> Any:
         id=5001,
         title="Test Post Title",
         text="<p>Test post content</p>",
-        element=element,  # type: ignore[arg-type]
-        created_by=None,  # type: ignore[arg-type]
-        created_at=None,  # type: ignore[arg-type]
+        element=element,
+        created_by=None,
+        created_at=None,
         edited_by=None,
         edited_at=None,
         _parent_id=None,

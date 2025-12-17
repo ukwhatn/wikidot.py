@@ -320,11 +320,11 @@ class AjaxModuleConnectorClient:
 
         async def _request(_body: dict[str, Any]) -> httpx.Response:
             retry_count = 0
+            response: httpx.Response | None = None
 
             while True:
                 # リクエスト実行
                 try:
-                    response = None
                     # Semaphoreで同時実行数制御
                     async with semaphore_instance, httpx.AsyncClient() as client:
                         url = (
