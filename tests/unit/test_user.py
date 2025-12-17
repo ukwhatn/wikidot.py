@@ -7,7 +7,6 @@ from pytest_httpx import HTTPXMock
 
 from wikidot.common.exceptions import NoElementException, NotFoundException
 from wikidot.module.user import (
-    AbstractUser,
     AnonymousUser,
     DeletedUser,
     GuestUser,
@@ -123,9 +122,7 @@ class TestUserFromName:
 class TestUserCollection:
     """UserCollection のテスト"""
 
-    def test_from_names_multiple(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_names_multiple(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """複数ユーザーを一度に取得できる"""
         html1 = """
         <!DOCTYPE html>
@@ -198,16 +195,12 @@ class TestUserCollection:
             text=user_profile_not_found_html,
         )
 
-        result = UserCollection.from_names(
-            mock_client_no_http, ["exists", "nonexistent"], raise_when_not_found=False
-        )
+        result = UserCollection.from_names(mock_client_no_http, ["exists", "nonexistent"], raise_when_not_found=False)
 
         assert len(result) == 1
         assert result[0].name == "exists"
 
-    def test_from_names_missing_id_element(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_names_missing_id_element(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """ID要素がない場合NoElementException"""
         html = """
         <!DOCTYPE html>
@@ -231,9 +224,7 @@ class TestUserCollection:
 
         assert "ID" in str(exc_info.value)
 
-    def test_from_names_missing_name_element(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_names_missing_name_element(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """名前要素がない場合NoElementException"""
         html = """
         <!DOCTYPE html>
@@ -261,10 +252,12 @@ class TestUserCollection:
 
     def test_iteration(self, mock_client_no_http: MagicMock) -> None:
         """UserCollectionはイテレート可能"""
-        users = UserCollection([
-            User(client=mock_client_no_http, id=1, name="a", unix_name="a"),
-            User(client=mock_client_no_http, id=2, name="b", unix_name="b"),
-        ])
+        users = UserCollection(
+            [
+                User(client=mock_client_no_http, id=1, name="a", unix_name="a"),
+                User(client=mock_client_no_http, id=2, name="b", unix_name="b"),
+            ]
+        )
 
         names = [u.name for u in users]
 

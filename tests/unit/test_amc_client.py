@@ -169,10 +169,12 @@ class TestAjaxModuleConnectorClientRequest:
         )
 
         client = AjaxModuleConnectorClient(site_name="www")
-        responses = client.request([
-            {"moduleName": "Module1"},
-            {"moduleName": "Module2"},
-        ])
+        responses = client.request(
+            [
+                {"moduleName": "Module1"},
+                {"moduleName": "Module2"},
+            ]
+        )
 
         assert len(responses) == 2
 
@@ -245,7 +247,7 @@ class TestAjaxModuleConnectorClientRequest:
 
         config = AjaxModuleConnectorConfig(retry_interval=0)
         client = AjaxModuleConnectorClient(site_name="www", config=config)
-        responses = client.request([{"moduleName": "Test"}])
+        client.request([{"moduleName": "Test"}])
 
         assert len(httpx_mock.get_requests()) == 2
 

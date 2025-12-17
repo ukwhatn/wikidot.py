@@ -57,9 +57,7 @@ class TestSiteDataclass:
 class TestSiteFromUnixName:
     """Site.from_unix_name のテスト"""
 
-    def test_from_unix_name_ssl_site(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_unix_name_ssl_site(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """SSL対応サイトを正しく取得できる"""
         html = """
         <html>
@@ -91,9 +89,7 @@ class TestSiteFromUnixName:
         assert site.domain == "test-site.wikidot.com"
         assert site.ssl_supported is True
 
-    def test_from_unix_name_non_ssl_site(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_unix_name_non_ssl_site(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """SSL非対応サイトを正しく取得できる"""
         html = """
         <html>
@@ -117,9 +113,7 @@ class TestSiteFromUnixName:
         assert site.id == 999
         assert site.ssl_supported is False
 
-    def test_from_unix_name_not_found(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_unix_name_not_found(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """存在しないサイトはNotFoundException"""
         httpx_mock.add_response(
             url="http://nonexistent.wikidot.com",
@@ -129,9 +123,7 @@ class TestSiteFromUnixName:
         with pytest.raises(NotFoundException):
             Site.from_unix_name(mock_client_no_http, "nonexistent")
 
-    def test_from_unix_name_missing_site_id(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_unix_name_missing_site_id(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """siteIdがない場合はUnexpectedException"""
         html = """
         <html>
@@ -154,9 +146,7 @@ class TestSiteFromUnixName:
 
         assert "site id" in str(exc_info.value).lower()
 
-    def test_from_unix_name_missing_title(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_unix_name_missing_title(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """titleがない場合はUnexpectedException"""
         html = """
         <html>
@@ -180,9 +170,7 @@ class TestSiteFromUnixName:
 
         assert "title" in str(exc_info.value).lower()
 
-    def test_from_unix_name_missing_unix_name(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_unix_name_missing_unix_name(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """siteUnixNameがない場合はUnexpectedException"""
         html = """
         <html>
@@ -205,9 +193,7 @@ class TestSiteFromUnixName:
 
         assert "unix_name" in str(exc_info.value).lower()
 
-    def test_from_unix_name_missing_domain(
-        self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock
-    ) -> None:
+    def test_from_unix_name_missing_domain(self, mock_client_no_http: MagicMock, httpx_mock: HTTPXMock) -> None:
         """domainがない場合はUnexpectedException"""
         html = """
         <html>
@@ -234,9 +220,7 @@ class TestSiteFromUnixName:
 class TestSiteAmcRequest:
     """Site.amc_request のテスト"""
 
-    def test_amc_request_delegates_to_client(
-        self, mock_client_no_http: MagicMock
-    ) -> None:
+    def test_amc_request_delegates_to_client(self, mock_client_no_http: MagicMock) -> None:
         """amc_requestはクライアントのAMCクライアントに委譲する"""
         site = Site(
             client=mock_client_no_http,

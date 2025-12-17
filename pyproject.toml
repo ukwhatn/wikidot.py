@@ -96,6 +96,20 @@ disallow_untyped_defs = true
 disallow_incomplete_defs = true
 warn_unused_ignores = true
 
+[[tool.mypy.overrides]]
+module = "tests.*"
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = [
+    "pytest",
+    "pytest_httpx",
+    "_pytest.*",
+]
+ignore_missing_imports = true
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 asyncio_mode = "auto"

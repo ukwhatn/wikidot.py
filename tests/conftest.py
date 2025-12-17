@@ -1,11 +1,18 @@
 """pytest設定とフィクスチャ"""
 
+from __future__ import annotations
+
 import json
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 from unittest.mock import MagicMock
 
 import pytest
+
+if TYPE_CHECKING:
+    from wikidot.connector.ajax import AjaxModuleConnectorConfig
+    from wikidot.module.site import Site
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 HTML_SAMPLES_DIR = FIXTURES_DIR / "html_samples"
@@ -32,14 +39,14 @@ def mock_credentials() -> dict[str, str]:
 
 
 @pytest.fixture
-def mock_amc_config() -> "AjaxModuleConnectorConfig":
+def mock_amc_config() -> AjaxModuleConnectorConfig:
     """テスト用AMC設定（短いタイムアウト）"""
     from wikidot.connector.ajax import AjaxModuleConnectorConfig
 
     return AjaxModuleConnectorConfig(
         request_timeout=5,
         attempt_limit=2,
-        retry_interval=0.1,
+        retry_interval=0,
         semaphore_limit=5,
     )
 
@@ -55,14 +62,14 @@ def mock_client_no_http() -> MagicMock:
     mock.amc_client.config = AjaxModuleConnectorConfig(
         request_timeout=5,
         attempt_limit=2,
-        retry_interval=0.1,
+        retry_interval=0,
     )
     mock.is_logged_in = False
     return mock
 
 
 @pytest.fixture
-def mock_site_no_http(mock_client_no_http: MagicMock) -> "Site":
+def mock_site_no_http(mock_client_no_http: MagicMock) -> Site:
     """HTTPリクエストなしでSiteを作成"""
     from wikidot.module.site import Site
 
@@ -88,7 +95,7 @@ def amc_ok_response() -> dict[str, Any]:
 
 
 @pytest.fixture
-def amc_error_response() -> callable:
+def amc_error_response() -> Callable[[str, str], dict[str, Any]]:
     """エラーAMCレスポンスファクトリ"""
 
     def _make_error(status: str, message: str = "") -> dict[str, Any]:
@@ -127,13 +134,13 @@ def _load_json(subdir: str, filename: str) -> dict[str, Any]:
 
 
 @pytest.fixture
-def load_html_fixture() -> callable:
+def load_html_fixture() -> Callable[[str], str]:
     """HTMLフィクスチャファイルを読み込む"""
     return _load_html
 
 
 @pytest.fixture
-def load_json_fixture() -> callable:
+def load_json_fixture() -> Callable[[str, str], dict[str, Any]]:
     """JSONフィクスチャファイルを読み込む"""
 
     def _load(subdir: str, filename: str) -> dict[str, Any]:
@@ -195,7 +202,7 @@ def printuser_wikidot_html() -> str:
 
 
 @pytest.fixture
-def odate_html_factory() -> callable:
+def odate_html_factory() -> Callable[[int], str]:
     """odate HTML要素ファクトリ"""
 
     def _make_odate(unix_timestamp: int) -> str:

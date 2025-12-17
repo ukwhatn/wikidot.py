@@ -1,4 +1,4 @@
-FORMAT_DIR = src
+FORMAT_DIR = src tests
 DOCS_SOURCE = docs/source
 DOCS_BUILD = docs/build
 
