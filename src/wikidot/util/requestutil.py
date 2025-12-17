@@ -3,6 +3,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from .async_helper import run_coroutine
+
 if TYPE_CHECKING:
     from wikidot.module.client import Client
 
@@ -50,7 +52,7 @@ class RequestUtil:
             else:
                 raise ValueError("Invalid method")
 
-        results = asyncio.run(_execute())
+        results: list[httpx.Response | BaseException] = run_coroutine(_execute())
         return [
             r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))
             for r in results
