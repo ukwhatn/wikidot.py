@@ -6,5 +6,8 @@
   "lock_id": "abc123",
   "lock_secret": "secret456",
   "CURRENT_TIMESTAMP": 1700000000,
-  "body": ""
+  "body": "",
+  "jsInclude": [],
+  "cssInclude": [],
+  "callbackIndex": "0"
 }

@@ -196,8 +196,8 @@ class TestPageCollectionParse:
         pages = PageCollection._parse(mock_site_no_http, html_body)
         assert len(pages) == 1
         assert pages[0].tags == []
-        # 空文字列は空文字列のまま（Noneにはならない）
-        assert pages[0].parent_fullname == ""
+        # 値が空の場合はNoneになる（実際のWikidotレスポンスでは値spanがない）
+        assert pages[0].parent_fullname is None
         assert pages[0].rating_percent is None
 
     def test_parse_no_element_exception(
