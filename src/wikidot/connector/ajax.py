@@ -355,7 +355,12 @@ class AjaxModuleConnectorClient:
             )
 
         # 処理を実行
-        results = asyncio.run(_execute_requests())
+        # 新しいイベントループを作成して実行（既存のループがある環境でも安全に動作）
+        loop = asyncio.new_event_loop()
+        try:
+            results = loop.run_until_complete(_execute_requests())
+        finally:
+            loop.close()
         return tuple(
             r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))
             for r in results

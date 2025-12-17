@@ -258,17 +258,25 @@ class Client:
         # メソッド終わり
         # ------------
 
+    def _cleanup(self) -> None:
+        """
+        リソースのクリーンアップ処理
+
+        ログイン中であればログアウト処理を行い、セッション状態をリセットする。
+        __del__と__exit__から共通で呼び出される。
+        """
+        if self.is_logged_in:
+            HTTPAuthentication.logout(self)
+            self.is_logged_in = False
+            self.username = None
+
     def __del__(self) -> None:
         """
         デストラクタ - クライアントの使用終了時の後処理
 
         ログイン中であればログアウト処理を行い、リソースを解放する。
         """
-        if self.is_logged_in:
-            HTTPAuthentication.logout(self)
-            self.is_logged_in = False
-            self.username = None
-        del self
+        self._cleanup()
 
     def __enter__(self) -> "Client":
         """
@@ -303,8 +311,7 @@ class Client:
         traceback : traceback
             例外のトレースバック
         """
-        self.__del__()
-        return
+        self._cleanup()
 
     def __str__(self) -> str:
         """
