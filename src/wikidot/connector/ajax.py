@@ -21,6 +21,7 @@ from ..common.exceptions import (
     ResponseDataException,
     WikidotStatusCodeException,
 )
+from ..util.async_helper import run_coroutine
 
 
 class AjaxRequestHeader:
@@ -434,13 +435,8 @@ class AjaxModuleConnectorClient:
                 return_exceptions=return_exceptions,
             )
 
-        # 処理を実行
-        # 新しいイベントループを作成して実行（既存のループがある環境でも安全に動作）
-        loop = asyncio.new_event_loop()
-        try:
-            results = loop.run_until_complete(_execute_requests())
-        finally:
-            loop.close()
+        # 処理を実行（既存のループがある環境でも安全に動作）
+        results: list[httpx.Response | BaseException] = run_coroutine(_execute_requests())
         return tuple(
             r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))
             for r in results

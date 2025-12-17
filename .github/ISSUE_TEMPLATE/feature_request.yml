@@ -1,0 +1,51 @@
+name: 機能要望
+description: 新機能や改善の提案をする
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        機能要望ありがとうございます。
+        以下の項目をできるだけ詳しく記入してください。
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 背景・課題
+      description: どのような問題を解決したいですか？どのような場面で困っていますか？
+      placeholder: "例: 〇〇をしたいが、現在の実装では△△ができない"
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 提案する解決策
+      description: どのような機能や変更があれば解決できると考えますか？
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 代替案
+      description: 他に検討した解決策があれば記載してください
+
+  - type: textarea
+    id: usecase
+    attributes:
+      label: ユースケース
+      description: この機能がどのように使われるか、具体例があれば記載してください
+      placeholder: |
+        ```python
+        # 使用例
+        client = wikidot.Client()
+        # ...
+        ```
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 補足情報
+      description: 参考リンクや関連するIssueなど、その他の情報があれば記載してください
