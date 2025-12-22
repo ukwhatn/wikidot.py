@@ -1,10 +1,16 @@
 import re
-from dataclasses import dataclass
+import sys
+from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal, Optional, overload
 
 import httpx
 from bs4 import BeautifulSoup
+
+if sys.version_info >= (3, 12):
+    from typing import Unpack
+else:
+    from typing_extensions import Unpack
 
 from ..common import exceptions
 from ..common.decorators import login_required
@@ -13,7 +19,7 @@ from ..util.parser import user as user_parser
 from ..util.quick_module import QMCUser, QuickModule
 from .forum_category import ForumCategoryCollection
 from .forum_thread import ForumThread, ForumThreadCollection
-from .page import Page, PageCollection, SearchPagesQuery
+from .page import Page, PageCollection, SearchPagesQuery, SearchPagesQueryParams
 from .site_application import SiteApplication
 from .site_member import SiteMember
 
@@ -41,7 +47,7 @@ class SitePagesAccessor:
         """
         self.site = site
 
-    def search(self, **kwargs: Any) -> "PageCollection":
+    def search(self, **kwargs: Unpack[SearchPagesQueryParams]) -> "PageCollection":
         """
         サイト内のページを検索する
 
@@ -49,35 +55,8 @@ class SitePagesAccessor:
 
         Parameters
         ----------
-        **kwargs
-            SearchPagesQueryに渡す検索条件。以下のパラメータが利用可能:
-
-            ページ選択パラメータ:
-            - pagetype: str - ページタイプ（例: "normal", "admin"等）
-            - category: str - カテゴリ名
-            - tags: list[str] | str - タグリスト（リストまたは空白区切り文字列）
-            - parent: str - 親ページ名
-            - link_to: str - リンク先ページ名
-            - created_at: str - 作成日時の条件（例: "> -86400 86400"）
-            - updated_at: str - 更新日時の条件
-            - created_by: User | str - 作成者（ユーザーオブジェクトまたはユーザー名）
-            - rating: str - 評価値による絞り込み
-            - votes: str - 投票数による絞り込み
-            - name: str - ページ名による絞り込み
-            - fullname: str - フルネームによる絞り込み（完全一致）
-            - range: str - 範囲指定
-
-            ソートパラメータ:
-            - order: str - ソート順（例: "created_at desc", "title asc"）
-
-            ページネーションパラメータ:
-            - offset: int - 取得開始位置
-            - limit: int - 取得件数制限
-            - perPage: int - 1ページあたりの表示件数
-
-            レイアウトパラメータ:
-            - separate: str - 個別表示するかどうか
-            - wrapper: str - ラッパー要素を表示するかどうか
+        **kwargs : Unpack[SearchPagesQueryParams]
+            検索条件のキーワード引数。詳細はSearchPagesQueryParamsを参照。
 
         Returns
         -------
@@ -297,9 +276,15 @@ class Site:
     domain: str
     ssl_supported: bool
 
-    _members = None
-    _moderators = None
-    _admins = None
+    # Accessor属性
+    pages: "SitePagesAccessor" = field(init=False, repr=False)
+    page: "SitePageAccessor" = field(init=False, repr=False)
+    forum: "SiteForumAccessor" = field(init=False, repr=False)
+
+    # キャッシュ属性
+    _members: list["SiteMember"] | None = field(init=False, default=None, repr=False)
+    _moderators: list["SiteMember"] | None = field(init=False, default=None, repr=False)
+    _admins: list["SiteMember"] | None = field(init=False, default=None, repr=False)
 
     def __post_init__(self) -> None:
         """

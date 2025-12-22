@@ -1,4 +1,5 @@
 import re
+import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import datetime
@@ -6,6 +7,11 @@ from typing import TYPE_CHECKING, Any, Optional
 
 import httpx
 from bs4 import BeautifulSoup
+
+if sys.version_info >= (3, 12):
+    from typing import TypedDict, Unpack
+else:
+    from typing_extensions import TypedDict, Unpack
 
 from ..common import exceptions
 from ..util.parser import odate as odate_parser
@@ -57,6 +63,76 @@ DEFAULT_MODULE_BODY = [
     "tags",  # タグのリスト(list of str)
     "_tags",  # 隠しタグのリスト(list of str)
 ]
+
+
+class SearchPagesQueryParams(TypedDict, total=False):
+    """
+    ページ検索クエリのパラメータを定義するTypedDict
+
+    SitePagesAccessor.search()およびSearchPagesQuery.__init__()の
+    キーワード引数の型定義に使用する。IDEのオートコンプリートと型チェックを有効にする。
+
+    Attributes
+    ----------
+    pagetype : str
+        ページタイプ（例: "normal", "admin"等）。デフォルト: "*"
+    category : str
+        カテゴリ名。デフォルト: "*"
+    tags : str | list[str]
+        検索対象のタグ（文字列または文字列のリスト）
+    parent : str
+        親ページ名
+    link_to : str
+        リンク先ページ名
+    created_at : str
+        作成日時の条件（例: "> -86400 86400"）
+    updated_at : str
+        更新日時の条件
+    created_by : User | str
+        作成者による絞り込み
+    rating : str
+        評価値による絞り込み
+    votes : str
+        投票数による絞り込み
+    name : str
+        ページ名による絞り込み
+    fullname : str
+        フルネームによる絞り込み（完全一致）
+    range : str
+        範囲指定
+    order : str
+        ソート順（例: "created_at desc", "title asc"）。デフォルト: "created_at desc"
+    offset : int
+        取得開始位置。デフォルト: 0
+    limit : int
+        取得件数制限
+    perPage : int
+        1ページあたりの表示件数。デフォルト: 250
+    separate : str
+        個別表示するかどうか。デフォルト: "no"
+    wrapper : str
+        ラッパー要素を表示するかどうか。デフォルト: "no"
+    """
+
+    pagetype: str
+    category: str
+    tags: "str | list[str]"
+    parent: str
+    link_to: str
+    created_at: str
+    updated_at: str
+    created_by: "User | str"
+    rating: str
+    votes: str
+    name: str
+    fullname: str
+    range: str
+    order: str
+    offset: int
+    limit: int
+    perPage: int
+    separate: str
+    wrapper: str
 
 
 class SearchPagesQuery:
@@ -136,14 +212,14 @@ class SearchPagesQuery:
         "wrapper",
     }
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(self, **kwargs: Unpack[SearchPagesQueryParams]) -> None:
         """
         SearchPagesQueryの初期化
 
         Parameters
         ----------
-        **kwargs
-            検索条件のキーワード引数
+        **kwargs : Unpack[SearchPagesQueryParams]
+            検索条件のキーワード引数。詳細はSearchPagesQueryParamsを参照。
 
         Raises
         ------
@@ -210,6 +286,8 @@ class PageCollection(list["Page"]):
     複数のページオブジェクトを格納し、一括して操作するための機能を提供する。
     ページの検索、一括取得、一括操作などの機能を集約している。
     """
+
+    site: "Site"
 
     def __init__(self, site: Optional["Site"] = None, pages: list["Page"] | None = None):
         """
