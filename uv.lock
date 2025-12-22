@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 2
 requires-python = ">=3.10"
 
 [[package]]
@@ -1373,6 +1373,7 @@ dependencies = [
     { name = "beautifulsoup4" },
     { name = "httpx" },
     { name = "lxml" },
+    { name = "typing-extensions", marker = "python_full_version < '3.12'" },
 ]
 
 [package.optional-dependencies]
@@ -1416,6 +1417,7 @@ requires-dist = [
     { name = "ruff", marker = "extra == 'lint'" },
     { name = "twine", marker = "extra == 'build'" },
     { name = "types-beautifulsoup4", marker = "extra == 'lint'" },
+    { name = "typing-extensions", marker = "python_full_version < '3.12'", specifier = ">=4.5.0" },
 ]
 provides-extras = ["build", "lint", "format", "dev", "test"]
 
