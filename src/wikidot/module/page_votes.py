@@ -22,6 +22,8 @@ class PageVoteCollection(list["PageVote"]):
     リスト拡張クラス。
     """
 
+    page: "Page"
+
     def __init__(self, page: "Page", votes: list["PageVote"]):
         """
         初期化メソッド

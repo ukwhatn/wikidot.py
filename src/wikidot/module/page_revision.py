@@ -29,6 +29,8 @@ class PageRevisionCollection(list["PageRevision"]):
     リスト拡張クラス。ソースコードやHTMLの一括取得など、便利な機能を提供する。
     """
 
+    page: "Page | None"
+
     def __init__(
         self,
         page: Optional["Page"] = None,
