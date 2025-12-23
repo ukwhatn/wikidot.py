@@ -7,8 +7,19 @@ updates:
     target-branch: "main"
     assignees:
       - "ukwhatn"
-    reviewers:
-      - "ukwhatn"
+    groups:
+      dev-dependencies:
+        dependency-type: "development"
+      testing:
+        patterns:
+          - "pytest*"
+      linting:
+        patterns:
+          - "ruff"
+          - "mypy"
+    cooldown:
+      default: 3
+      patch: 1
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
@@ -16,5 +27,7 @@ updates:
     target-branch: "main"
     assignees:
       - "ukwhatn"
-    reviewers:
-      - "ukwhatn"
+    groups:
+      github-actions:
+        patterns:
+          - "*"
