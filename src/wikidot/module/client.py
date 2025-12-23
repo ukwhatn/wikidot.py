@@ -208,6 +208,17 @@ class Client:
     ユーザー認証、サイト操作、ページ管理などすべての機能はこのクライアントを通じて提供される。
     """
 
+    # Accessor属性
+    user: "ClientUserAccessor"
+    private_message: "ClientPrivateMessageAccessor"
+    site: "ClientSiteAccessor"
+
+    # セッション関連属性
+    amc_client: AjaxModuleConnectorClient
+    is_logged_in: bool
+    username: str | None
+    me: Optional["AbstractUser"]
+
     def __init__(
         self,
         username: str | None = None,
@@ -240,6 +251,7 @@ class Client:
         # セッション関連変数の初期化
         self.is_logged_in = False
         self.username = None
+        self.me = None
 
         # usernameとpasswordが指定されていればログインする
         if username is not None and password is not None:

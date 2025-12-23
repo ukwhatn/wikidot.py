@@ -26,6 +26,8 @@ class ForumCategoryCollection(list["ForumCategory"]):
     複数のフォーラムカテゴリを格納し、一括して操作するためのリスト拡張クラス。
     """
 
+    site: "Site"
+
     def __init__(
         self,
         site: Optional["Site"] = None,
