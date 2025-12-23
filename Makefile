@@ -34,6 +34,10 @@ format:
 	uv sync --extra format
 	uv run ruff format $(FORMAT_DIR)
 
+format-check:
+	uv sync --extra format
+	uv run ruff format --check $(FORMAT_DIR)
+
 lint:
 	uv sync --extra lint
 	uv run ruff check $(FORMAT_DIR)
@@ -60,4 +64,4 @@ test-integration:
 	uv sync --extra test
 	uv run pytest tests/integration/ -v
 
-.PHONY: build release release_from-develop update-version format commit lint lint-fix test test-cov test-unit test-integration
+.PHONY: build release release_from-develop update-version format format-check commit lint lint-fix test test-cov test-unit test-integration

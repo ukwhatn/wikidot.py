@@ -10,8 +10,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v6
-      with:
-        ref: ${{ github.head_ref }}
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v7
@@ -21,21 +19,10 @@ jobs:
     - name: Set up Python
       run: uv python install 3.10
 
-    - name: Run formatter
-      run: make format
-
-    - name: Commit changes
-      run: |
-        if [ -n "$(git status --porcelain)" ]; then
-          git config --local user.email "github-actions[bot]@users.noreply.github.com"
-          git config --local user.name "github-actions[bot]"
-          git add .
-          git commit -m "🎨 Format code with ruff"
-          git push
-        fi
+    - name: Check format
+      run: make format-check
 
   lint:
-    needs: format  # formatジョブの完了後に実行
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -44,8 +31,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
-      with:
-        ref: ${{ github.head_ref }}
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v7
@@ -59,7 +44,6 @@ jobs:
       run: make lint
 
   test:
-    needs: format  # formatジョブの完了後に実行
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -68,8 +52,6 @@ jobs:
 
     steps:
     - uses: actions/checkout@v6
-      with:
-        ref: ${{ github.head_ref }}
 
     - name: Set up uv
       uses: astral-sh/setup-uv@v7
