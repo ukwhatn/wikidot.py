@@ -2,7 +2,7 @@
 
 > Wikidotサイト（SCP Foundation等）と対話するためのPythonライブラリ
 
-- Version: 3.1.0dev13
+- Version: 4.0.0
 - Python: 3.10+
 - 依存関係: httpx, beautifulsoup4, lxml
 - ライセンス: MIT
