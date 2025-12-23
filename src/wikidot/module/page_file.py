@@ -22,6 +22,8 @@ class PageFileCollection(list["PageFile"]):
     ページに添付された複数のファイルを格納し、一括して操作するためのリスト拡張クラス。
     """
 
+    page: "Page"
+
     def __init__(
         self,
         page: Optional["Page"] = None,

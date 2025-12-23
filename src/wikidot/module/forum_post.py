@@ -28,6 +28,8 @@ class ForumPostCollection(list["ForumPost"]):
     フォーラムスレッド内の複数の投稿を格納し、一括して操作するためのリスト拡張クラス。
     """
 
+    thread: "ForumThread"
+
     def __init__(
         self,
         thread: Optional["ForumThread"] = None,

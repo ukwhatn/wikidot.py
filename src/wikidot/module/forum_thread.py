@@ -32,6 +32,8 @@ class ForumThreadCollection(list["ForumThread"]):
     特定のカテゴリ内のスレッド一覧を取得する機能などを提供する。
     """
 
+    site: "Site"
+
     def __init__(
         self,
         site: Optional["Site"] = None,
