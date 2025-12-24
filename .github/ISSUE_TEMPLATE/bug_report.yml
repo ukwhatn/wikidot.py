@@ -1,73 +1,73 @@
-name: バグ報告
-description: バグや不具合を報告する
+name: Bug Report
+description: Report a bug or issue
 title: "[Bug]: "
 labels: ["bug"]
 body:
   - type: markdown
     attributes:
       value: |
-        バグ報告ありがとうございます。
-        以下の項目をできるだけ詳しく記入してください。
+        Thank you for reporting a bug.
+        Please fill in the following items as detailed as possible.
 
   - type: textarea
     id: description
     attributes:
-      label: 概要
-      description: バグの内容を簡潔に説明してください
-      placeholder: どのような問題が発生していますか？
+      label: Summary
+      description: Please briefly describe the bug
+      placeholder: What problem are you experiencing?
     validations:
       required: true
 
   - type: textarea
     id: reproduction
     attributes:
-      label: 再現手順
-      description: バグを再現する手順を記載してください
+      label: Steps to Reproduce
+      description: Please provide steps to reproduce the bug
       placeholder: |
-        1. '...' を実行
-        2. '...' を呼び出し
-        3. エラーが発生
+        1. Execute '...'
+        2. Call '...'
+        3. Error occurs
     validations:
       required: true
 
   - type: textarea
     id: expected
     attributes:
-      label: 期待される動作
-      description: 本来どのように動作すべきかを記載してください
+      label: Expected Behavior
+      description: Please describe how it should work
     validations:
       required: true
 
   - type: textarea
     id: actual
     attributes:
-      label: 実際の動作
-      description: 実際にどのような動作になっているかを記載してください
+      label: Actual Behavior
+      description: Please describe the actual behavior
     validations:
       required: true
 
   - type: textarea
     id: environment
     attributes:
-      label: 環境情報
-      description: 問題が発生した環境を記載してください
+      label: Environment
+      description: Please provide your environment details
       placeholder: |
-        - wikidot.py バージョン:
-        - Python バージョン:
+        - wikidot.py version:
+        - Python version:
         - OS:
-        - 実行環境: (Jupyter Notebook / スクリプト / etc.)
+        - Execution environment: (Jupyter Notebook / script / etc.)
     validations:
       required: true
 
   - type: textarea
     id: logs
     attributes:
-      label: エラーログ・スタックトレース
-      description: エラーメッセージやスタックトレースがあれば貼り付けてください
+      label: Error Logs / Stack Trace
+      description: Please paste any error messages or stack traces if available
       render: shell
 
   - type: textarea
     id: additional
     attributes:
-      label: 補足情報
-      description: その他、関連する情報があれば記載してください
+      label: Additional Information
+      description: Any other relevant information
