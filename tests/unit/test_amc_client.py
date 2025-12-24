@@ -78,7 +78,7 @@ class TestAjaxModuleConnectorConfig:
         config = AjaxModuleConnectorConfig()
 
         assert config.request_timeout == 20
-        assert config.attempt_limit == 3
+        assert config.attempt_limit == 5
         assert config.retry_interval == 1.0
         assert config.max_backoff == 60.0
         assert config.backoff_factor == 2.0
