@@ -47,21 +47,29 @@ lint-fix:
 	uv sync --extra lint
 	uv run ruff check $(FORMAT_DIR) --fix
 
-# テスト関連のコマンド
+# テスト関連のコマンド（デフォルトはユニットテストのみ）
 test:
 	uv sync --extra test
-	uv run pytest tests/ -v
+	uv run pytest tests/unit/ -v
 
 test-cov:
 	uv sync --extra test
-	uv run pytest tests/ -v --cov=src/wikidot --cov-report=term-missing --cov-report=html
+	uv run pytest tests/unit/ -v --cov=src/wikidot --cov-report=term-missing --cov-report=html --cov-fail-under=80
 
 test-unit:
 	uv sync --extra test
 	uv run pytest tests/unit/ -v
 
+test-unit-cov:
+	uv sync --extra test
+	uv run pytest tests/unit/ -v --cov=src/wikidot --cov-report=term-missing --cov-report=html --cov-fail-under=80
+
 test-integration:
 	uv sync --extra test
 	uv run pytest tests/integration/ -v
 
-.PHONY: build release release_from-develop update-version format format-check commit lint lint-fix test test-cov test-unit test-integration
+test-integration-cov:
+	uv sync --extra test
+	uv run pytest tests/integration/ -v --cov=src/wikidot --cov-report=term-missing --cov-report=html --cov-fail-under=50
+
+.PHONY: build release release_from-develop update-version format format-check commit lint lint-fix test test-cov test-unit test-unit-cov test-integration test-integration-cov
