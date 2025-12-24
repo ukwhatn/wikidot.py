@@ -131,7 +131,7 @@ class AjaxModuleConnectorConfig:
     """
 
     request_timeout: int = 20
-    attempt_limit: int = 3
+    attempt_limit: int = 5
     retry_interval: float = 1.0
     max_backoff: float = 60.0
     backoff_factor: float = 2.0

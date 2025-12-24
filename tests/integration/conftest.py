@@ -7,8 +7,11 @@ import random
 import string
 import time
 from collections.abc import Callable, Generator
+from typing import TypeVar
 
 import pytest
+
+T = TypeVar("T")
 
 # 統合テストは環境変数が設定されている場合のみ実行
 WIKIDOT_USERNAME = os.environ.get("WIKIDOT_USERNAME")
@@ -89,3 +92,43 @@ def cleanup_pages(site) -> Generator[list[str], None, None]:
                 page.destroy()
         except Exception as e:
             print(f"Warning: Failed to cleanup page {fullname}: {e}")
+
+
+def wait_for_condition(
+    fn: Callable[[], T],
+    predicate: Callable[[T], bool],
+    max_retries: int = 5,
+    interval: float = 1.0,
+) -> T:
+    """条件が満たされるまでリトライする
+
+    Wikidot APIのeventual consistencyを考慮し、
+    期待する条件が満たされるまでリトライを行う。
+
+    Parameters
+    ----------
+    fn : Callable[[], T]
+        値を取得する関数
+    predicate : Callable[[T], bool]
+        条件を判定する関数
+    max_retries : int, default 5
+        最大リトライ回数
+    interval : float, default 1.0
+        リトライ間隔（秒）
+
+    Returns
+    -------
+    T
+        条件を満たした値
+
+    Raises
+    ------
+    AssertionError
+        条件を満たさないままリトライ上限に達した場合
+    """
+    for _ in range(max_retries):
+        time.sleep(interval)
+        value = fn()
+        if predicate(value):
+            return value
+    raise AssertionError(f"Condition not met after {max_retries} retries")
