@@ -1217,7 +1217,7 @@ class Page:
         """
         ページのメタタグ情報を設定する
 
-        現在のメタタグと比較し、削除されたものは削除、追加されたものは追加する。
+        現在のメタタグと比較し、削除されたものは削除、追加・更新されたものは保存する。
 
         Parameters
         ----------
@@ -1235,6 +1235,7 @@ class Page:
         current_metas = self.metas
         deleted_metas = {k: v for k, v in current_metas.items() if k not in value}
         added_metas = {k: v for k, v in value.items() if k not in current_metas}
+        updated_metas = {k: v for k, v in value.items() if k in current_metas and current_metas[k] != v}
 
         for name, _content in deleted_metas.items():
             self.site.amc_request(
@@ -1250,6 +1251,20 @@ class Page:
             )
 
         for name, content in added_metas.items():
+            self.site.amc_request(
+                [
+                    {
+                        "metaName": name,
+                        "metaContent": content,
+                        "action": "WikiPageAction",
+                        "event": "saveMetaTag",
+                        "pageId": self.id,
+                        "moduleName": "edit/EditMetaModule",
+                    }
+                ]
+            )
+
+        for name, content in updated_metas.items():
             self.site.amc_request(
                 [
                     {
