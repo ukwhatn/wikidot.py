@@ -2,7 +2,7 @@
 
 > A Python library for interacting with Wikidot sites (SCP Foundation, etc.)
 
-- Version: 4.0.0
+- Version: 4.0.x
 - Python: 3.10+
 - Dependencies: httpx, beautifulsoup4, lxml
 - License: MIT
@@ -13,22 +13,24 @@
 
 ```bash
 pip install wikidot
+# or with uv
+uv add wikidot
 ```
 
-## Basic Usage (Method Chaining)
+---
 
-This library is primarily used with method chaining.
+## Quick Start
 
 ```python
 import wikidot
 
-# Without authentication
+# Unauthenticated client (read-only operations)
 with wikidot.Client() as client:
     site = client.site.get("scp-jp")
     page = site.page.get("scp-173")
     print(page.title, page.rating)
 
-# With authentication
+# Authenticated client (full operations)
 with wikidot.Client(username="user", password="pass") as client:
     site = client.site.get("scp-jp")
 
@@ -36,621 +38,1125 @@ with wikidot.Client(username="user", password="pass") as client:
     pages = site.pages.search(category="scp", order="rating desc", limit=10)
     for page in pages:
         print(page.fullname, page.rating)
-
-    # Accept all membership applications
-    for application in site.applications:
-        application.accept()
-
-    # Send PM
-    user = client.user.get("target-user")
-    client.private_message.send(recipient=user, subject="Subject", body="Body")
 ```
 
 ---
 
-## API Reference
+## Client
 
-### Client (Entry Point)
+Main entry point. Provides authentication and accessor access.
+
+### Import
 
 ```python
-with wikidot.Client(username=None, password=None) as client:
-    # client.site -> Site operations
-    # client.user -> User operations
-    # client.private_message -> PM operations
-    pass
+import wikidot
+# or
+from wikidot import Client
 ```
 
-| Chain | Description |
-|-------|-------------|
-| `client.site.get(unix_name)` | Get site -> Site |
-| `client.user.get(name)` | Get user -> User |
-| `client.user.get_bulk(names)` | Get multiple users -> UserCollection |
-| `client.private_message.inbox` | Inbox -> PrivateMessageInbox |
-| `client.private_message.sentbox` | Sent box -> PrivateMessageSentBox |
-| `client.private_message.send(recipient, subject, body)` | Send PM |
-| `client.private_message.get_message(id)` | Get message |
-| `client.is_logged_in` | Login status (bool) |
-| `client.me` | Current user |
+### Constructor
+
+```python
+client = wikidot.Client(
+    username=None,      # Wikidot username (optional)
+    password=None,      # Wikidot password (optional)
+    amc_config=None,    # Custom AMC configuration (optional)
+    logging_level="WARNING"  # Logging level (optional)
+)
+```
+
+#### Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `username` | `str \| None` | No | `None` | Wikidot username |
+| `password` | `str \| None` | No | `None` | Wikidot password |
+| `amc_config` | `AjaxModuleConnectorConfig \| None` | No | `None` | Custom AMC configuration |
+| `logging_level` | `str` | No | `"WARNING"` | Logging level |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `site` | `ClientSiteAccessor` | Site operations accessor |
+| `user` | `ClientUserAccessor` | User operations accessor |
+| `private_message` | `ClientPrivateMessageAccessor` | Private message accessor |
+| `is_logged_in` | `bool` | Login status |
+| `username` | `str \| None` | Logged-in username |
+| `me` | `User \| None` | Logged-in user object |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `login_check()` | `None` | Raise `LoginRequiredException` if not logged in |
+| `close()` | `None` | Logout and cleanup resources |
+| `__enter__()` | `Client` | Context manager entry |
+| `__exit__(...)` | `None` | Context manager exit (auto logout) |
+
+### Usage
+
+```python
+# With context manager (recommended)
+with wikidot.Client(username="user", password="pass") as client:
+    if client.is_logged_in:
+        print(f"Logged in as: {client.username}")
+        print(f"User ID: {client.me.id}")
+
+    # ... operations ...
+# Auto logout on exit
+
+# Without context manager
+client = wikidot.Client()
+try:
+    # ... operations ...
+finally:
+    client.close()
+```
 
 ---
 
-### Site Operations
+## Site
+
+Site operations. Access pages, forums, and members.
+
+### Getting a Site
 
 ```python
 site = client.site.get("scp-jp")
 ```
 
-#### Chains from Site
-
-| Chain | Description |
-|-------|-------------|
-| `site.page.get(fullname)` | Get page -> Page |
-| `site.page.create(fullname, title, source, comment)` | Create page -> Page |
-| `site.pages.search(**kwargs)` | Search pages -> PageCollection |
-| `site.forum.categories` | Forum categories -> ForumCategoryCollection |
-| `site.get_thread(thread_id)` | Get thread -> ForumThread |
-| `site.get_threads(thread_ids)` | Get multiple threads -> list[ForumThread] |
-| `site.members` | Member list -> list[SiteMember] |
-| `site.moderators` | Moderator list -> list[SiteMember] |
-| `site.admins` | Admin list -> list[SiteMember] |
-| `site.member_lookup(user_name)` | Search member -> SiteMember |
-| `site.applications` | Membership applications (login required) -> list[SiteApplication] |
-| `site.invite_user(user, text)` | Invite user (login required) |
-| `site.get_recent_changes(limit)` | Site change history -> list[SiteChange] |
-
-#### Site Properties
+### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `site.unix_name` | str | Site identifier |
-| `site.name` | str | Site name |
-| `site.title` | str | Site title |
-| `site.url` | str | Site URL |
+| `client` | `Client` | Parent client |
+| `id` | `int` | Site ID |
+| `title` | `str` | Site title |
+| `unix_name` | `str` | URL identifier (e.g., `scp-jp`) |
+| `domain` | `str` | Site domain |
+| `ssl_supported` | `bool` | SSL support flag |
+| `url` | `str` | Full site URL |
+| `page` | `SitePageAccessor` | Single page operations |
+| `pages` | `SitePagesAccessor` | Page list operations |
+| `forum` | `SiteForumAccessor` | Forum operations |
+| `members` | `list[SiteMember]` | Member list (cached) |
+| `moderators` | `list[SiteMember]` | Moderator list (cached) |
+| `admins` | `list[SiteMember]` | Admin list (cached) |
+| `applications` | `list[SiteApplication]` | Pending membership applications (login required) |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_thread(thread_id)` | `ForumThread` | Get forum thread by ID |
+| `get_threads(thread_ids)` | `ForumThreadCollection` | Get multiple threads |
+| `member_lookup(user_name, user_id=None)` | `bool` | Check if user is a member |
+| `invite_user(user, text)` | `None` | Invite user to site (login required) |
+| `get_recent_changes(limit=None)` | `list[SiteChange]` | Get recent change history |
+
+### SiteChange Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `site` | `Site` | Parent site |
+| `page_fullname` | `str` | Page fullname |
+| `page_title` | `str` | Page title |
+| `revision_no` | `int` | Revision number |
+| `changed_by` | `AbstractUser` | Editor |
+| `changed_at` | `datetime` | Edit date |
+| `flags` | `list[str]` | Change flags (N/S/T/R/M/F/A) |
+| `comment` | `str \| None` | Edit comment |
+
+Change flags: `N`=New, `S`=Source changed, `T`=Title changed, `R`=Renamed, `M`=Moved, `F`=File, `A`=Deleted
+
+### Usage
+
+```python
+site = client.site.get("scp-jp")
+
+print(f"Site: {site.title}")
+print(f"URL: {site.url}")
+print(f"SSL: {site.ssl_supported}")
+
+# Recent changes
+changes = site.get_recent_changes(limit=100)
+for change in changes:
+    flags_str = "".join(change.flags)
+    print(f"[{flags_str}] {change.page_fullname} (rev.{change.revision_no})")
+    print(f"    by {change.changed_by.name} at {change.changed_at}")
+```
 
 ---
 
-### Page Operations
+## Page
+
+Page operations including edit, delete, vote, files, and revisions.
+
+### Getting a Page
 
 ```python
-# Get
+# Single page
 page = site.page.get("scp-173")
-page = site.page.get("scp-173", raise_when_not_found=False)  # Returns None if not found
 
-# Search
-pages = site.pages.search(
-    category="*",           # Category ("*" for all)
-    tags=["scp", "euclid"], # Tag filter (use - to exclude: "-tale")
-    order="rating desc",    # Sort order
-    limit=50                # Number of results
+# With option to return None instead of raising exception
+page = site.page.get("nonexistent", raise_when_not_found=False)  # Returns None
+```
+
+### Creating a Page
+
+```python
+page = site.page.create(
+    fullname="test:new-page",
+    title="New Page Title",
+    source="Page content in Wikidot markup",
+    comment="Initial creation"
 )
 ```
 
-#### Search Parameters
+#### Create Parameters
 
-Parameters inherit from Wikidot's [ListPages module](https://www.wikidot.com/doc-modules:listpages-module).
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `fullname` | `str` | Yes | - | Full page name (category:name) |
+| `title` | `str` | No | `""` | Page title |
+| `source` | `str` | No | `""` | Page source in Wikidot markup |
+| `comment` | `str` | No | `""` | Creation comment |
+| `force_edit` | `bool` | No | `False` | Force edit if page exists |
 
-**Selection**
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `pagetype` | Page type | `"*"` (all), `"normal"`, `"hidden"` |
-| `category` | Category | `"*"` (all), `"scp"`, `"."` (current) |
-| `tags` | Tag filter (space-separated for OR, - for exclude) | `["scp", "euclid"]`, `["scp", "-tale"]` |
-| `parent` | Parent page | `"parent-page"`, `"."` (child pages), `"-"` (no parent) |
-| `link_to` | Link target page | `"scp-173"` |
-| `created_by` | Author | `"username"` or User object |
-| `created_at` | Created date | `"2024"`, `"last 7 day"`, `">2024-01-01"` |
-| `updated_at` | Updated date | `"last 1 week"`, `"<2024-12-31"` |
-| `rating` | Rating value | `">50"`, `">=100"` |
-| `votes` | Vote count | `">10"`, `">=5"` |
-| `name` | Page name pattern | `"scp-*"`, `"about"` |
-| `fullname` | Fullname (exact match) | `"scp:scp-173"` |
-| `range` | Range specification | Page range |
-
-**Ordering**
-
-| Parameter | Description | Example |
-|-----------|-------------|---------|
-| `order` | Sort order (property + desc/asc) | `"created_at desc"` (default), `"rating desc"`, `"name"`, `"updated_at"`, `"size"`, `"random"` |
-
-**Pagination**
-
-| Parameter | Description | Default |
-|-----------|-------------|---------|
-| `limit` | Maximum number of results | No limit |
-| `offset` | Starting position | `0` |
-| `perPage` | Results per request | `250` (max 250) |
-
-#### Page Properties
+### Page Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `page.id` | int | Page ID |
-| `page.fullname` | str | Fullname (category:name) |
-| `page.name` | str | Page name |
-| `page.category` | str | Category |
-| `page.title` | str | Title |
-| `page.created_at` | datetime | Created date |
-| `page.created_by` | AbstractUser | Author |
-| `page.updated_at` | datetime | Updated date |
-| `page.updated_by` | AbstractUser | Updater |
-| `page.rating` | int | Rating value |
-| `page.rating_votes` | int | Vote count |
-| `page.tags` | list[str] | Tags |
-| `page.source` | PageSource | Source code |
-| `page.source.wiki_text` | str | Wikidot syntax source |
-| `page.revisions` | PageRevisionCollection | Revision history |
-| `page.latest_revision` | PageRevision | Latest revision |
-| `page.votes` | PageVoteCollection | Vote list |
-| `page.metas` | dict[str, str] | Meta tags |
-| `page.discussion` | ForumThread \| None | Discussion thread |
-| `page.files` | PageFileCollection | Attached file list |
+| `site` | `Site` | Parent site |
+| `id` | `int` | Page ID (lazy loaded) |
+| `fullname` | `str` | Full page name (e.g., `scp:scp-173`) |
+| `name` | `str` | Page name without category |
+| `category` | `str` | Page category |
+| `title` | `str` | Page title |
+| `rating` | `int \| float` | Rating value |
+| `rating_votes` | `int` | Total vote count |
+| `rating_percent` | `float` | 5-star rating percentage (if applicable) |
+| `size` | `int` | Page size in bytes |
+| `tags` | `list[str]` | Tag list (mutable) |
+| `created_by` | `AbstractUser` | Page creator |
+| `created_at` | `datetime` | Creation date |
+| `updated_by` | `AbstractUser` | Last editor |
+| `updated_at` | `datetime` | Last update date |
+| `parent_fullname` | `str \| None` | Parent page fullname |
+| `revisions_count` | `int` | Number of revisions |
+| `children_count` | `int` | Number of child pages |
+| `comments_count` | `int` | Number of comments |
+| `commented_by` | `AbstractUser \| None` | Last commenter |
+| `commented_at` | `datetime \| None` | Last comment date |
+| `source` | `PageSource` | Page source (lazy loaded) |
+| `revisions` | `PageRevisionCollection` | Revision history (lazy loaded) |
+| `latest_revision` | `PageRevision` | Latest revision |
+| `votes` | `PageVoteCollection` | Vote information (lazy loaded) |
+| `discussion` | `ForumThread \| None` | Discussion thread (lazy loaded) |
+| `files` | `PageFileCollection` | Attached files (lazy loaded) |
+| `metas` | `dict[str, str]` | Meta tags (lazy loaded, settable) |
 
-#### Page Methods (Write)
+### Page Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_url()` | `str` | Get page URL |
+| `is_id_acquired()` | `bool` | Check if page ID is cached |
+| `edit(**kwargs)` | `Page` | Edit page (login required) |
+| `destroy()` | `None` | Delete page (login required) |
+| `rename(new_fullname)` | `Page` | Rename page (login required) |
+| `set_parent(parent_fullname)` | `Page` | Set parent page (login required) |
+| `commit_tags()` | `Page` | Save tag changes (login required) |
+| `vote(value)` | `int` | Vote (+1/-1), returns new rating (login required) |
+| `cancel_vote()` | `int` | Cancel vote, returns new rating (login required) |
+
+### Edit Parameters
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| `title` | `str \| None` | No | New page title (None = no change) |
+| `source` | `str \| None` | No | New page source (None = no change) |
+| `comment` | `str` | No | Edit comment |
+| `force_edit` | `bool` | No | Force edit even if locked |
+
+### Usage
 
 ```python
-# Create
-page = site.page.create(
-    fullname="test:new-page",
-    title="New Page",
-    source="Page content",
-    comment="Creation comment"
-)
+# Get page information
+page = site.page.get("scp-173")
+print(f"Title: {page.title}")
+print(f"Rating: {page.rating}")
+print(f"Tags: {page.tags}")
+print(f"URL: {page.get_url()}")
 
-# Edit
+# Get source
+print(page.source.wiki_text)
+
+# Edit page (login required)
 page = page.edit(
-    title="New Title",      # None for no change
-    source="New content",   # None for no change
-    comment="Edit comment"
+    title="Updated Title",
+    source="Updated content",
+    comment="Fixed typo"
 )
 
-# Delete
-page.destroy()
-
-# Tag changes
+# Modify tags
 page.tags.append("new-tag")
 page.tags.remove("old-tag")
-page.commit_tags()
+page = page.commit_tags()
 
-# Set meta tags
-page.metas = {"key": "value"}
+# Vote
+new_rating = page.vote(1)   # +1 vote
+new_rating = page.vote(-1)  # -1 vote
+new_rating = page.cancel_vote()  # Cancel vote
 
 # Set parent page
-page.set_parent("parent-page")  # Set parent
-page.set_parent(None)           # Remove parent
+page = page.set_parent("parent-page")
+page = page.set_parent(None)  # Remove parent
 
 # Rename page
-page.rename("new-fullname")
+page = page.rename("new-fullname")
 
-# Vote (login required)
-new_rating = page.vote(1)       # +1 vote, returns new rating
-new_rating = page.vote(-1)      # -1 vote
-new_rating = page.cancel_vote() # Cancel vote
+# Delete page
+page.destroy()
 ```
 
-#### PageCollection Operations
+---
+
+## Page Search (ListPagesModule)
+
+Search pages using ListPagesModule parameters.
+
+### Import
 
 ```python
-pages = site.pages.search(category="scp")
+from wikidot import Client
+```
+
+### Basic Usage
+
+```python
+# Search with keyword arguments
+pages = site.pages.search(
+    category="scp",
+    tags=["safe", "-explained"],
+    rating=">100",
+    order="rating desc",
+    limit=50
+)
+```
+
+### Search Parameters
+
+#### Selection Parameters
+
+| Parameter | Type | Description | Example |
+|-----------|------|-------------|---------|
+| `pagetype` | `str` | Page type | `"*"`, `"normal"`, `"hidden"` |
+| `category` | `str` | Category filter | `"*"`, `"scp"`, `"."` (current) |
+| `tags` | `str \| list[str]` | Tag filter (- for exclude) | `["scp", "euclid"]`, `["-tale"]` |
+| `parent` | `str` | Parent page | `"parent-page"`, `"-"` (no parent) |
+| `link_to` | `str` | Pages linking to | `"scp-173"` |
+| `created_by` | `User \| str` | Author | `"username"` or User object |
+| `created_at` | `str` | Creation date | `"2024"`, `"last 7 day"`, `">2024-01-01"` |
+| `updated_at` | `str` | Update date | `"last 1 week"`, `"<2024-12-31"` |
+| `rating` | `str` | Rating filter | `">50"`, `">=100"` |
+| `votes` | `str` | Vote count filter | `">10"`, `">=5"` |
+| `name` | `str` | Page name pattern | `"scp-*"`, `"about"` |
+| `fullname` | `str` | Exact fullname match | `"scp:scp-173"` |
+| `range` | `str` | Range specification | Page range |
+
+#### Ordering Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `order` | `str` | `"created_at desc"` | Sort order |
+
+Valid order values: `created_at`, `updated_at`, `rating`, `name`, `size`, `random` (add `desc` for descending)
+
+#### Pagination Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `offset` | `int` | `0` | Starting position |
+| `limit` | `int \| None` | `None` | Maximum results (None = unlimited) |
+| `perPage` | `int` | `250` | Results per request (max 250) |
+
+### Usage
+
+```python
+# Top rated SCP articles
+pages = site.pages.search(
+    category="scp",
+    order="rating desc",
+    limit=10
+)
+for page in pages:
+    print(f"{page.fullname}: +{page.rating}")
+
+# Pages by specific author
+user = client.user.get("author-name")
+pages = site.pages.search(created_by=user, limit=50)
+
+# Recent pages with specific tags
+pages = site.pages.search(
+    tags=["safe", "+scp"],
+    created_at="last 30 day",
+    order="created_at desc"
+)
+
+# All pages in a category
+pages = site.pages.search(category="component")
+```
+
+---
+
+## PageCollection
+
+Collection of pages with bulk operations.
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find(fullname)` | `Page \| None` | Find page by fullname |
+| `get_page_ids()` | `PageCollection` | Bulk fetch page IDs |
+| `get_page_sources()` | `PageCollection` | Bulk fetch page sources |
+| `get_page_revisions()` | `PageCollection` | Bulk fetch revision histories |
+| `get_page_votes()` | `PageCollection` | Bulk fetch vote information |
+
+### Usage
+
+```python
+pages = site.pages.search(category="scp", limit=100)
+
+# Find specific page
+page = pages.find("scp-173")
+
+# Bulk operations (efficient)
+pages.get_page_ids()
+pages.get_page_sources()
+pages.get_page_revisions()
+pages.get_page_votes()
 
 # Iteration
 for page in pages:
-    print(page.title)
-
-# Search
-page = pages.find("scp-173")
-
-# Bulk fetch (efficient)
-pages.get_page_ids()        # Get all page IDs
-pages.get_page_sources()    # Get all page sources
-pages.get_page_revisions()  # Get all page revisions
-pages.get_page_votes()      # Get all page votes
+    print(f"{page.fullname}: {page.title}")
+    print(f"  Source length: {len(page.source.wiki_text)}")
 ```
 
 ---
 
-### User Operations
+## PageRevision
 
-```python
-user = client.user.get("username")
-user = client.user.get("username", raise_when_not_found=False)  # Returns None if not found
-users = client.user.get_bulk(["user1", "user2", "user3"])
-```
+Page revision information.
 
-#### User Properties
+### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `user.id` | int | User ID |
-| `user.name` | str | Username |
-| `user.unix_name` | str | Unix-style name |
-| `user.avatar_url` | str | Avatar URL |
+| `page` | `Page` | Parent page |
+| `id` | `int` | Revision ID |
+| `rev_no` | `int` | Revision number |
+| `created_by` | `AbstractUser` | Editor |
+| `created_at` | `datetime` | Edit date |
+| `comment` | `str` | Edit comment |
+| `source` | `PageSource` | Revision source (lazy loaded) |
+| `html` | `str` | Revision HTML (lazy loaded) |
 
-#### User Types
+### PageRevisionCollection Methods
 
-Users returned by `page.created_by` etc. are one of these types:
-- `User` - Regular registered user
-- `DeletedUser` - Deleted user
-- `AnonymousUser` - Anonymous user
-- `GuestUser` - Guest user
-- `WikidotUser` - Wikidot system user
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find(id)` | `PageRevision \| None` | Find revision by ID |
+| `get_sources()` | `PageRevisionCollection` | Bulk fetch sources |
+| `get_htmls()` | `PageRevisionCollection` | Bulk fetch HTML |
+
+### Usage
+
+```python
+# Get revision history
+for revision in page.revisions:
+    print(f"Rev {revision.rev_no}: {revision.created_at} by {revision.created_by.name}")
+    print(f"  Comment: {revision.comment}")
+
+# Get latest revision
+latest = page.latest_revision
+print(latest.source.wiki_text)
+
+# Bulk fetch sources
+page.revisions.get_sources()
+for rev in page.revisions:
+    print(len(rev.source.wiki_text))
+```
 
 ---
 
-### SiteMember Operations
+## PageSource
+
+Page source code container.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `page` | `Page` | Parent page |
+| `wiki_text` | `str` | Wikidot markup source |
+
+### Usage
+
+```python
+source = page.source
+print(source.wiki_text)
+```
+
+---
+
+## PageVote
+
+Vote information for a page.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `page` | `Page` | Parent page |
+| `user` | `AbstractUser` | Voter |
+| `value` | `int` | Vote value (+1, -1, or numeric) |
+
+### PageVoteCollection Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find(user)` | `PageVote \| None` | Find vote by user |
+
+### Usage
+
+```python
+for vote in page.votes:
+    sign = "+" if vote.value > 0 else ""
+    print(f"{vote.user.name}: {sign}{vote.value}")
+
+# Find specific user's vote
+user = client.user.get("username")
+vote = page.votes.find(user)
+if vote:
+    print(f"User voted: {vote.value}")
+```
+
+---
+
+## PageFile
+
+Attached file information.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `page` | `Page` | Parent page |
+| `id` | `int` | File ID |
+| `name` | `str` | File name |
+| `url` | `str` | Download URL |
+| `mime_type` | `str` | MIME type |
+| `size` | `int` | File size in bytes |
+
+### PageFileCollection Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find(id)` | `PageFile \| None` | Find file by ID |
+| `find_by_name(name)` | `PageFile \| None` | Find file by name |
+
+### Usage
+
+```python
+for file in page.files:
+    print(f"{file.name}: {file.size} bytes")
+    print(f"  URL: {file.url}")
+    print(f"  Type: {file.mime_type}")
+
+# Find specific file
+image = page.files.find_by_name("image.png")
+if image:
+    print(f"Image URL: {image.url}")
+```
+
+---
+
+## ForumCategory
+
+Forum category operations.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `site` | `Site` | Parent site |
+| `id` | `int` | Category ID |
+| `title` | `str` | Category title |
+| `description` | `str` | Category description |
+| `threads_count` | `int` | Number of threads |
+| `posts_count` | `int` | Number of posts |
+| `threads` | `ForumThreadCollection` | Threads (lazy loaded, cached) |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `reload_threads()` | `ForumThreadCollection` | Force reload threads |
+| `create_thread(title, description, source)` | `ForumThread` | Create new thread (login required) |
+
+### ForumCategoryCollection Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find(id)` | `ForumCategory \| None` | Find category by ID |
+
+### Usage
+
+```python
+# Get all categories
+categories = site.forum.categories
+for category in categories:
+    print(f"{category.title}: {category.threads_count} threads")
+
+# Get threads in a category
+category = categories.find(123)
+for thread in category.threads:
+    print(f"{thread.title}: {thread.post_count} posts")
+
+# Create new thread (login required)
+thread = category.create_thread(
+    title="Thread Title",
+    description="Thread description",
+    source="First post content in Wikidot markup"
+)
+print(f"Created: {thread.url}")
+```
+
+---
+
+## ForumThread
+
+Forum thread operations.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `site` | `Site` | Parent site |
+| `id` | `int` | Thread ID |
+| `title` | `str` | Thread title |
+| `description` | `str` | Thread description |
+| `created_by` | `AbstractUser` | Thread creator |
+| `created_at` | `datetime` | Creation date |
+| `post_count` | `int` | Number of posts |
+| `category` | `ForumCategory \| None` | Parent category |
+| `url` | `str` | Thread URL |
+| `posts` | `ForumPostCollection` | Posts (lazy loaded) |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `reply(source, title="", parent_post_id=None)` | `ForumThread` | Reply to thread (login required) |
+
+### Static Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_from_id(site, thread_id, category=None)` | `ForumThread` | Get thread by ID |
+
+### Usage
+
+```python
+# Get thread by ID
+thread = site.get_thread(12345)
+
+print(f"{thread.title}: {thread.post_count} posts")
+print(f"URL: {thread.url}")
+
+# Get posts
+for post in thread.posts:
+    print(f"{post.title} by {post.created_by.name}")
+
+# Reply to thread (login required)
+thread.reply(source="Reply content")
+thread.reply(source="Reply with title", title="Re: Title")
+thread.reply(source="Reply to specific post", parent_post_id=67890)
+```
+
+---
+
+## ForumPost
+
+Forum post operations.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `thread` | `ForumThread` | Parent thread |
+| `id` | `int` | Post ID |
+| `title` | `str` | Post title |
+| `text` | `str` | Post content (HTML) |
+| `source` | `str` | Post source (Wikidot markup, lazy loaded) |
+| `created_by` | `AbstractUser` | Post author |
+| `created_at` | `datetime` | Post date |
+| `edited_by` | `AbstractUser \| None` | Last editor |
+| `edited_at` | `datetime \| None` | Last edit date |
+| `parent_id` | `int \| None` | Parent post ID |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `edit(source, title=None)` | `ForumPost` | Edit post (login required) |
+
+### ForumPostCollection Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find(id)` | `ForumPost \| None` | Find post by ID |
+
+### Usage
+
+```python
+for post in thread.posts:
+    print(f"{post.title} by {post.created_by.name}")
+    print(f"Source: {post.source[:100]}...")
+
+# Edit post (login required)
+post = post.edit(source="Updated content", title="Updated title")
+```
+
+---
+
+## User
+
+User types and operations.
+
+### Import
+
+```python
+from wikidot import Client
+from wikidot.module.user import User, AbstractUser
+```
+
+### User Types
+
+| Type | Description |
+|------|-------------|
+| `User` | Regular registered user |
+| `DeletedUser` | Deleted user account |
+| `AnonymousUser` | Anonymous user (with IP) |
+| `GuestUser` | Guest user |
+| `WikidotUser` | Wikidot system user |
+
+### AbstractUser Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `client` | `Client` | Parent client |
+| `id` | `int \| None` | User ID |
+| `name` | `str \| None` | Display name |
+| `unix_name` | `str \| None` | URL-safe name |
+| `avatar_url` | `str \| None` | Avatar URL |
+| `ip` | `str \| None` | IP address (anonymous only) |
+
+### Getting Users
+
+```python
+# Single user
+user = client.user.get("username")
+user = client.user.get("username", raise_when_not_found=False)  # Returns None if not found
+
+# Multiple users
+users = client.user.get_bulk(["user1", "user2", "user3"])
+```
+
+### Usage
+
+```python
+user = client.user.get("username")
+
+print(f"Name: {user.name}")
+print(f"ID: {user.id}")
+print(f"Avatar: {user.avatar_url}")
+
+# Type checking
+if isinstance(user, User):
+    print("Regular user")
+elif isinstance(user, DeletedUser):
+    print("Deleted account")
+elif isinstance(user, AnonymousUser):
+    print(f"Anonymous: {user.ip}")
+
+# Bulk fetch
+users = client.user.get_bulk(["user1", "user2", "user3"])
+for user in users:
+    if user:
+        print(user.name)
+```
+
+---
+
+## SiteMember
+
+Site member operations.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `site` | `Site` | Parent site |
+| `user` | `User` | User object |
+| `joined_at` | `datetime \| None` | Join date |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `to_moderator()` | `None` | Promote to moderator (login required) |
+| `remove_moderator()` | `None` | Remove moderator status (login required) |
+| `to_admin()` | `None` | Promote to admin (login required) |
+| `remove_admin()` | `None` | Remove admin status (login required) |
+
+### Usage
 
 ```python
 # Member list
 for member in site.members:
-    print(member.user.name, member.joined_at)
+    print(f"{member.user.name}: joined {member.joined_at}")
+
+# Moderator list
+for mod in site.moderators:
+    print(f"Mod: {mod.user.name}")
+
+# Admin list
+for admin in site.admins:
+    print(f"Admin: {admin.user.name}")
 
 # Search specific member
 member = site.member_lookup("username")
 
 # Change permissions (login required)
-member.to_moderator()      # Promote to moderator
-member.remove_moderator()  # Remove moderator
-member.to_admin()          # Promote to admin
-member.remove_admin()      # Remove admin
+member.to_moderator()
+member.remove_moderator()
+member.to_admin()
+member.remove_admin()
 ```
-
-#### SiteMember Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `member.site` | Site | Belonging site |
-| `member.user` | User | User |
-| `member.joined_at` | datetime | Join date |
 
 ---
 
-### SiteApplication Operations (Login Required)
+## SiteApplication
+
+Membership application operations (login required).
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `site` | `Site` | Parent site |
+| `user` | `User` | Applicant |
+| `text` | `str` | Application text |
+| `created_at` | `datetime` | Application date |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `accept()` | `None` | Accept application |
+| `decline()` | `None` | Decline application |
+
+### Usage
 
 ```python
-# Get and process application list
+# Process applications (login required)
 for application in site.applications:
     print(f"Applicant: {application.user.name}")
+    print(f"Text: {application.text}")
+
     application.accept()   # Accept
-    # application.decline()  # Decline
+    # application.decline()  # Or decline
 ```
 
 ---
 
-### Forum Operations
+## PrivateMessage
 
-```python
-# Category list
-categories = site.forum.categories
+Private message operations (login required).
 
-# Threads in category
-category = categories.find(category_id)
-for thread in category.threads:
-    print(thread.title)
-
-# Get thread
-thread = site.get_thread(thread_id)
-threads = site.get_threads([id1, id2, id3])
-
-# Create thread
-thread = category.create_thread(
-    title="Thread Title",
-    description="Thread description",
-    source="First post content (Wikidot syntax)"
-)
-```
-
-#### ForumThread Properties
+### Properties
 
 | Property | Type | Description |
 |----------|------|-------------|
-| `thread.id` | int | Thread ID |
-| `thread.title` | str | Title |
-| `thread.url` | str | URL |
-| `thread.created_at` | datetime | Created date |
-| `thread.created_by` | AbstractUser | Author |
-| `thread.post_count` | int | Post count |
-| `thread.posts` | ForumPostCollection | Post list |
+| `client` | `Client` | Parent client |
+| `id` | `int` | Message ID |
+| `sender` | `AbstractUser` | Sender |
+| `recipient` | `AbstractUser` | Recipient |
+| `subject` | `str` | Subject line |
+| `body` | `str` | Message body |
+| `created_at` | `datetime` | Send date |
 
-#### ForumThread Methods
+### Accessor Methods
 
-```python
-# Reply to thread (login required)
-thread.reply(source="Reply content")
-thread.reply(source="Reply content", title="Title")
-thread.reply(source="Reply content", parent_post_id=12345)  # Reply to specific post
-```
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `client.private_message.inbox` | `PrivateMessageInbox` | Get inbox (property) |
+| `client.private_message.sentbox` | `PrivateMessageSentBox` | Get sent box (property) |
+| `client.private_message.get_message(id)` | `PrivateMessage` | Get message by ID |
+| `client.private_message.get_messages(ids)` | `PrivateMessageCollection` | Get multiple messages |
+| `client.private_message.send(recipient, subject, body)` | `None` | Send message |
 
-#### ForumPost Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `post.id` | int | Post ID |
-| `post.title` | str | Title |
-| `post.text` | str | Body (HTML) |
-| `post.source` | str | Source (Wikidot syntax) |
-| `post.created_by` | AbstractUser | Author |
-| `post.created_at` | datetime | Post date |
-| `post.edited_by` | AbstractUser \| None | Editor |
-| `post.edited_at` | datetime \| None | Edit date |
-| `post.parent_id` | int \| None | Parent post ID |
-
-#### ForumPost Methods
-
-```python
-# Edit post (login required)
-post.edit(source="New content")
-post.edit(source="New content", title="New title")
-```
-
----
-
-### PageRevision Operations
-
-```python
-# Revision list
-for revision in page.revisions:
-    print(revision.id, revision.created_at, revision.created_by.name)
-
-# Latest revision
-latest = page.latest_revision
-
-# Get source
-wiki_text = revision.source.wiki_text
-
-# Bulk fetch (efficient)
-page.revisions.get_sources()  # Get all revision sources
-page.revisions.get_htmls()    # Get all revision HTMLs
-```
-
----
-
-### PageVote Operations
-
-```python
-for vote in page.votes:
-    print(vote.user.name, vote.value)  # value: +1 or -1
-
-# Search specific user's vote
-vote = page.votes.find(user)
-```
-
----
-
-### PageFile Operations
-
-```python
-# Page attached files list
-for file in page.files:
-    print(file.name, file.size, file.mime_type)
-
-# Search specific file
-file = page.files.find(file_id)
-file = page.files.find_by_name("image.png")
-```
-
-#### PageFile Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `file.id` | int | File ID |
-| `file.name` | str | File name |
-| `file.url` | str | Download URL |
-| `file.mime_type` | str | MIME type |
-| `file.size` | int | File size (bytes) |
-
----
-
-### SiteChange Operations
-
-```python
-# Recent change history
-changes = site.get_recent_changes(limit=100)
-
-for change in changes:
-    print(f"{change.page_fullname} rev.{change.revision_no}")
-    print(f"  by {change.changed_by.name} at {change.changed_at}")
-    print(f"  flags: {change.flags}, comment: {change.comment}")
-```
-
-#### SiteChange Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `change.page_fullname` | str | Page fullname |
-| `change.page_title` | str | Page title |
-| `change.revision_no` | int | Revision number |
-| `change.changed_by` | AbstractUser | Changed by |
-| `change.changed_at` | datetime | Changed at |
-| `change.flags` | list[str] | Change flags (N/S/T/R/M/F/A) |
-| `change.comment` | str \| None | Change comment |
-
-Change flags: N=New, S=Source changed, T=Title changed, R=Renamed, M=Moved, F=File, A=Deleted
-
----
-
-### PrivateMessage Operations (Login Required)
+### Usage
 
 ```python
 # Send PM
 user = client.user.get("target-user")
 client.private_message.send(
     recipient=user,
-    subject="Subject",
-    body="Body"
+    subject="Hello",
+    body="This is a message."
 )
 
 # Inbox
 for message in client.private_message.inbox:
-    print(message.subject, message.sender.name)
+    print(f"From: {message.sender.name}")
+    print(f"Subject: {message.subject}")
+    print(f"Date: {message.created_at}")
 
 # Sent box
 for message in client.private_message.sentbox:
-    print(message.subject, message.recipient.name)
+    print(f"To: {message.recipient.name}")
+    print(f"Subject: {message.subject}")
 
-# Get individual
-message = client.private_message.get_message(message_id)
+# Get specific message
+message = client.private_message.get_message(12345)
+print(message.body)
 ```
-
-#### PrivateMessage Properties
-
-| Property | Type | Description |
-|----------|------|-------------|
-| `message.id` | int | Message ID |
-| `message.subject` | str | Subject |
-| `message.body` | str | Body |
-| `message.sender` | AbstractUser | Sender |
-| `message.recipient` | AbstractUser | Recipient |
-| `message.created_at` | datetime | Sent date |
 
 ---
 
-## Exception Classes
+## Exception Handling
+
+### Exception Hierarchy
 
 ```
-WikidotException                    # Base exception
-├── SessionCreateException          # Login failed
-├── LoginRequiredException          # Login required
-├── NotFoundException               # Resource not found
-├── TargetExistsException           # Resource already exists
-├── TargetErrorException            # Operation not possible
-├── ForbiddenException              # Permission denied
-├── NoElementException              # HTML element not found
-├── UnexpectedException             # Unexpected error
-└── AjaxModuleConnectorException    # API base exception
-    ├── AMCHttpStatusCodeException  # HTTP error
-    ├── WikidotStatusCodeException  # Wikidot API error
-    └── ResponseDataException       # Invalid response
+WikidotException (base)
+├── UnexpectedException           # Internal inconsistency or bug
+├── SessionCreateException        # Login failed
+├── LoginRequiredException        # Operation requires login
+├── AjaxModuleConnectorException  # AMC base exception
+│   ├── AMCHttpStatusCodeException  # HTTP status error (e.g., 404, 500)
+│   ├── WikidotStatusCodeException  # Wikidot API status error
+│   └── ResponseDataException       # Response parsing failed
+├── NotFoundException             # Resource not found
+├── TargetExistsException         # Resource already exists
+├── TargetErrorException          # Resource in invalid state
+├── ForbiddenException            # Access denied
+└── NoElementException            # HTML element not found
 ```
+
+### Exception Properties
+
+| Exception | Properties | Description |
+|-----------|------------|-------------|
+| `AMCHttpStatusCodeException` | `status_code: int` | HTTP status code |
+| `WikidotStatusCodeException` | `status_code: str` | Wikidot status |
+
+### Usage
 
 ```python
-from wikidot.common.exceptions import NotFoundException, LoginRequiredException
+from wikidot.common.exceptions import (
+    NotFoundException,
+    LoginRequiredException,
+    SessionCreateException
+)
 
+# Handle login failure
+try:
+    client = wikidot.Client(username="user", password="wrong")
+except SessionCreateException:
+    print("Login failed")
+
+# Handle missing page
 try:
     page = site.page.get("nonexistent")
 except NotFoundException:
     print("Page not found")
+
+# Handle login required
+try:
+    page.edit(source="new content")
+except LoginRequiredException:
+    print("Please login first")
 ```
 
 ---
 
-## Code Examples
+## Directory Structure
 
-### Get Page Information
+```
+src/wikidot/
+├── __init__.py                   # Package entry point
+├── common/
+│   ├── decorators.py             # @login_required decorator
+│   └── exceptions.py             # Exception definitions
+├── connector/
+│   ├── amc.py                    # AjaxModuleConnector
+│   └── amc_config.py             # Configuration
+├── module/
+│   ├── client.py                 # Client class and accessors
+│   ├── site.py                   # Site class and accessors
+│   ├── page.py                   # Page, PageCollection, SearchPagesQuery
+│   ├── page_source.py            # PageSource
+│   ├── page_revision.py          # PageRevision, PageRevisionCollection
+│   ├── page_votes.py             # PageVote, PageVoteCollection
+│   ├── page_file.py              # PageFile, PageFileCollection
+│   ├── forum_category.py         # ForumCategory, ForumCategoryCollection
+│   ├── forum_thread.py           # ForumThread, ForumThreadCollection
+│   ├── forum_post.py             # ForumPost, ForumPostCollection
+│   ├── user.py                   # User hierarchy
+│   ├── private_message.py        # PrivateMessage classes
+│   ├── site_member.py            # SiteMember
+│   └── auth.py                   # Authentication handling
+└── util/
+    ├── parser/                   # HTML parsers
+    ├── quick_module.py           # QuickModule API
+    └── string.py                 # String utilities
+```
+
+---
+
+## Recipes
+
+### Get Top Rated Pages
 
 ```python
-import wikidot
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    pages = site.pages.search(
+        category="scp",
+        order="rating desc",
+        limit=10
+    )
+    for page in pages:
+        print(f"{page.fullname}: +{page.rating}")
+```
 
+### Find Pages by Tag
+
+```python
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    pages = site.pages.search(
+        tags=["safe", "+scp", "-explained"],
+        rating=">100"
+    )
+    for page in pages:
+        print(f"{page.fullname}: {page.tags}")
+```
+
+### Get Page History
+
+```python
 with wikidot.Client() as client:
     site = client.site.get("scp-jp")
     page = site.page.get("scp-173")
 
-    print(f"Title: {page.title}")
-    print(f"Rating: {page.rating}")
-    print(f"Author: {page.created_by.name}")
-    print(f"Tags: {page.tags}")
-    print(f"Source: {page.source.wiki_text[:100]}...")
+    for rev in page.revisions:
+        print(f"Rev {rev.rev_no}: {rev.comment} by {rev.created_by.name}")
 ```
 
-### Search Pages (Top 10 by Rating)
+### Batch Page Operations
 
 ```python
 with wikidot.Client() as client:
     site = client.site.get("scp-jp")
-    pages = site.pages.search(category="scp", order="rating desc", limit=10)
+    pages = site.pages.search(category="scp", limit=100)
+
+    # Bulk fetch all data efficiently
+    pages.get_page_ids()
+    pages.get_page_sources()
+    pages.get_page_votes()
 
     for page in pages:
-        print(f"{page.fullname}: {page.rating}")
+        print(f"{page.fullname}: {len(page.source.wiki_text)} chars")
 ```
 
-### Create, Edit, Delete Page
+### Discussion Thread Access
+
+```python
+with wikidot.Client() as client:
+    site = client.site.get("scp-jp")
+    page = site.page.get("scp-173")
+
+    if page.discussion:
+        thread = page.discussion
+        print(f"Comments: {thread.post_count}")
+
+        for post in thread.posts:
+            print(f"{post.created_by.name}: {post.title}")
+```
+
+### Create and Edit Page
 
 ```python
 with wikidot.Client(username="user", password="pass") as client:
     site = client.site.get("sandbox")
 
-    # Create
+    # Create new page
     page = site.page.create(
         fullname="test:my-page",
         title="Test Page",
-        source="This is a test."
+        source="[[=]]\n++ Welcome\n[[/=]]",
+        comment="Initial creation"
     )
 
-    # Edit
-    page = page.edit(title="Updated Title", source="Updated content")
+    # Edit page
+    page = page.edit(
+        source="[[=]]\n++ Updated Content\n[[/=]]",
+        comment="Updated"
+    )
 
-    # Change tags
+    # Add tags
     page.tags.append("test")
-    page.commit_tags()
+    page.tags.append("wip")
+    page = page.commit_tags()
 
-    # Delete
+    # Delete page
     page.destroy()
 ```
 
-### Revision History
-
-```python
-with wikidot.Client() as client:
-    site = client.site.get("scp-jp")
-    page = site.page.get("scp-173")
-
-    for revision in page.revisions:
-        print(f"Rev {revision.id}: {revision.created_at} by {revision.created_by.name}")
-```
-
-### Create Forum Thread
+### Forum Operations
 
 ```python
 with wikidot.Client(username="user", password="pass") as client:
     site = client.site.get("scp-jp")
-    category = site.forum.categories.find(category_id)
 
-    thread = category.create_thread(
-        title="New Thread",
-        description="Thread description",
-        source="First post content"
-    )
-    print(f"Created: {thread.url}")
+    # Get forum categories
+    categories = site.forum.categories
+    category = categories.find(123)
+
+    if category:
+        # Create new thread
+        thread = category.create_thread(
+            title="New Discussion",
+            description="Description of the topic",
+            source="First post content here."
+        )
+        print(f"Created: {thread.url}")
+
+        # Reply to thread
+        thread.reply(
+            source="Great topic!",
+            title="Re: New Discussion"
+        )
 ```
 
-### Forum Post Operations
-
-```python
-with wikidot.Client(username="user", password="pass") as client:
-    site = client.site.get("scp-jp")
-    thread = site.get_thread(thread_id)
-
-    # Post list
-    for post in thread.posts:
-        print(f"{post.title} by {post.created_by.name}")
-        print(f"  {post.source[:50]}...")
-
-    # Reply to thread
-    thread.reply(source="Reply content", title="Re: Title")
-
-    # Reply to specific post
-    thread.reply(source="Reply content", parent_post_id=post.id)
-
-    # Edit post
-    post = thread.posts[0]
-    post.edit(source="Edited content", title="Edited title")
-```
-
-### Member Management
-
-```python
-with wikidot.Client(username="admin", password="pass") as client:
-    site = client.site.get("my-site")
-
-    # Member list
-    for member in site.members:
-        print(f"{member.user.name}: {member.joined_at}")
-
-    # Change permissions
-    member = site.member_lookup("username")
-    member.to_moderator()
-```
-
-### Process Applications
+### Process Membership Applications
 
 ```python
 with wikidot.Client(username="admin", password="pass") as client:
@@ -658,64 +1164,24 @@ with wikidot.Client(username="admin", password="pass") as client:
 
     for application in site.applications:
         print(f"Applicant: {application.user.name}")
+        print(f"Message: {application.text}")
+
+        # Accept or decline
         application.accept()
 ```
 
-### Send PM
-
-```python
-with wikidot.Client(username="user", password="pass") as client:
-    user = client.user.get("target-user")
-    client.private_message.send(
-        recipient=user,
-        subject="Hello",
-        body="This is a message."
-    )
-```
-
-### Site Change History
+### Monitor Recent Changes
 
 ```python
 with wikidot.Client() as client:
     site = client.site.get("scp-jp")
 
-    # Recent 100 changes
-    changes = site.get_recent_changes(limit=100)
-
+    changes = site.get_recent_changes(limit=50)
     for change in changes:
-        flags_str = "".join(change.flags)
-        print(f"[{flags_str}] {change.page_fullname} (rev.{change.revision_no})")
-        print(f"    by {change.changed_by.name} at {change.changed_at}")
-```
-
-### Page Discussion
-
-```python
-with wikidot.Client() as client:
-    site = client.site.get("scp-jp")
-    page = site.page.get("scp-173")
-
-    # Get discussion thread
-    if page.discussion:
-        thread = page.discussion
-        print(f"Comment count: {thread.post_count}")
-
-        for post in thread.posts:
-            print(f"{post.created_by.name}: {post.title}")
-```
-
-### Page File List
-
-```python
-with wikidot.Client() as client:
-    site = client.site.get("scp-jp")
-    page = site.page.get("scp-173")
-
-    # Attached files list
-    for file in page.files:
-        print(f"{file.name} ({file.size} bytes)")
-        print(f"  URL: {file.url}")
-        print(f"  Type: {file.mime_type}")
+        flags = "".join(change.flags)
+        print(f"[{flags}] {change.page_fullname}")
+        print(f"  Rev {change.revision_no} by {change.changed_by.name}")
+        print(f"  {change.changed_at}: {change.comment or '(no comment)'}")
 ```
 
 ---
@@ -723,5 +1189,6 @@ with wikidot.Client() as client:
 ## Reference Links
 
 - Official Documentation: https://ukwhatn.github.io/wikidot.py/
-- GitHub: https://github.com/ukwhatn/wikidot.py
+- Repository: https://github.com/ukwhatn/wikidot.py
 - PyPI: https://pypi.org/project/wikidot/
+- TypeScript version: https://github.com/ukwhatn/wikidot-ts
