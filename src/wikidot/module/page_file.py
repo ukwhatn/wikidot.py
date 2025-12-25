@@ -1,8 +1,8 @@
 """
-Wikidotページのファイル添付を扱うモジュール
+Module for handling Wikidot page file attachments
 
-このモジュールは、Wikidotサイトのページに添付されたファイルに関連する
-クラスや機能を提供する。ファイルの情報取得などの操作が可能。
+This module provides classes and functions related to files attached
+to Wikidot site pages. It enables operations such as retrieving file information.
 """
 
 from collections.abc import Iterator
@@ -17,9 +17,10 @@ if TYPE_CHECKING:
 
 class PageFileCollection(list["PageFile"]):
     """
-    ページファイルのコレクションを表すクラス
+    Class representing a collection of page files
 
-    ページに添付された複数のファイルを格納し、一括して操作するためのリスト拡張クラス。
+    A list extension class for storing and operating on multiple files
+    attached to a page in bulk.
     """
 
     page: "Page"
@@ -30,14 +31,14 @@ class PageFileCollection(list["PageFile"]):
         files: list["PageFile"] | None = None,
     ):
         """
-        初期化メソッド
+        Initialize the collection
 
         Parameters
         ----------
         page : Page | None, default None
-            ファイルが属するページ。Noneの場合は最初のファイルから推測する
+            The page the files belong to. If None, inferred from the first file
         files : list[PageFile] | None, default None
-            格納するファイルのリスト
+            List of files to store
         """
         super().__init__(files or [])
 
@@ -48,28 +49,28 @@ class PageFileCollection(list["PageFile"]):
 
     def __iter__(self) -> Iterator["PageFile"]:
         """
-        コレクション内のファイルを順に返すイテレータ
+        Return an iterator over the files in the collection
 
         Returns
         -------
         Iterator[PageFile]
-            ファイルオブジェクトのイテレータ
+            Iterator of file objects
         """
         return super().__iter__()
 
     def find(self, id: int) -> Optional["PageFile"]:
         """
-        指定したIDのファイルを取得する
+        Get the file with the specified ID
 
         Parameters
         ----------
         id : int
-            取得するファイルのID
+            The ID of the file to retrieve
 
         Returns
         -------
         PageFile | None
-            指定したIDのファイル。存在しない場合はNone
+            The file with the specified ID, or None if not found
         """
         for file in self:
             if file.id == id:
@@ -78,17 +79,17 @@ class PageFileCollection(list["PageFile"]):
 
     def find_by_name(self, name: str) -> Optional["PageFile"]:
         """
-        指定した名前のファイルを取得する
+        Get the file with the specified name
 
         Parameters
         ----------
         name : str
-            取得するファイルの名前
+            The name of the file to retrieve
 
         Returns
         -------
         PageFile | None
-            指定した名前のファイル。存在しない場合はNone
+            The file with the specified name, or None if not found
         """
         for file in self:
             if file.name == name:
@@ -98,17 +99,17 @@ class PageFileCollection(list["PageFile"]):
     @staticmethod
     def _parse_size(size_text: str) -> int:
         """
-        ファイルサイズ文字列をバイト数に変換する
+        Convert file size string to bytes
 
         Parameters
         ----------
         size_text : str
-            サイズ文字列（例: "1.5 kB", "2 MB", "500 Bytes"）
+            Size string (e.g., "1.5 kB", "2 MB", "500 Bytes")
 
         Returns
         -------
         int
-            バイト数
+            Size in bytes
         """
         size_text = size_text.strip()
         if "Bytes" in size_text:
@@ -124,17 +125,17 @@ class PageFileCollection(list["PageFile"]):
     @staticmethod
     def acquire(page: "Page") -> "PageFileCollection":
         """
-        ページに添付されたファイル一覧を取得する
+        Get the list of files attached to a page
 
         Parameters
         ----------
         page : Page
-            ファイルを取得するページ
+            The page to retrieve files from
 
         Returns
         -------
         PageFileCollection
-            ページに添付されたファイルのコレクション
+            Collection of files attached to the page
         """
         response = page.site.amc_request(
             [
@@ -193,24 +194,24 @@ class PageFileCollection(list["PageFile"]):
 @dataclass
 class PageFile:
     """
-    Wikidotページの添付ファイルを表すクラス
+    Class representing a Wikidot page attachment file
 
-    ページに添付された個別のファイルに関する情報を保持する。
+    Holds information about an individual file attached to a page.
 
     Attributes
     ----------
     page : Page
-        ファイルが添付されているページ
+        The page the file is attached to
     id : int
-        ファイルID
+        File ID
     name : str
-        ファイル名
+        File name
     url : str
-        ファイルのダウンロードURL
+        File download URL
     mime_type : str
-        ファイルのMIMEタイプ
+        File MIME type
     size : int
-        ファイルサイズ（バイト）
+        File size in bytes
     """
 
     page: "Page"
@@ -222,11 +223,11 @@ class PageFile:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            ファイルの文字列表現
+            String representation of the file
         """
         return f"PageFile(id={self.id}, name={self.name}, url={self.url}, mime_type={self.mime_type}, size={self.size})"

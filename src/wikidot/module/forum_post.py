@@ -1,8 +1,8 @@
 """
-Wikidotフォーラムの投稿を扱うモジュール
+Module for handling Wikidot forum posts
 
-このモジュールは、Wikidotサイトのフォーラム投稿（スレッド内の各メッセージ）に関連する
-クラスや機能を提供する。投稿の情報取得や表示などの操作が可能。
+This module provides classes and functionality related to Wikidot forum posts (individual messages within threads).
+It enables operations such as retrieving post information and display.
 """
 
 from collections.abc import Iterator
@@ -23,9 +23,9 @@ if TYPE_CHECKING:
 
 class ForumPostCollection(list["ForumPost"]):
     """
-    フォーラム投稿のコレクションを表すクラス
+    Class representing a collection of forum posts
 
-    フォーラムスレッド内の複数の投稿を格納し、一括して操作するためのリスト拡張クラス。
+    A list extension class for storing multiple posts within a forum thread and performing batch operations。
     """
 
     thread: "ForumThread"
@@ -36,14 +36,14 @@ class ForumPostCollection(list["ForumPost"]):
         posts: list["ForumPost"] | None = None,
     ):
         """
-        初期化メソッド
+        Initialization method
 
         Parameters
         ----------
         thread : ForumThread | None, default None
-            投稿が属するスレッド。Noneの場合は最初の投稿から推測する
+            The thread the posts belong to。If None, inferred from the first post
         posts : list[ForumPost] | None, default None
-            格納する投稿のリスト
+            List of posts to store
         """
         super().__init__(posts or [])
 
@@ -54,28 +54,28 @@ class ForumPostCollection(list["ForumPost"]):
 
     def __iter__(self) -> Iterator["ForumPost"]:
         """
-        コレクション内の投稿を順に返すイテレータ
+        Iterator that returns posts in the collection sequentially
 
         Returns
         -------
         Iterator[ForumPost]
-            投稿オブジェクトのイテレータ
+            Iterator of post objects
         """
         return super().__iter__()
 
     def find(self, id: int) -> Optional["ForumPost"]:
         """
-        指定したIDの投稿を取得する
+        Retrieve a post with the specified ID
 
         Parameters
         ----------
         id : int
-            取得する投稿のID
+            Post ID to retrieve
 
         Returns
         -------
         ForumPost | None
-            指定したIDの投稿。存在しない場合はNone
+            Post with the specified ID, or None if it does not exist
         """
         for post in self:
             if post.id == id:
@@ -85,24 +85,24 @@ class ForumPostCollection(list["ForumPost"]):
     @staticmethod
     def _parse(thread: "ForumThread", html: BeautifulSoup) -> list["ForumPost"]:
         """
-        HTMLから投稿リストをパースする
+        Parse post list from HTML
 
         Parameters
         ----------
         thread : ForumThread
-            投稿が属するスレッド
+            The thread the posts belong to
         html : BeautifulSoup
-            パース対象のHTML
+            HTML to parse
 
         Returns
         -------
         list[ForumPost]
-            パースされた投稿のリスト
+            List of parsed posts
 
         Raises
         ------
         NoElementException
-            必要な要素が見つからない場合
+            If required elements are not found
         """
         posts: list[ForumPost] = []
         post_elements = html.select("div.post")
@@ -113,7 +113,7 @@ class ForumPostCollection(list["ForumPost"]):
                 raise NoElementException("Post ID attribute is not found.")
             post_id = int(str(post_id_attr).removeprefix("post-"))
 
-            # 親投稿IDの取得
+            # 親Post IDの取得
             parent_id: int | None = None
             parent_container = post_elem.parent
             if parent_container is not None:
@@ -191,25 +191,25 @@ class ForumPostCollection(list["ForumPost"]):
     @staticmethod
     def acquire_all_in_thread(thread: "ForumThread") -> "ForumPostCollection":
         """
-        スレッド内の全投稿を取得する
+        Retrieve all posts in a thread
 
-        指定されたスレッド内のすべての投稿を取得する。
-        ページネーションが存在する場合は、すべてのページを巡回する。
+        Retrieves all posts in the specified thread。
+        Traverses all pages if pagination exists。
 
         Parameters
         ----------
         thread : ForumThread
-            投稿を取得するスレッド
+            Thread to retrieve posts from
 
         Returns
         -------
         ForumPostCollection
-            スレッド内のすべての投稿を含むコレクション
+            Collection containing all posts in the thread
 
         Raises
         ------
         NoElementException
-            HTML要素の解析に失敗した場合
+            If HTML element parsing fails
         """
         posts: list[ForumPost] = []
 
@@ -264,35 +264,35 @@ class ForumPostCollection(list["ForumPost"]):
 @dataclass
 class ForumPost:
     """
-    Wikidotフォーラムの投稿を表すクラス
+    Class representing a Wikidot forum post
 
-    フォーラムスレッド内の個別の投稿（メッセージ）に関する情報を保持する。
-    投稿のタイトル、本文、作成者、作成日時などの情報を提供する。
+    Holds information about individual posts (messages) within a forum thread.
+    Provides information such as post title, body, author, and creation date.
 
     Attributes
     ----------
     thread : ForumThread
-        投稿が属するスレッド
+        The thread the post belongs to
     id : int
-        投稿ID
+        Post ID
     title : str
-        投稿のタイトル
+        Post title
     text : str
-        投稿の本文（HTMLテキスト）
+        Post body (HTML text)
     element : Tag
-        投稿のHTML要素（解析用）
+        HTML element of the post (for parsing)
     created_by : AbstractUser
-        投稿の作成者
+        Post creator
     created_at : datetime
-        投稿の作成日時
+        Post creation date and time
     edited_by : AbstractUser | None, default None
-        投稿の編集者（編集されていない場合はNone）
+        Post editor (None if not edited)
     edited_at : datetime | None, default None
-        投稿の編集日時（編集されていない場合はNone）
+        Post edit date and time (None if not edited)
     _parent_id : int | None, default None
-        親投稿のID（返信元の投稿ID）
+        Parent post ID (ID of the post being replied to)
     _source : str | None, default None
-        投稿のソース（Wikidot記法）
+        Post source (Wikidot syntax)
     """
 
     thread: "ForumThread"
@@ -309,12 +309,12 @@ class ForumPost:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            投稿の文字列表現
+            String representation of the post
         """
         return (
             f"ForumPost(thread={self.thread}, id={self.id}, title={self.title}, "
@@ -325,31 +325,31 @@ class ForumPost:
     @property
     def parent_id(self) -> int | None:
         """
-        親投稿のIDを取得する
+        Retrieve the parent post ID
 
         Returns
         -------
         int | None
-            親投稿のID。親がない場合はNone
+            Parent post ID, or None if no parent
         """
         return self._parent_id
 
     @property
     def source(self) -> str:
         """
-        投稿のソース（Wikidot記法）を取得する
+        Retrieve the post source (Wikidot syntax)
 
-        ソースが未取得の場合は自動的に取得処理を行う。
+        Automatically retrieves if source has not been fetched.
 
         Returns
         -------
         str
-            投稿のソース（Wikidot記法）
+            Post source (Wikidot syntax)
 
         Raises
         ------
         NoElementException
-            ソース要素が見つからない場合
+            If source element is not found
         """
         if self._source is None:
             response = self.thread.site.amc_request(
@@ -374,30 +374,30 @@ class ForumPost:
 
     def edit(self, source: str, title: str | None = None) -> "ForumPost":
         """
-        投稿を編集する
+        Edit the post
 
-        投稿の内容を更新する。タイトルを指定しない場合は現在のタイトルを維持する。
+        Updates the post content. Maintains the current title if not specified。
 
         Parameters
         ----------
         source : str
-            新しいソース（Wikidot記法）
+            New source (Wikidot syntax)
         title : str | None, default None
-            新しいタイトル（Noneの場合は現在のタイトルを維持）
+            New title (maintains current title if None)
 
         Returns
         -------
         ForumPost
-            自身（メソッドチェーン用）
+            Self (for method chaining)
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            If not logged in
         WikidotStatusCodeException
-            編集に失敗した場合
+            If editing fails
         NoElementException
-            リビジョンID要素が見つからない場合
+            If revision ID element is not found
         """
         self.thread.site.client.login_check()
 

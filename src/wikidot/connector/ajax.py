@@ -1,8 +1,9 @@
 """
-WikidotのAjax Module Connectorとの通信を担当するモジュール
+Module responsible for communication with Wikidot's Ajax Module Connector
 
-このモジュールは、Wikidotサイトのajax-module-connector.phpとの通信を行うための
-クラスやユーティリティを提供する。非同期通信、エラーハンドリング、リトライ機能を備えている。
+This module provides classes and utilities for communicating with
+Wikidot site's ajax-module-connector.php. It features async communication,
+error handling, and retry functionality.
 """
 
 import asyncio
@@ -26,10 +27,10 @@ from ..util.async_helper import run_coroutine
 
 class AjaxRequestHeader:
     """
-    Ajax Module Connector通信時に使用するリクエストヘッダを管理するクラス
+    Class for managing request headers used in Ajax Module Connector communication
 
-    Content-Type、User-Agent、Referer、Cookieなどを管理し、
-    適切なHTTPヘッダを生成する機能を提供する。
+    Manages Content-Type, User-Agent, Referer, Cookie, etc.,
+    and provides functionality to generate appropriate HTTP headers.
     """
 
     def __init__(
@@ -40,18 +41,18 @@ class AjaxRequestHeader:
         cookie: dict | None = None,
     ):
         """
-        AjaxRequestHeaderの初期化
+        Initialize AjaxRequestHeader
 
         Parameters
         ----------
         content_type : str | None, default None
-            設定するContent-Type。Noneの場合はデフォルト値が使用される
+            Content-Type to set. Default value is used if None
         user_agent : str | None, default None
-            設定するUser-Agent。Noneの場合はデフォルト値が使用される
+            User-Agent to set. Default value is used if None
         referer : str | None, default None
-            設定するReferer。Noneの場合はデフォルト値が使用される
+            Referer to set. Default value is used if None
         cookie : dict | None, default None
-            設定するCookie。Noneの場合は空の辞書が使用される
+            Cookie to set. Empty dict is used if None
         """
         self.content_type: str = (
             "application/x-www-form-urlencoded; charset=UTF-8" if content_type is None else content_type
@@ -65,38 +66,38 @@ class AjaxRequestHeader:
 
     def set_cookie(self, name: str, value: Any) -> None:
         """
-        Cookieを設定する
+        Set a cookie
 
         Parameters
         ----------
         name : str
-            設定するCookieの名前
+            Name of the cookie to set
         value : str
-            設定するCookieの値
+            Value of the cookie to set
         """
         self.cookie[name] = value
         return
 
     def delete_cookie(self, name: str) -> None:
         """
-        Cookieを削除する
+        Delete a cookie
 
         Parameters
         ----------
         name : str
-            削除するCookieの名前
+            Name of the cookie to delete
         """
         del self.cookie[name]
         return
 
     def get_header(self) -> dict:
         """
-        構築されたHTTPヘッダを取得する
+        Get the constructed HTTP headers
 
         Returns
         -------
         dict
-            HTTPリクエスト用のヘッダ辞書
+            Header dictionary for HTTP requests
         """
         return {
             "Content-Type": self.content_type,
@@ -109,25 +110,24 @@ class AjaxRequestHeader:
 @dataclass
 class AjaxModuleConnectorConfig:
     """
-    Ajax Module Connector通信の設定を保持するデータクラス
+    Data class holding Ajax Module Connector communication settings
 
-    リクエストのタイムアウト、リトライ回数、並行通信数などの
-    設定を管理する。
+    Manages settings such as request timeout, retry count, and concurrent connections.
 
     Attributes
     ----------
     request_timeout : int, default 20
-        リクエストのタイムアウト秒数
+        Request timeout in seconds
     attempt_limit : int, default 3
-        エラー発生時のリトライ上限回数
+        Maximum number of retries on error
     retry_interval : float, default 1.0
-        リトライの基本間隔（秒）。指数バックオフの基準値
+        Base retry interval in seconds. Used as the basis for exponential backoff
     max_backoff : float, default 60.0
-        リトライ間隔の最大値（秒）
+        Maximum retry interval in seconds
     backoff_factor : float, default 2.0
-        指数バックオフの係数（各リトライごとに間隔がこの係数倍される）
+        Exponential backoff factor (interval is multiplied by this factor for each retry)
     semaphore_limit : int, default 10
-        非同期リクエストの最大並行数
+        Maximum number of concurrent async requests
     """
 
     request_timeout: int = 20
@@ -140,17 +140,17 @@ class AjaxModuleConnectorConfig:
 
 def _mask_sensitive_data(body: dict[str, Any]) -> dict[str, Any]:
     """
-    ログ出力用に機密情報をマスクする
+    Mask sensitive information for log output
 
     Parameters
     ----------
     body : dict[str, Any]
-        マスク対象のリクエストボディ
+        Request body to mask
 
     Returns
     -------
     dict[str, Any]
-        機密情報がマスクされた辞書
+        Dictionary with sensitive information masked
     """
     masked = body.copy()
     sensitive_keys = {"password", "login", "WIKIDOT_SESSION_ID", "wikidot_token7"}
@@ -167,37 +167,37 @@ def _calculate_backoff(
     max_backoff: float,
 ) -> float:
     """
-    指数バックオフ間隔を計算する（ジッター付き）
+    Calculate exponential backoff interval (with jitter)
 
     Parameters
     ----------
     retry_count : int
-        現在のリトライ回数（1から開始）
+        Current retry count (starting from 1)
     base_interval : float
-        基本間隔（秒）
+        Base interval in seconds
     backoff_factor : float
-        バックオフ係数（各リトライごとに間隔がこの係数倍される）
+        Backoff factor (interval is multiplied by this factor for each retry)
     max_backoff : float
-        最大バックオフ間隔（秒）
+        Maximum backoff interval in seconds
 
     Returns
     -------
     float
-        計算されたバックオフ間隔（秒）
+        Calculated backoff interval in seconds
     """
     # backoff_factor^(retry_count-1) * base_interval
     backoff = (backoff_factor ** (retry_count - 1)) * base_interval
-    # 10%のジッターを追加
+    # Add 10% jitter
     jitter = random.uniform(0, backoff * 0.1)
     return min(backoff + jitter, max_backoff)
 
 
 class AjaxModuleConnectorClient:
     """
-    WikidotのAjax Module Connectorと通信するクライアントクラス
+    Client class for communicating with Wikidot's Ajax Module Connector
 
-    ajax-module-connector.phpへのHTTPリクエストを行い、レスポンスを処理する。
-    非同期通信、リトライ処理、エラーハンドリングなどの機能を備えている。
+    Performs HTTP requests to ajax-module-connector.php and processes responses.
+    Features async communication, retry processing, and error handling.
     """
 
     def __init__(
@@ -206,53 +206,53 @@ class AjaxModuleConnectorClient:
         config: AjaxModuleConnectorConfig | None = None,
     ):
         """
-        AjaxModuleConnectorClientの初期化
+        Initialize AjaxModuleConnectorClient
 
         Parameters
         ----------
         site_name : str | None, default None
-            接続先のWikidotサイト名。Noneの場合は"www"が使用される
+            Wikidot site name to connect to. "www" is used if None
         config : AjaxModuleConnectorConfig | None, default None
-            通信設定。Noneの場合はデフォルト値が使用される
+            Communication settings. Default values are used if None
         """
         self.site_name: str = site_name if site_name is not None else "www"
         self.config: AjaxModuleConnectorConfig = config if config is not None else AjaxModuleConnectorConfig()
 
-        # ssl対応チェック
+        # Check SSL support
         self.ssl_supported: bool = self._check_existence_and_ssl()
 
-        # ヘッダの初期化
+        # Initialize headers
         self.header: AjaxRequestHeader = AjaxRequestHeader()
 
     def _check_existence_and_ssl(self) -> bool:
         """
-        サイトの存在とSSL対応状況を確認する
+        Check site existence and SSL support status
 
-        実際にHTTPリクエストを送信し、サイトの存在を確認するとともに、
-        HTTPSにリダイレクトされるかどうかでSSL対応状況を判断する。
+        Sends an actual HTTP request to verify site existence and
+        determines SSL support status by checking if redirected to HTTPS.
 
         Returns
         -------
         bool
-            サイトがSSL対応している場合はTrue、そうでない場合はFalse
+            True if the site supports SSL, False otherwise
 
         Raises
         ------
         NotFoundException
-            指定されたサイトが存在しない場合
+            If the specified site does not exist
         """
-        # wwwは常にSSL対応
+        # www always supports SSL
         if self.site_name == "www":
             return True
 
-        # それ以外のサイトはhttpsにリダイレクトされるかどうかで判断
+        # For other sites, determine by checking if redirected to https
         response = httpx.get(f"http://{self.site_name}.wikidot.com")
 
-        # 存在しなければ例外送出
+        # Raise exception if not found
         if response.status_code == httpx.codes.NOT_FOUND:
             raise NotFoundException(f"Site is not found: {self.site_name}.wikidot.com")
 
-        # httpsにリダイレクトされているかどうかで判断
+        # Determine by checking if redirected to https
         return (
             response.status_code == httpx.codes.MOVED_PERMANENTLY
             and "Location" in response.headers
@@ -285,34 +285,34 @@ class AjaxModuleConnectorClient:
         site_ssl_supported: bool | None = None,
     ) -> tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]:
         """
-        Ajax Module Connectorにリクエストを送信し、レスポンスを取得する
+        Send request to Ajax Module Connector and get response
 
-        複数のリクエストを非同期で並行処理し、エラー発生時には自動的にリトライを行う。
+        Processes multiple requests asynchronously in parallel and automatically retries on error.
 
         Parameters
         ----------
         bodies : list[dict[str, Any]]
-            送信するリクエストボディのリスト
+            List of request bodies to send
         return_exceptions : bool, default False
-            例外を返すか送出するか (True: 返す, False: 送出する)
+            Whether to return or raise exceptions (True: return, False: raise)
         site_name : str | None, default None
-            接続先サイト名。Noneの場合は初期化時に指定したサイト名が使用される
+            Target site name. Uses the site name specified at initialization if None
         site_ssl_supported : bool | None, default None
-            サイトのSSL対応状況。Noneの場合は初期化時に確認した結果が使用される
+            Site's SSL support status. Uses the result confirmed at initialization if None
 
         Returns
         -------
         tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]
-            レスポンスまたは例外のタプル（リクエストと同じ順序）
+            Tuple of responses or exceptions (in same order as requests)
 
         Raises
         ------
         AMCHttpStatusCodeException
-            HTTPステータスコードが200以外の場合（return_exceptionsがFalseの場合）
+            If HTTP status code is not 200 (when return_exceptions is False)
         WikidotStatusCodeException
-            レスポンスのステータスが"ok"でない場合（return_exceptionsがFalseの場合）
+            If response status is not "ok" (when return_exceptions is False)
         ResponseDataException
-            レスポンスが不正なJSON形式または空の場合（return_exceptionsがFalseの場合）
+            If response is invalid JSON format or empty (when return_exceptions is False)
         """
         semaphore_instance = asyncio.Semaphore(self.config.semaphore_limit)
 
@@ -324,9 +324,9 @@ class AjaxModuleConnectorClient:
             response: httpx.Response | None = None
 
             while True:
-                # リクエスト実行
+                # Execute request
                 try:
-                    # Semaphoreで同時実行数制御
+                    # Control concurrent execution with Semaphore
                     async with semaphore_instance, httpx.AsyncClient() as client:
                         url = (
                             f"http{'s' if site_ssl_supported else ''}://{site_name}.wikidot.com/"
@@ -342,10 +342,10 @@ class AjaxModuleConnectorClient:
                         )
                         response.raise_for_status()
                 except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
-                    # HTTPステータスエラーまたはタイムアウトの場合はリトライ
+                    # Retry on HTTP status error or timeout
                     retry_count += 1
 
-                    # リトライ回数上限に達した場合は例外送出
+                    # Raise exception if retry limit reached
                     if retry_count >= self.config.attempt_limit:
                         wd_logger.error(
                             f"AMC is respond HTTP error code: "
@@ -358,7 +358,7 @@ class AjaxModuleConnectorClient:
                             response.status_code if response is not None else 999,
                         ) from e
 
-                    # 指数バックオフで間隔を空けてリトライ
+                    # Retry with exponential backoff interval
                     backoff = _calculate_backoff(
                         retry_count,
                         self.config.retry_interval,
@@ -372,29 +372,29 @@ class AjaxModuleConnectorClient:
                     await asyncio.sleep(backoff)
                     continue
 
-                # bodyをJSONデータとしてパース
+                # Parse body as JSON data
                 try:
                     _response_body = response.json()
                 except json.decoder.JSONDecodeError as e:
-                    # パースできなかったらエラーとして扱う
+                    # Treat as error if parsing fails
                     wd_logger.error(f'AMC is respond non-json data: "{response.text}" -> {_mask_sensitive_data(_body)}')
                     raise ResponseDataException(f'AMC is respond non-json data: "{response.text}"') from e
 
-                # レスポンスが空だったらエラーとして扱う
+                # Treat as error if response is empty
                 if _response_body is None or len(_response_body) == 0:
                     wd_logger.error(f"AMC is respond empty data -> {_mask_sensitive_data(_body)}")
                     raise ResponseDataException("AMC is respond empty data")
 
-                # 中身のstatusがokでなかったらエラーとして扱う
+                # Treat as error if status is not ok
                 if "status" in _response_body:
-                    # statusがtry_againの場合はリトライ
+                    # Retry if status is try_again
                     if _response_body["status"] == "try_again":
                         retry_count += 1
                         if retry_count >= self.config.attempt_limit:
                             wd_logger.error(f'AMC is respond status: "try_again" -> {_mask_sensitive_data(_body)}')
                             raise WikidotStatusCodeException('AMC is respond status: "try_again"', "try_again")
 
-                        # 指数バックオフで間隔を空けてリトライ
+                        # Retry with exponential backoff interval
                         backoff = _calculate_backoff(
                             retry_count,
                             self.config.retry_interval,
@@ -415,7 +415,7 @@ class AjaxModuleConnectorClient:
                             target_str = f"action: {_body['action']}/{_body['event'] if 'event' in _body else ''}"
                         raise ForbiddenException(f"Your account has no permission to perform this action: {target_str}")
 
-                    # それ以外でstatusがokでない場合はエラーとして扱う
+                    # Treat as error if status is not ok for other cases
                     elif _response_body["status"] != "ok":
                         wd_logger.error(
                             f'AMC is respond error status: "{_response_body["status"]}" -> '
@@ -426,7 +426,7 @@ class AjaxModuleConnectorClient:
                             _response_body["status"],
                         )
 
-                # レスポンスを返す
+                # Return response
                 return response
 
         async def _execute_requests() -> list[httpx.Response | BaseException]:
@@ -435,7 +435,7 @@ class AjaxModuleConnectorClient:
                 return_exceptions=return_exceptions,
             )
 
-        # 処理を実行（既存のループがある環境でも安全に動作）
+        # Execute processing (works safely even in existing loop environments)
         results: list[httpx.Response | BaseException] = run_coroutine(_execute_requests())
         return tuple(
             r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))

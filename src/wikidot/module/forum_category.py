@@ -1,8 +1,8 @@
 """
-Wikidotフォーラムのカテゴリを扱うモジュール
+Module for handling Wikidot forum categories
 
-このモジュールは、Wikidotサイトのフォーラムカテゴリに関連するクラスや機能を提供する。
-フォーラムカテゴリの情報取得やスレッド一覧の取得などの操作が可能。
+This module provides classes and functionality related to Wikidot forum categories.
+It enables operations such as retrieving category information and thread lists.
 """
 
 import re
@@ -21,9 +21,9 @@ if TYPE_CHECKING:
 
 class ForumCategoryCollection(list["ForumCategory"]):
     """
-    フォーラムカテゴリのコレクションを表すクラス
+    Class representing a collection of forum categories
 
-    複数のフォーラムカテゴリを格納し、一括して操作するためのリスト拡張クラス。
+    A list extension class for storing multiple forum categories and performing batch operations.
     """
 
     site: "Site"
@@ -34,14 +34,14 @@ class ForumCategoryCollection(list["ForumCategory"]):
         categories: list["ForumCategory"] | None = None,
     ):
         """
-        初期化メソッド
+        Initialization method
 
         Parameters
         ----------
         site : Site | None, default None
-            カテゴリが属するサイト。Noneの場合は最初のカテゴリから推測する
+            The site the categories belong to。If None, inferred from the first category
         categories : list[ForumCategory] | None, default None
-            格納するカテゴリのリスト
+            List of categories to store
         """
         super().__init__(categories or [])
 
@@ -52,30 +52,30 @@ class ForumCategoryCollection(list["ForumCategory"]):
 
     def __iter__(self) -> Iterator["ForumCategory"]:
         """
-        コレクション内のカテゴリを順に返すイテレータ
+        Iterator that returns categories in the collection sequentially
 
         Returns
         -------
         Iterator[ForumCategory]
-            カテゴリオブジェクトのイテレータ
+            Iterator of category objects
         """
         return super().__iter__()
 
     def find(self, id: int) -> Optional["ForumCategory"]:
         """
-        カテゴリIDでカテゴリを検索する
+        Search for a category by category ID
 
-        指定されたIDのカテゴリが存在する場合はそのカテゴリオブジェクトを返す。
+        Returns the category object if a category with the specified ID exists。
 
         Parameters
         ----------
         id : int
-            検索するカテゴリのID
+            Category ID to search for
 
         Returns
         -------
         ForumCategory | None
-            検索結果のカテゴリオブジェクト。見つからない場合はNone
+            Category object if found, None otherwise
         """
         for category in self:
             if category.id == id:
@@ -85,25 +85,25 @@ class ForumCategoryCollection(list["ForumCategory"]):
     @staticmethod
     def acquire_all(site: "Site") -> "ForumCategoryCollection":
         """
-        サイトのすべてのフォーラムカテゴリを取得する
+        Retrieve all forum categories of a site
 
-        指定されたサイトのフォーラムページにアクセスし、
-        利用可能なすべてのカテゴリ情報を取得する。
+        Accesses the forum page of the specified site and retrieves
+        information about all available categories。
 
         Parameters
         ----------
         site : Site
-            カテゴリを取得するサイト
+            The site to retrieve categories from
 
         Returns
         -------
         ForumCategoryCollection
-            取得したフォーラムカテゴリのコレクション
+            Collection of retrieved forum categories
 
         Raises
         ------
         NoElementException
-            必要なHTML要素が見つからない場合
+            If required HTML elements are not found
         """
         categories = []
 
@@ -156,26 +156,26 @@ class ForumCategoryCollection(list["ForumCategory"]):
 @dataclass
 class ForumCategory:
     """
-    Wikidotフォーラムのカテゴリを表すクラス
+    Class representing a Wikidot forum category
 
-    フォーラムカテゴリの基本情報とスレッド一覧へのアクセス機能を提供する。
+    Provides basic forum category information and access to thread lists。
 
     Attributes
     ----------
     site : Site
-        カテゴリが属するサイト
+        The site the categories belong to
     id : int
-        カテゴリID
+        Category ID
     title : str
-        カテゴリのタイトル
+        Category title
     description : str
-        カテゴリの説明文
+        Category description
     threads_count : int
-        カテゴリ内のスレッド数
+        Number of threads in the category
     posts_count : int
-        カテゴリ内の投稿数
+        Number of posts in the category
     _threads : ForumThreadCollection | None
-        カテゴリ内のスレッドコレクション（内部キャッシュ用）
+        Thread collection in the category (for internal caching)
     """
 
     site: "Site"
@@ -188,12 +188,12 @@ class ForumCategory:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            カテゴリの文字列表現
+            String representation of the category
         """
         return (
             f"ForumCategory(id={self.id}, "
@@ -204,14 +204,14 @@ class ForumCategory:
     @property
     def threads(self) -> ForumThreadCollection:
         """
-        カテゴリ内のスレッド一覧を取得する
+        Retrieve the list of threads in the category
 
-        スレッドリストが未取得の場合は自動的に取得処理を行う。
+        Automatically retrieves if the thread list has not been fetched。
 
         Returns
         -------
         ForumThreadCollection
-            カテゴリ内のスレッドコレクション
+            Thread collection in the category
         """
         if self._threads is None:
             self._threads = ForumThreadCollection.acquire_all_in_category(self)
@@ -220,46 +220,46 @@ class ForumCategory:
     @threads.setter
     def threads(self, value: ForumThreadCollection) -> None:
         """
-        カテゴリ内のスレッド一覧を設定する
+        Set the list of threads in the category
 
         Parameters
         ----------
         value : ForumThreadCollection
-            設定するスレッドコレクション
+            Thread collection to set
         """
         self._threads = value
 
     def reload_threads(self) -> ForumThreadCollection:
         """
-        カテゴリ内のスレッド一覧を再取得する
+        Re-retrieve the list of threads in the category
 
-        キャッシュを無視して最新のスレッド一覧を取得する。
+        Retrieves the latest thread list ignoring the cache。
 
         Returns
         -------
         ForumThreadCollection
-            最新のスレッドコレクション
+            Latest thread collection
         """
         self._threads = ForumThreadCollection.acquire_all_in_category(self)
         return self._threads
 
     def create_thread(self, title: str, description: str, source: str) -> ForumThread:
         """
-        カテゴリ内に新しいスレッドを作成する
+        Create a new thread in the category
 
         Parameters
         ----------
         title : str
-            スレッドのタイトル
+            Thread title
         description : str
-            スレッドの説明文
+            Thread description
         source : str
-            スレッドの本文（Wikidot記法）
+            Thread body (Wikidot syntax)
 
         Returns
         -------
         ForumThread
-            作成したスレッドオブジェクト
+            Created thread object
         """
         self.site.client.login_check()
 

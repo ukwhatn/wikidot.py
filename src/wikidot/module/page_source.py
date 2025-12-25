@@ -1,7 +1,7 @@
 """
-Wikidotページのソースコードを扱うモジュール
+Module for handling Wikidot page source code
 
-このモジュールは、Wikidotページのソースコード（Wikidot記法）に関連するクラスや機能を提供する。
+This module provides classes and functions related to Wikidot page source code (Wikidot markup).
 """
 
 from dataclasses import dataclass
@@ -14,17 +14,17 @@ if TYPE_CHECKING:
 @dataclass
 class PageSource:
     """
-    ページのソースコード（Wikidot記法）を表すクラス
+    Class representing a page's source code (Wikidot markup)
 
-    Wikidotページのソースコード（Wikidot記法）を保持し、基本的な操作を提供する。
-    ページの現在または特定リビジョンのソースコードを表現する。
+    Holds the source code (Wikidot markup) of a Wikidot page and provides basic operations.
+    Represents the source code of a page's current or specific revision.
 
     Attributes
     ----------
     page : Page
-        ソースコードが属するページ
+        The page this source code belongs to
     wiki_text : str
-        ページのソースコード（Wikidot記法）
+        The page's source code (Wikidot markup)
     """
 
     page: "Page"

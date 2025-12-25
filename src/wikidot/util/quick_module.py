@@ -7,14 +7,14 @@ import httpx
 
 @dataclass
 class QMCUser:
-    """QuickModuleから返されるユーザー情報を格納するクラス
+    """Class to store user information returned from QuickModule
 
     Attributes
     ----------
     id: int
-        ユーザーID
+        User ID
     name: str
-        ユーザー名
+        User name
     """
 
     id: int
@@ -23,14 +23,14 @@ class QMCUser:
 
 @dataclass
 class QMCPage:
-    """QuickModuleから返されるページ情報を格納するクラス
+    """Class to store page information returned from QuickModule
 
     Attributes
     ----------
     title: str
-        ページタイトル
+        Page title
     unix_name: str
-        ページのUNIX名
+        UNIX name of the page
     """
 
     title: str
@@ -47,16 +47,16 @@ class QuickModule:
         site_id: int,
         query: str,
     ) -> dict[str, Any]:
-        """リクエストを送信する
+        """Send a request
 
         Parameters
         ----------
         module_name: str
-            モジュール名
+            Module name
         site_id: int
-            サイトID
+            Site ID
         query: str
-            クエリ
+            Query
         """
 
         if module_name not in [
@@ -82,27 +82,27 @@ class QuickModule:
         item_mapping: Callable[[type[T], dict[str, Any]], T],
     ) -> list[T]:
         """
-        汎用的な検索メソッド
+        Generic lookup method
 
         Parameters
         ----------
         module_name: str
-            モジュール名
+            Module name
         site_id: int
-            サイトID
+            Site ID
         query: str
-            クエリ
+            Query
         response_key: str
-            レスポンスから取得するキー
+            Key to retrieve from response
         item_class: type
-            返すアイテムのクラス
+            Class of items to return
         item_mapping: callable
-            レスポンスアイテムからクラスインスタンスへの変換関数
+            Conversion function from response items to class instances
 
         Returns
         -------
         list
-            アイテムのリスト
+            List of items
         """
         items = QuickModule._request(module_name, site_id, query)[response_key]
         # member_lookupの特殊ケースを処理
@@ -112,19 +112,19 @@ class QuickModule:
 
     @staticmethod
     def member_lookup(site_id: int, query: str) -> list[QMCUser]:
-        """メンバーを検索する
+        """Search for members
 
         Parameters
         ----------
         site_id: int
-            サイトID
+            Site ID
         query: str
-            クエリ
+            Query
 
         Returns
         -------
         list[QMCUser]
-            ユーザーのリスト
+            List of users
         """
         return QuickModule._generic_lookup(
             "MemberLookupQModule",
@@ -137,19 +137,19 @@ class QuickModule:
 
     @staticmethod
     def user_lookup(site_id: int, query: str) -> list[QMCUser]:
-        """ユーザーを検索する
+        """Search for users
 
         Parameters
         ----------
         site_id: int
-            サイトID
+            Site ID
         query: str
-            クエリ
+            Query
 
         Returns
         -------
         list[QMCUser]
-            ユーザーのリスト
+            List of users
         """
         return QuickModule._generic_lookup(
             "UserLookupQModule",
@@ -162,19 +162,19 @@ class QuickModule:
 
     @staticmethod
     def page_lookup(site_id: int, query: str) -> list[QMCPage]:
-        """ページを検索する
+        """Search for pages
 
         Parameters
         ----------
         site_id: int
-            サイトID
+            Site ID
         query: str
-            クエリ
+            Query
 
         Returns
         -------
         list[QMCPage]
-            ページのリスト
+            List of pages
         """
         return QuickModule._generic_lookup(
             "PageLookupQModule",

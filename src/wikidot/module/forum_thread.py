@@ -1,8 +1,8 @@
 """
-Wikidotフォーラムのスレッドを扱うモジュール
+Module for handling Wikidot forum threads
 
-このモジュールは、Wikidotサイトのフォーラムスレッドに関連するクラスや機能を提供する。
-スレッドの情報取得や閲覧などの操作が可能。
+This module provides classes and functionality related to Wikidot forum threads.
+It enables operations such as retrieving thread information and viewing.
 """
 
 import re
@@ -26,10 +26,10 @@ if TYPE_CHECKING:
 
 class ForumThreadCollection(list["ForumThread"]):
     """
-    フォーラムスレッドのコレクションを表すクラス
+    Class representing a collection of forum threads
 
-    複数のフォーラムスレッドを格納し、一括して操作するためのリスト拡張クラス。
-    特定のカテゴリ内のスレッド一覧を取得する機能などを提供する。
+    A list extension class for storing multiple forum threads and performing batch operations.
+    Provides functionality such as retrieving thread lists within specific categories。
     """
 
     site: "Site"
@@ -40,14 +40,14 @@ class ForumThreadCollection(list["ForumThread"]):
         threads: list["ForumThread"] | None = None,
     ):
         """
-        初期化メソッド
+        Initialization method
 
         Parameters
         ----------
         site : Site | None, default None
-            スレッドが属するサイト。Noneの場合は最初のスレッドから推測する
+            The site the threads belong to。If None, inferred from the first thread
         threads : list[ForumThread] | None, default None
-            格納するスレッドのリスト
+            List of threads to store
         """
         super().__init__(threads or [])
 
@@ -58,28 +58,28 @@ class ForumThreadCollection(list["ForumThread"]):
 
     def __iter__(self) -> Iterator["ForumThread"]:
         """
-        コレクション内のスレッドを順に返すイテレータ
+        Iterator that returns threads in the collection sequentially
 
         Returns
         -------
         Iterator[ForumThread]
-            スレッドオブジェクトのイテレータ
+            Iterator of thread objects
         """
         return super().__iter__()
 
     def find(self, id: int) -> Optional["ForumThread"]:
         """
-        指定したIDのスレッドを取得する
+        Retrieve a thread with the specified ID
 
         Parameters
         ----------
         id : int
-            取得するスレッドのID
+            Thread ID to retrieve
 
         Returns
         -------
         ForumThread | None
-            指定したIDのスレッド。存在しない場合はNone
+            Thread with the specified ID, or None if it does not exist
         """
         for thread in self:
             if thread.id == id:
@@ -91,29 +91,29 @@ class ForumThreadCollection(list["ForumThread"]):
         site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
     ) -> "ForumThreadCollection":
         """
-        フォーラムページのHTMLからスレッド情報を抽出する内部メソッド
+        Internal method to extract thread information from forum page HTML
 
-        HTMLからスレッドのタイトル、説明、作成者、作成日時などの情報を抽出し、
-        ForumThreadオブジェクトのリストを生成する。
+        Extracts information such as thread title, description, author, creation date from HTML
+        and generates a list of ForumThread objects。
 
         Parameters
         ----------
         site : Site
-            スレッドが属するサイト
+            The site the threads belong to
         html : BeautifulSoup
-            パース対象のHTML
+            HTML to parse
         category : ForumCategory | None, default None
-            スレッドが属するカテゴリ（オプション）
+            Category the thread belongs to (optional)
 
         Returns
         -------
         list[ForumThread]
-            抽出されたスレッドオブジェクトのリスト
+            List of extracted thread objects
 
         Raises
         ------
         NoElementException
-            必要なHTML要素が見つからない場合
+            If required HTML elements are not found
         """
         threads = []
         for info in html.select("table.table tr.head~tr"):
@@ -165,29 +165,29 @@ class ForumThreadCollection(list["ForumThread"]):
         site: "Site", html: BeautifulSoup, category: Optional["ForumCategory"] = None
     ) -> "ForumThread":
         """
-        スレッドページのHTMLからスレッド情報を抽出する内部メソッド
+        Internal method to extract thread information from thread page HTML
 
-        HTMLからスレッドのタイトル、説明、作成者、作成日時などの情報を抽出し、
-        ForumThreadオブジェクトを生成する。
+        Extracts information such as thread title, description, author, creation date from HTML,
+        and generates a ForumThread object.
 
         Parameters
         ----------
         site : Site
-            スレッドが属するサイト
+            The site the threads belong to
         html : BeautifulSoup
-            パース対象のHTML
+            HTML to parse
         category : ForumCategory | None, default None
-            スレッドが属するカテゴリ（オプション）
+            Category the thread belongs to (optional)
 
         Returns
         -------
         ForumThread
-            抽出されたスレッドオブジェクト
+            Extracted thread object
 
         Raises
         ------
         NoElementException
-            必要なHTML要素が見つからない場合
+            If required HTML elements are not found
         """
         # title取得処理
         # forum-breadcrumbsの最後のNavigableStringを取得
@@ -259,25 +259,25 @@ class ForumThreadCollection(list["ForumThread"]):
     @staticmethod
     def acquire_all_in_category(category: "ForumCategory") -> "ForumThreadCollection":
         """
-        特定のカテゴリ内のすべてのスレッドを取得する
+        Retrieve all threads within a specific category
 
-        カテゴリページの各ページにアクセスし、すべてのスレッド情報を収集する。
-        ページネーションが存在する場合は、すべてのページを巡回する。
+        Accesses each page of the category page and collects all thread information。
+        Traverses all pages if pagination exists。
 
         Parameters
         ----------
         category : ForumCategory
-            スレッドを取得するカテゴリ
+            Category to retrieve threads from
 
         Returns
         -------
         ForumThreadCollection
-            カテゴリ内のすべてのスレッドを含むコレクション
+            Collection containing all threads in the category
 
         Raises
         ------
         NoElementException
-            HTML要素の解析に失敗した場合
+            If HTML element parsing fails
         """
         threads: list[ForumThread] = []
 
@@ -328,23 +328,23 @@ class ForumThreadCollection(list["ForumThread"]):
         site: "Site", thread_ids: list[int], category: Optional["ForumCategory"] = None
     ) -> "ForumThreadCollection":
         """
-        指定されたスレッドIDのスレッド情報を取得する
+        Retrieve thread information for the specified thread IDs
 
-        指定されたスレッドIDのスレッド情報を取得し、コレクションとして返す。
+        Retrieves thread information for the specified thread IDs and returns them as a collection.
 
         Parameters
         ----------
         site : Site
-            スレッドが属するサイト
+            The site the threads belong to
         thread_ids : list[int]
-            取得するスレッドのIDリスト
+            List of thread IDs to retrieve
         category : ForumCategory | None, default None
-            スレッドが属するカテゴリ（オプション）
+            Category the thread belongs to (optional)
 
         Returns
         -------
         ForumThreadCollection
-            取得したスレッド情報のコレクション
+            Collection of retrieved thread information
         """
         responses = site.amc_request(
             [
@@ -373,31 +373,31 @@ class ForumThreadCollection(list["ForumThread"]):
 @dataclass
 class ForumThread:
     """
-    Wikidotフォーラムのスレッドを表すクラス
+    Class representing a Wikidot forum thread
 
-    フォーラムスレッドの基本情報を保持する。スレッドのタイトル、説明、
-    作成者、作成日時、投稿数などの情報を提供する。
+    Holds basic forum thread information. Provides information such as thread title,
+    description, author, creation date, and post count.
 
     Attributes
     ----------
     site : Site
-        スレッドが属するサイト
+        The site the thread belongs to
     id : int
-        スレッドID
+        Thread ID
     title : str
-        スレッドのタイトル
+        Thread title
     description : str
-        スレッドの説明または抜粋
+        Thread description or excerpt
     created_by : AbstractUser
-        スレッドの作成者
+        Thread creator
     created_at : datetime
-        スレッドの作成日時
+        Thread creation date and time
     post_count : int
-        スレッド内の投稿数
+        Number of posts in the thread
     category : ForumCategory | None, default None
-        スレッドが属するフォーラムカテゴリ
+        Forum category the thread belongs to
     _posts : ForumPostCollection | None, default None
-        スレッド内の投稿コレクション（遅延取得）
+        Post collection in the thread (lazy loading)
     """
 
     site: "Site"
@@ -412,12 +412,12 @@ class ForumThread:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            スレッドの文字列表現
+            String representation of the thread
         """
         return (
             f"ForumThread(id={self.id}, "
@@ -430,26 +430,26 @@ class ForumThread:
     @property
     def url(self) -> str:
         """
-        スレッドのURLを取得する
+        Retrieve the thread URL
 
         Returns
         -------
         str
-            スレッドのURL
+            Thread URL
         """
         return f"{self.site.url}/forum/t-{self.id}/"
 
     @property
     def posts(self) -> "ForumPostCollection":
         """
-        スレッド内の全投稿を取得する
+        Retrieve all posts in a thread
 
-        投稿が未取得の場合は自動的に取得処理を行う。
+        Automatically retrieves if posts have not been fetched。
 
         Returns
         -------
         ForumPostCollection
-            スレッド内のすべての投稿を含むコレクション
+            Collection containing all posts in the thread
         """
         if self._posts is None:
             from .forum_post import ForumPostCollection
@@ -459,31 +459,31 @@ class ForumThread:
 
     def reply(self, source: str, title: str = "", parent_post_id: int | None = None) -> "ForumThread":
         """
-        スレッドに返信を投稿する
+        Post a reply to the thread
 
-        スレッドに新しい投稿を追加する。親投稿IDを指定すると、
-        その投稿への返信として投稿される。
+        Adds a new post to the thread. If a parent post ID is specified,
+        it is posted as a reply to that post。
 
         Parameters
         ----------
         source : str
-            投稿の本文（Wikidot記法）
+            Post body (Wikidot syntax)
         title : str, default ""
-            投稿のタイトル
+            Post title
         parent_post_id : int | None, default None
-            返信先の投稿ID（スレッドへの直接返信の場合はNone）
+            Post ID to reply to (None for direct replies to thread)
 
         Returns
         -------
         ForumThread
-            自身（メソッドチェーン用）
+            Self (for method chaining)
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            If not logged in
         WikidotStatusCodeException
-            投稿に失敗した場合
+            If posting fails
         """
         self.site.client.login_check()
         self.site.amc_request(
@@ -507,20 +507,20 @@ class ForumThread:
     @staticmethod
     def get_from_id(site: "Site", thread_id: int, category: Optional["ForumCategory"] = None) -> "ForumThread":
         """
-        スレッドIDからスレッド情報を取得する
+        Retrieve thread information from thread ID
 
         Parameters
         ----------
         site : Site
-            スレッドが属するサイト
+            The site the thread belongs to
         thread_id : int
-            取得するスレッドのID
+            Thread ID to retrieve
         category : ForumCategory | None, default None
-            スレッドが属するカテゴリ（オプション）
+            Category the thread belongs to (optional)
 
         Returns
         -------
         ForumThread
-            取得したスレッド情報
+            Retrieved thread information
         """
         return ForumThreadCollection.acquire_from_thread_ids(site, [thread_id], category)[0]

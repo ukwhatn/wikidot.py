@@ -1,16 +1,16 @@
 """
-特殊記号・非英語アルファベットを英語アルファベットに変換するためのマッピングテーブル
+Mapping table for converting special symbols and non-English alphabets to English alphabets
 
-このモジュールは、非ASCII文字を対応するASCII文字に変換するためのマッピングを提供する。
-主にURL生成やページ名のunix形式への変換時に使用される。
+This module provides mappings for converting non-ASCII characters to their corresponding ASCII characters.
+Primarily used for URL generation and converting page names to unix format.
 
 Attributes
 ----------
 special_char_map: dict[str, str]
-    特殊文字からASCII文字への変換マッピング辞書
+    Dictionary mapping special characters to ASCII characters
 """
 
-# 特殊記号・非英語アルファベットを英語アルファベットに変換する
+# Convert special symbols and non-English alphabets to English alphabets
 special_char_map = {
     "À": "a",
     "Á": "a",

@@ -14,24 +14,24 @@ class RequestUtil:
     def request(
         client: "Client", method: str, urls: list[str], return_exceptions: bool = False
     ) -> list[httpx.Response | Exception]:
-        """GETリクエストを送信する
+        """Send GET request
 
         Parameters
         ----------
         client: Client
-            クライアント
+            Client instance
         method: str
-            リクエストメソッド
+            Request method
         urls: list[str]
-            URLのリスト
+            List of URLs
         return_exceptions: bool
-            例外を返すかどうか (True: 返す, False: 例外を送出)
-            デフォルトでは例外を送出
+            Whether to return exceptions (True: return, False: raise)
+            Default is to raise exceptions
 
         Returns
         -------
         list[httpx.Response | Exception]
-            レスポンスのリスト
+            List of responses
         """
         config = client.amc_client.config
         semaphore = asyncio.Semaphore(config.semaphore_limit)

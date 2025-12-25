@@ -1,8 +1,8 @@
 """
-Wikidotサイトとの対話を行うためのPythonライブラリ
+A Python library for interacting with Wikidot sites
 
-このパッケージはWikidotサイトのAPI操作を抽象化し、直感的なインターフェースを提供する。
-ユーザー、サイト、ページなどのWikidotの主要要素にアクセスするための各種クラスが含まれている。
+This package abstracts Wikidot site API operations and provides an intuitive interface.
+It contains various classes for accessing major Wikidot elements such as users, sites, and pages.
 """
 
 import importlib
@@ -16,23 +16,22 @@ __all__ = ["Client"]
 __version__ = "4.0.2"
 
 
-# 全クラス・モジュールを公開する
 def _import_submodules() -> None:
     """
-    パッケージ内の全サブモジュールからクラスをインポートしトップレベルで公開する関数
+    Import classes from all submodules in the package and expose them at the top level
 
-    各サブディレクトリ内のPythonファイルを走査し、含まれるクラスをトップレベルの名前空間に
-    インポートする。これにより、`wikidot.ClassName`のような形式でクラスにアクセスできる。
+    Scans Python files within each subdirectory and imports contained classes
+    into the top-level namespace. This allows access to classes in the format
+    `wikidot.ClassName`.
 
     Notes
     -----
-    '_'で始まるファイル名は無視される。
-    インポートに失敗した場合は静かに無視される。
+    Filenames starting with '_' are ignored.
+    Import failures are silently ignored.
     """
     current_module = sys.modules[__name__]
     package_dir = os.path.dirname(__file__)
 
-    # 公開対象のディレクトリを走査
     for base_dir in ["common", "connector", "module", "util"]:
         base_path = os.path.join(package_dir, base_dir)
         if not os.path.isdir(base_path):
@@ -42,7 +41,7 @@ def _import_submodules() -> None:
             if filename.startswith("_") or not filename.endswith(".py"):
                 continue
 
-            module_name = filename[:-3]  # .py を除去
+            module_name = filename[:-3]
             full_module_name = f"{__name__}.{base_dir}.{module_name}"
 
             try:

@@ -1,6 +1,6 @@
 """
-文字変換テーブルを含むモジュール
+Module containing character conversion tables
 
-このパッケージには、特殊文字や非ASCII文字の変換に使用されるマッピングテーブルが含まれている。
-主にURL生成やunix名変換のための文字変換処理で使用される。
+This package contains mapping tables used for converting special characters and non-ASCII characters.
+Primarily used for character conversion processing in URL generation and unix name conversion.
 """

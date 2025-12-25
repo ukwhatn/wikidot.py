@@ -1,8 +1,8 @@
 """
-ロギング機能を提供するモジュール
+Module providing logging functionality
 
-このモジュールは、ライブラリ全体で使用されるロガーを設定し、提供する。
-NullHandlerを使用してアプリケーション側でのログ制御を可能にする。
+This module configures and provides loggers used throughout the library.
+It uses NullHandler to enable log control on the application side.
 """
 
 import logging
@@ -10,17 +10,17 @@ import logging
 
 def get_logger(name: str = "wikidot") -> logging.Logger:
     """
-    ライブラリ用ロガーを取得
+    Get the library logger
 
     Parameters
     ----------
     name : str, default "wikidot"
-        ロガーの名前
+        Logger name
 
     Returns
     -------
     logging.Logger
-        ロガーインスタンス
+        Logger instance
     """
     _logger = logging.getLogger(name)
 
@@ -32,27 +32,27 @@ def get_logger(name: str = "wikidot") -> logging.Logger:
 
 def setup_console_handler(logger: logging.Logger, level: str | int = logging.WARNING) -> None:
     """
-    コンソール出力用ハンドラを設定
+    Configure console output handler
 
     Parameters
     ----------
     logger : logging.Logger
-        設定するロガー
+        Logger to configure
     level : str | int, default logging.WARNING
-        ログレベル
+        Log level
     """
-    # 既存のStreamHandlerを削除（重複回避）
+    # Remove existing StreamHandler (to avoid duplicates)
     for handler in logger.handlers[:]:
         if isinstance(handler, logging.StreamHandler) and not isinstance(handler, logging.NullHandler):
             logger.removeHandler(handler)
 
-    # 新しいStreamHandlerを追加
+    # Add new StreamHandler
     formatter = logging.Formatter("%(asctime)s [%(name)s/%(levelname)s] %(message)s")
     stream_handler = logging.StreamHandler()
     stream_handler.setFormatter(formatter)
     logger.addHandler(stream_handler)
 
-    # ログレベルを設定（文字列の場合は変換）
+    # Set log level (convert if string)
     if isinstance(level, str):
         level_attr = level.upper()
         level_value = getattr(logging, level_attr, None)
@@ -62,5 +62,5 @@ def setup_console_handler(logger: logging.Logger, level: str | int = logging.WAR
     logger.setLevel(level)
 
 
-# パッケージ全体で使用されるデフォルトロガー
+# Default logger used throughout the package
 logger = get_logger()

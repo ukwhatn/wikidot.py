@@ -1,8 +1,8 @@
 """
-Wikidotサイトの各種要素をパースするためのユーティリティモジュール
+Utility module for parsing various elements of Wikidot sites
 
-このパッケージには、Wikidotサイトから取得したHTMLや特定の形式の要素を
-パースするためのユーティリティ関数が含まれている。
+This package contains utility functions for parsing HTML and specific format elements
+retrieved from Wikidot sites.
 """
 
 from .odate import odate_parse as odate

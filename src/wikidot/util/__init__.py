@@ -1,7 +1,7 @@
 """
-Wikidotサイトを操作するための汎用ユーティリティモジュール
+General utility module for operating Wikidot sites
 
-このパッケージには、Wikidotサイトとの通信や操作を効率的に行うための
-様々なユーティリティクラスや関数が含まれている。
-文字列処理、リクエスト処理、パース処理などの機能を提供する。
+This package contains various utility classes and functions for
+efficiently communicating with and operating Wikidot sites.
+It provides functionality for string processing, request processing, parsing, and more.
 """

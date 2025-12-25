@@ -1,8 +1,8 @@
 """
-Wikidotサイトへの参加申請を扱うモジュール
+Module for handling site join applications on Wikidot
 
-このモジュールは、Wikidotサイトへの参加申請に関連するクラスや機能を提供する。
-申請の取得、承認、拒否などの操作が可能。
+This module provides classes and functionality related to site join applications on Wikidot.
+It enables operations such as retrieving, accepting, and declining applications.
 """
 
 from dataclasses import dataclass
@@ -22,19 +22,19 @@ if TYPE_CHECKING:
 @dataclass
 class SiteApplication:
     """
-    Wikidotサイトへの参加申請を表すクラス
+    Class representing a site join application on Wikidot
 
-    ユーザーからサイトへの参加申請情報を保持し、申請の承認や拒否などの
-    処理機能を提供する。
+    Holds site join application information from users and provides
+    functionality for processing such as accepting or declining applications.
 
     Attributes
     ----------
     site : Site
-        申請先のサイト
+        The site being applied to
     user : AbstractUser
-        申請者
+        The applicant
     text : str
-        申請メッセージ
+        Application message
     """
 
     site: "Site"
@@ -43,12 +43,12 @@ class SiteApplication:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            申請の文字列表現
+            String representation of the application
         """
         return f"SiteApplication(user={self.user}, site={self.site}, text={self.text})"
 
@@ -56,26 +56,26 @@ class SiteApplication:
     @login_required
     def acquire_all(site: "Site") -> list["SiteApplication"]:
         """
-        サイトへの未処理の参加申請をすべて取得する
+        Retrieve all pending site join applications
 
         Parameters
         ----------
         site : Site
-            参加申請を取得するサイト
+            The site to retrieve applications from
 
         Returns
         -------
         list[SiteApplication]
-            参加申請のリスト
+            List of site applications
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            If not logged in
         ForbiddenException
-            サイトの参加申請を管理する権限がない場合
+            If no permission to manage site applications
         UnexpectedException
-            応答の解析に失敗した場合
+            If response parsing fails
         """
         response = site.amc_request([{"moduleName": "managesite/ManageSiteMembersApplicationsModule"}])[0]
 
@@ -108,25 +108,25 @@ class SiteApplication:
     @login_required
     def _process(self, action: str) -> None:
         """
-        参加申請を処理する内部メソッド
+        Internal method to process a site join application
 
-        承認または拒否の処理を行う共通メソッド。
+        Common method for processing acceptance or decline.
 
         Parameters
         ----------
         action : str
-            処理の種類 ("accept" または "decline")
+            Type of action ("accept" or "decline")
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            If not logged in
         ValueError
-            無効なアクションが指定された場合
+            If an invalid action is specified
         NotFoundException
-            指定された申請が見つからない場合
+            If the specified application is not found
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         if action not in ["accept", "decline"]:
             raise ValueError(f"Invalid action: {action}")
@@ -152,34 +152,34 @@ class SiteApplication:
 
     def accept(self) -> None:
         """
-        参加申請を承認する
+        Accept the site join application
 
-        申請者をサイトのメンバーとして追加する。
+        Adds the applicant as a member of the site.
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            If not logged in
         NotFoundException
-            指定された申請が見つからない場合
+            If the specified application is not found
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         self._process("accept")
 
     def decline(self) -> None:
         """
-        参加申請を拒否する
+        Decline the site join application
 
-        申請者の参加を拒否し、申請を削除する。
+        Rejects the applicant's join request and deletes the application.
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            If not logged in
         NotFoundException
-            指定された申請が見つからない場合
+            If the specified application is not found
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         self._process("decline")
