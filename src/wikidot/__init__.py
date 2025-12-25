@@ -13,7 +13,7 @@ import sys
 from .module.client import Client
 
 __all__ = ["Client"]
-__version__ = "4.0.2"
+__version__ = "4.0.6"
 
 
 def _import_submodules() -> None:
