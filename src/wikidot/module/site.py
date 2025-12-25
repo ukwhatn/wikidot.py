@@ -30,38 +30,38 @@ if TYPE_CHECKING:
 
 class SitePagesAccessor:
     """
-    サイト内のページコレクションに対する操作を提供するクラス
+    A class that provides operations on page collections within a site
 
-    ページの検索機能など、複数のページに対する操作を提供する。
-    Site.pagesプロパティを通じてアクセスする。
+    Provides operations on multiple pages such as page search functionality.
+    Access through the Site.pages property.
     """
 
     def __init__(self, site: "Site"):
         """
-        初期化メソッド
+        Initialize method
 
         Parameters
         ----------
         site : Site
-            親サイトインスタンス
+            Parent site instance
         """
         self.site = site
 
     def search(self, **kwargs: Unpack[SearchPagesQueryParams]) -> "PageCollection":
         """
-        サイト内のページを検索する
+        Search for pages within a site
 
-        キーワード引数を受け取り、SearchPagesQueryオブジェクトに変換して検索を実行する。
+        Receives keyword arguments, converts them to a SearchPagesQuery object, and executes the search.
 
         Parameters
         ----------
         **kwargs : Unpack[SearchPagesQueryParams]
-            検索条件のキーワード引数。詳細はSearchPagesQueryParamsを参照。
+            Search condition keyword arguments. See SearchPagesQueryParams for details.
 
         Returns
         -------
         PageCollection
-            検索結果のページコレクション
+            Page collection of search results
         """
         query = SearchPagesQuery(**kwargs)
         return PageCollection.search_pages(self.site, query)
@@ -69,44 +69,44 @@ class SitePagesAccessor:
 
 class SitePageAccessor:
     """
-    サイト内の個別ページに対する操作を提供するクラス
+    A class that provides operations on individual pages within a site
 
-    ページの取得や作成などの個別ページ操作を提供する。
-    Site.pageプロパティを通じてアクセスする。
+    Provides individual page operations such as retrieving and creating pages.
+    Access through the Site.page property.
     """
 
     def __init__(self, site: "Site"):
         """
-        初期化メソッド
+        Initialize method
 
         Parameters
         ----------
         site : Site
-            親サイトインスタンス
+            Parent site instance
         """
         self.site = site
 
     def get(self, fullname: str, raise_when_not_found: bool = True) -> Optional["Page"]:
         """
-        フルネームからページを取得する
+        Get a page from its fullname
 
         Parameters
         ----------
         fullname : str
-            ページのフルネーム（例: "コンポーネント:scp-173"）
+            Fullname of the page (e.g., "component:scp-173")
         raise_when_not_found : bool, default True
-            ページが見つからなかった場合に例外を発生させるかどうか
-            Falseの場合、ページが見つからなければNoneを返す
+            Whether to raise an exception if the page is not found
+            If False, returns None when the page is not found
 
         Returns
         -------
         Page | None
-            ページオブジェクト、または見つからない場合はNone
+            Page object, or None if not found
 
         Raises
         ------
         NotFoundException
-            raise_when_not_foundがTrueでページが見つからない場合
+            When raise_when_not_found is True and the page is not found
         """
         res = PageCollection.search_pages(self.site, SearchPagesQuery(fullname=fullname))
         if len(res) == 0:
@@ -124,30 +124,30 @@ class SitePageAccessor:
         force_edit: bool = False,
     ) -> "Page":
         """
-        ページを新規作成する
+        Create a new page
 
         Parameters
         ----------
         fullname : str
-            ページのフルネーム（例: "scp-173"）
+            Fullname of the page (e.g., "scp-173")
         title : str, default ""
-            ページのタイトル
+            Title of the page
         source : str, default ""
-            ページのソースコード（Wikidot記法）
+            Source code of the page (Wikidot markup)
         comment : str, default ""
-            編集コメント
+            Edit comment
         force_edit : bool, default False
-            ページが既に存在する場合に上書きするかどうか
+            Whether to overwrite if the page already exists
 
         Returns
         -------
         Page
-            作成されたページオブジェクト
+            Created page object
 
         Raises
         ------
         TargetErrorException
-            ページが既に存在し、force_editがFalseの場合
+            When the page already exists and force_edit is False
         """
         return Page.create_or_edit(
             site=self.site,
@@ -162,32 +162,32 @@ class SitePageAccessor:
 
 class SiteForumAccessor:
     """
-    サイト内のフォーラム機能に対する操作を提供するクラス
+    A class that provides operations on forum functionality within a site
 
-    フォーラムカテゴリの取得などのフォーラム関連機能を提供する。
-    Site.forumプロパティを通じてアクセスする。
+    Provides forum-related functionality such as retrieving forum categories.
+    Access through the Site.forum property.
     """
 
     def __init__(self, site: "Site"):
         """
-        初期化メソッド
+        Initialize method
 
         Parameters
         ----------
         site : Site
-            親サイトインスタンス
+            Parent site instance
         """
         self.site = site
 
     @property
     def categories(self) -> "ForumCategoryCollection":
         """
-        サイト内のフォーラムカテゴリ一覧を取得する
+        Get a list of forum categories within the site
 
         Returns
         -------
         ForumCategoryCollection
-            フォーラムカテゴリのコレクション
+            Collection of forum categories
         """
         return ForumCategoryCollection.acquire_all(self.site)
 
@@ -195,28 +195,28 @@ class SiteForumAccessor:
 @dataclass
 class SiteChange:
     """
-    サイトの変更履歴の1件を表すクラス
+    A class representing a single change history entry for a site
 
-    サイト内のページに対する変更（作成、編集、削除など）の情報を保持する。
+    Holds information about changes to pages within a site (creation, editing, deletion, etc.).
 
     Attributes
     ----------
     site : Site
-        変更が行われたサイト
+        Site where the change occurred
     page_fullname : str
-        変更されたページのフルネーム
+        Fullname of the changed page
     page_title : str
-        変更されたページのタイトル
+        Title of the changed page
     revision_no : int
-        リビジョン番号
+        Revision number
     changed_by : AbstractUser
-        変更を行ったユーザー
+        User who made the change
     changed_at : datetime
-        変更日時
+        Date and time of change
     flags : list[str]
-        変更フラグ（"N"=新規作成, "S"=ソース変更, "T"=タイトル変更, "R"=名前変更, "M"=移動, "F"=ファイル, "A"=削除）
+        Change flags ("N"=new, "S"=source change, "T"=title change, "R"=rename, "M"=move, "F"=file, "A"=delete)
     comment : str | None
-        変更コメント
+        Change comment
     """
 
     site: "Site"
@@ -230,12 +230,12 @@ class SiteChange:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            変更履歴の文字列表現
+            String representation of the change history
         """
         return (
             f"SiteChange(page_fullname={self.page_fullname}, "
@@ -247,25 +247,25 @@ class SiteChange:
 @dataclass
 class Site:
     """
-    Wikidotサイトを表すクラス
+    A class representing a Wikidot site
 
-    サイトの基本情報とサイトに対する様々な操作機能を提供する。
-    ページ、フォーラム、メンバー管理などの機能にアクセスするための起点となる。
+    Provides basic site information and various operational functions for the site.
+    Serves as the entry point for accessing features such as pages, forums, and member management.
 
     Attributes
     ----------
     client : Client
-        クライアントインスタンス
+        Client instance
     id : int
-        サイトID
+        Site ID
     title : str
-        サイトのタイトル
+        Title of the site
     unix_name : str
-        サイトのUNIX名（URLの一部として使用される）
+        UNIX name of the site (used as part of the URL)
     domain : str
-        サイトのドメイン（完全修飾ドメイン名）
+        Domain of the site (fully qualified domain name)
     ssl_supported : bool
-        サイトがSSL/HTTPS対応しているかどうか
+        Whether the site supports SSL/HTTPS
     """
 
     client: "Client"
@@ -288,9 +288,9 @@ class Site:
 
     def __post_init__(self) -> None:
         """
-        初期化後の処理
+        Post-initialization processing
 
-        サイト関連の機能を提供する各サブクラスのインスタンスを初期化する。
+        Initializes instances of each subclass that provides site-related functionality.
         """
         self.pages = SitePagesAccessor(self)
         self.page = SitePageAccessor(self)
@@ -298,40 +298,40 @@ class Site:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            サイトオブジェクトの文字列表現
+            String representation of the site object
         """
         return f"Site(id={self.id}, title={self.title}, unix_name={self.unix_name})"
 
     @staticmethod
     def from_unix_name(client: "Client", unix_name: str) -> "Site":
         """
-        UNIX名からサイトオブジェクトを取得する
+        Get a site object from a UNIX name
 
-        指定されたUNIX名のサイトにアクセスし、サイト情報を解析してSiteオブジェクトを生成する。
+        Accesses the site with the specified UNIX name, parses site information, and generates a Site object.
 
         Parameters
         ----------
         client : Client
-            クライアントインスタンス
+            Client instance
         unix_name : str
-            サイトのUNIX名（例: "fondation"）
+            UNIX name of the site (e.g., "fondation")
 
         Returns
         -------
         Site
-            サイトオブジェクト
+            Site object
 
         Raises
         ------
         NotFoundException
-            指定されたUNIX名のサイトが存在しない場合
+            When a site with the specified UNIX name does not exist
         UnexpectedException
-            サイト情報の解析中にエラーが発生した場合
+            When an error occurs during site information parsing
         """
         # サイト情報を取得
         # リダイレクトには従う
@@ -398,19 +398,19 @@ class Site:
         self, bodies: list[dict[str, Any]], return_exceptions: bool = False
     ) -> tuple[httpx.Response, ...] | tuple[httpx.Response | Exception, ...]:
         """
-        このサイトに対してAjax Module Connectorリクエストを実行する
+        Execute an Ajax Module Connector request for this site
 
         Parameters
         ----------
         bodies : list[dict]
-            リクエストボディのリスト
+            List of request bodies
         return_exceptions : bool, default False
-            例外を返すか送出するか（True: 返す, False: 送出する）
+            Whether to return or raise exceptions (True: return, False: raise)
 
         Returns
         -------
         list | Exception
-            レスポンスのリスト、またはreturn_exceptionsがTrueの場合は例外
+            List of responses, or exceptions if return_exceptions is True
         """
         if return_exceptions:
             return self.client.amc_client.request(bodies, True, self.unix_name, self.ssl_supported)
@@ -420,35 +420,35 @@ class Site:
     @property
     def applications(self) -> list[SiteApplication]:
         """
-        サイトへの未処理の参加申請を取得する
+        Get pending membership applications to the site
 
         Returns
         -------
         list[SiteApplication]
-            参加申請のリスト
+            List of membership applications
         """
         return SiteApplication.acquire_all(self)
 
     @login_required
     def invite_user(self, user: "User", text: str) -> None:
         """
-        ユーザーをサイトに招待する
+        Invite a user to the site
 
         Parameters
         ----------
         user : User
-            招待するユーザー
+            User to invite
         text : str
-            招待メッセージ
+            Invitation message
 
         Raises
         ------
         TargetErrorException
-            ユーザーが既に招待済み、または既にメンバーの場合
+            When the user is already invited or already a member
         WikidotStatusCodeException
-            その他のWikidot APIエラーが発生した場合
+            When other Wikidot API errors occur
         LoginRequiredException
-            ログインしていない場合（@login_required装飾子による）
+            When not logged in (by @login_required decorator)
         """
         try:
             self.amc_request(
@@ -477,24 +477,24 @@ class Site:
     @property
     def url(self) -> str:
         """
-        サイトのURLを取得する
+        Get the URL of the site
 
         Returns
         -------
         str
-            サイトの完全なURL
+            Full URL of the site
         """
         return f"http{'s' if self.ssl_supported else ''}://{self.domain}"
 
     @property
     def members(self) -> list[SiteMember]:
         """
-        サイトのメンバー一覧を取得する
+        Get a list of site members
 
         Returns
         -------
         list[SiteMember]
-            サイトメンバーのリスト
+            List of site members
         """
         if self._members is None:
             self._members = SiteMember.get(self)
@@ -503,12 +503,12 @@ class Site:
     @property
     def moderators(self) -> list[SiteMember]:
         """
-        サイトのモデレーター一覧を取得する
+        Get a list of site moderators
 
         Returns
         -------
         list[SiteMember]
-            サイトモデレーターのリスト
+            List of site moderators
         """
         if self._moderators is None:
             self._moderators = SiteMember.get(self, "moderators")
@@ -517,12 +517,12 @@ class Site:
     @property
     def admins(self) -> list[SiteMember]:
         """
-        サイトの管理者一覧を取得する
+        Get a list of site administrators
 
         Returns
         -------
         list[SiteMember]
-            サイト管理者のリスト
+            List of site administrators
         """
         if self._admins is None:
             self._admins = SiteMember.get(self, "admins")
@@ -530,19 +530,19 @@ class Site:
 
     def member_lookup(self, user_name: str, user_id: int | None = None) -> bool:
         """
-        指定されたユーザーがサイトのメンバーかどうかを確認する
+        Check whether a specified user is a member of the site
 
         Parameters
         ----------
         user_name : str
-            確認するユーザー名
+            Username to check
         user_id : int | None, default None
-            確認するユーザーID（指定した場合はIDも一致する必要がある）
+            User ID to check (if specified, the ID must also match)
 
         Returns
         -------
         bool
-            ユーザーがサイトメンバーである場合はTrue、そうでない場合はFalse
+            True if the user is a site member, False otherwise
         """
         users: list[QMCUser] = QuickModule.member_lookup(self.id, user_name)
 
@@ -557,56 +557,56 @@ class Site:
 
     def get_thread(self, thread_id: int) -> ForumThread:
         """
-        スレッドを取得する
+        Get a thread
 
         Parameters
         ----------
         thread_id : int
-            スレッドID
+            Thread ID
 
         Returns
         -------
         ForumThread
-            スレッドオブジェクト
+            Thread object
         """
         return ForumThread.get_from_id(self, thread_id)
 
     def get_threads(self, thread_ids: list[int]) -> ForumThreadCollection:
         """
-        複数のスレッドを取得する
+        Get multiple threads
 
         Parameters
         ----------
         thread_ids : list[int]
-            スレッドIDのリスト
+            List of thread IDs
 
         Returns
         -------
         list[ForumThread]
-            スレッドオブジェクトのリスト
+            List of thread objects
         """
         return ForumThreadCollection.acquire_from_thread_ids(self, thread_ids)
 
     def get_recent_changes(self, limit: int | None = None) -> list["SiteChange"]:
         """
-        サイトの最近の変更履歴を取得する
+        Get recent change history of the site
 
-        サイト内のページに対する最近の変更（作成、編集、削除など）を取得する。
+        Retrieves recent changes to pages within the site (creation, editing, deletion, etc.).
 
         Parameters
         ----------
         limit : int | None, default None
-            取得する最大件数。Noneの場合は最初のページ（デフォルト件数）のみ取得
+            Maximum number of entries to retrieve. If None, retrieves only the first page (default count)
 
         Returns
         -------
         list[SiteChange]
-            変更履歴のリスト（新しい順）
+            List of change history (in descending order by date)
 
         Raises
         ------
         NoElementException
-            HTML要素の解析に失敗した場合
+            When HTML element parsing fails
         """
         from ..common.exceptions import NoElementException
 

@@ -4,22 +4,22 @@ import bs4
 
 
 def odate_parse(odate_element: bs4.Tag) -> datetime:
-    """odate要素を解析し、datetimeオブジェクトを返す
+    """Parse an odate element and return a datetime object
 
     Parameters
     ----------
     odate_element: bs4.Tag
-        odate要素
+        odate element
 
     Returns
     -------
     datetime
-        odate要素が表す日時
+        Date and time represented by the odate element
 
     Raises
     ------
     ValueError
-        odate要素が有効なunix timeを含んでいない場合
+        If the odate element does not contain a valid unix time
 
     """
     _odate_classes = odate_element["class"]

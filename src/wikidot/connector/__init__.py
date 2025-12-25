@@ -1,7 +1,7 @@
 """
-Wikidotサイトとの通信を担当するコネクタモジュール
+Connector module responsible for communication with Wikidot sites
 
-このパッケージは、Wikidot APIおよびAjax機能との通信を行う
-低レベルなクライアントを提供する。モジュールパッケージのクラスは、
-これらのコネクタを介してWikidotサイトとの通信を行う。
+This package provides low-level clients for communicating with
+the Wikidot API and Ajax functionality. Classes in the module package
+communicate with Wikidot sites through these connectors.
 """

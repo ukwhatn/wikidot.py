@@ -1,46 +1,46 @@
-## 概要
+## Summary
 
-<!-- このPRの目的・背景を簡潔に説明してください -->
+<!-- Please briefly explain the purpose and background of this PR -->
 
-## 関連Issue
+## Related Issue
 
-<!-- 関連するIssueがあればリンクしてください -->
-<!-- 例: resolves #123 / fixes #456 / closes #789 -->
+<!-- Link any related issues -->
+<!-- Example: resolves #123 / fixes #456 / closes #789 -->
 
-## 変更内容
+## Changes
 
-<!-- 具体的に何を変更したかを箇条書きで記載してください -->
+<!-- Please list the specific changes in bullet points -->
 
 -
 
-## 変更の種類
+## Type of Change
 
-<!-- 該当するものにチェックを入れてください -->
+<!-- Check all that apply -->
 
-- [ ] バグ修正 (既存の機能を壊さない修正)
-- [ ] 新機能 (既存の機能を壊さない追加)
-- [ ] 破壊的変更 (既存の機能に影響を与える変更)
-- [ ] ドキュメント更新
-- [ ] リファクタリング
-- [ ] テスト追加・修正
-- [ ] CI/CD・ビルド関連
+- [ ] Bug fix (non-breaking change that fixes an issue)
+- [ ] New feature (non-breaking change that adds functionality)
+- [ ] Breaking change (fix or feature that would cause existing functionality to change)
+- [ ] Documentation update
+- [ ] Refactoring
+- [ ] Test addition/modification
+- [ ] CI/CD or build related
 
-## テスト
+## Testing
 
-<!-- テスト方法や結果を記載してください -->
+<!-- Describe how you tested your changes -->
 
-- [ ] `make format` パス
-- [ ] `make lint` パス
-- [ ] `make test` パス
+- [ ] `make format` passes
+- [ ] `make lint` passes
+- [ ] `make test` passes
 
-## チェックリスト
+## Checklist
 
-<!-- PRを出す前に確認してください -->
+<!-- Please confirm before submitting -->
 
-- [ ] コードがプロジェクトのスタイルガイドに従っている
-- [ ] 必要に応じてドキュメントを更新した
-- [ ] 変更に対するテストを追加した（該当する場合）
+- [ ] Code follows the project's style guidelines
+- [ ] Documentation has been updated as needed
+- [ ] Tests have been added for the changes (if applicable)
 
-## 補足情報
+## Additional Information
 
-<!-- レビュワーへの伝達事項、スクリーンショット等があれば記載してください -->
+<!-- Any additional information for reviewers, screenshots, etc. -->

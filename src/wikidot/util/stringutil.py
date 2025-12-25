@@ -6,17 +6,17 @@ from .table import char_table
 class StringUtil:
     @staticmethod
     def to_unix(target_str: str) -> str:
-        """Unix形式に文字列を変換する
+        """Convert a string to Unix format
 
         Parameters
         ----------
         target_str: str
-            変換対象の文字列
+            String to convert
 
         Returns
         -------
         str
-            変換された文字列
+            Converted string
         """
         # MEMO: legacy wikidotの実装に合わせている
 

@@ -1,7 +1,7 @@
-"""非同期実行のヘルパーモジュール
+"""Async execution helper module
 
-既存のイベントループ環境でも安全に非同期処理を実行するためのユーティリティを提供する。
-Jupyter NotebookやFastAPI等、イベントループが既に実行中の環境でも動作する。
+Provides utilities for safely executing async operations even in existing event loop environments.
+Works in environments where an event loop is already running, such as Jupyter Notebook or FastAPI.
 """
 
 import asyncio
@@ -13,20 +13,20 @@ T = TypeVar("T")
 
 
 def run_coroutine(coro: Coroutine[None, None, T]) -> T:
-    """既存のイベントループ環境でも安全に非同期処理を実行する
+    """Safely execute async operations even in existing event loop environments
 
-    イベントループが既に実行中の場合は別スレッドで実行し、
-    そうでない場合は新しいイベントループを作成して実行する。
+    If an event loop is already running, execute in a separate thread.
+    Otherwise, create a new event loop and execute.
 
     Parameters
     ----------
     coro : Coroutine
-        実行する非同期コルーチン
+        Async coroutine to execute
 
     Returns
     -------
     T
-        コルーチンの戻り値
+        Return value of the coroutine
 
     Examples
     --------
@@ -36,18 +36,18 @@ def run_coroutine(coro: Coroutine[None, None, T]) -> T:
     >>> result
     42
     """
-    # 既存のイベントループが実行中かチェック
+    # Check if an existing event loop is running
     try:
         asyncio.get_running_loop()
     except RuntimeError:
-        # 実行中のループがない場合は新しいループを作成
+        # If no running loop, create a new loop
         loop = asyncio.new_event_loop()
         try:
             return loop.run_until_complete(coro)
         finally:
             loop.close()
     else:
-        # 実行中のループがある場合は別スレッドで実行
+        # If there is a running loop, execute in a separate thread
         def _run_in_thread() -> T:
             new_loop = asyncio.new_event_loop()
             asyncio.set_event_loop(new_loop)

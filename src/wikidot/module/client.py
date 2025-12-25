@@ -17,195 +17,195 @@ from .user import AbstractUser, User, UserCollection
 
 class ClientUserAccessor:
     """
-    ユーザー関連の操作を提供するクラス
+    A class that provides user-related operations
 
-    クライアントインスタンスに関連付けられ、Wikidotユーザーの取得や操作を行うメソッドを提供する。
-    Client.userプロパティを通じてアクセスする。
+    Associated with a client instance, provides methods for retrieving and manipulating Wikidot users.
+    Access through the Client.user property.
     """
 
     def __init__(self, client: "Client"):
         """
-        初期化メソッド
+        Initialize method
 
         Parameters
         ----------
         client : Client
-            親クライアントインスタンス
+            Parent client instance
         """
         self.client = client
 
     def get(self, name: str, raise_when_not_found: bool = False) -> Optional["AbstractUser"]:
         """
-        ユーザー名からユーザーオブジェクトを取得する
+        Get a user object from a username
 
         Parameters
         ----------
         name : str
-            ユーザー名
+            Username
         raise_when_not_found : bool, default False
-            ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
-            デフォルトでは送出せずにNoneを返す
+            Whether to raise an exception when a user is not found (True: raise, False: do not raise)
+            By default, returns None without raising
 
         Returns
         -------
         AbstractUser
-            ユーザーオブジェクト
+            User object
         """
         return User.from_name(self.client, name, raise_when_not_found)
 
     def get_bulk(self, names: list[str], raise_when_not_found: bool = False) -> UserCollection:
         """
-        複数のユーザー名からユーザーオブジェクトのコレクションを取得する
+        Get a collection of user objects from multiple usernames
 
         Parameters
         ----------
         names : list[str]
-            ユーザー名のリスト
+            List of usernames
         raise_when_not_found : bool, default False
-            ユーザーが見つからない場合に例外を送出するかどうか (True: 送出する, False: 送出しない)
-            デフォルトでは送出せずにNoneを返す
+            Whether to raise an exception when a user is not found (True: raise, False: do not raise)
+            By default, returns None without raising
 
         Returns
         -------
         UserCollection
-            ユーザーオブジェクトのコレクション
+            Collection of user objects
         """
         return UserCollection.from_names(self.client, names, raise_when_not_found)
 
 
 class ClientPrivateMessageAccessor:
     """
-    プライベートメッセージ関連の操作を提供するクラス
+    A class that provides private message-related operations
 
-    クライアントインスタンスに関連付けられ、Wikidotプライベートメッセージの送信や取得を行うメソッドを提供する。
-    Client.private_messageプロパティを通じてアクセスする。
+    Associated with a client instance, provides methods for sending and retrieving Wikidot private messages.
+    Access through the Client.private_message property.
     """
 
     def __init__(self, client: "Client"):
         """
-        初期化メソッド
+        Initialize method
 
         Parameters
         ----------
         client : Client
-            親クライアントインスタンス
+            Parent client instance
         """
         self.client = client
 
     def send(self, recipient: User, subject: str, body: str) -> None:
         """
-        プライベートメッセージを送信する
+        Send a private message
 
         Parameters
         ----------
         recipient : User
-            受信者
+            Recipient
         subject : str
-            件名
+            Subject
         body : str
-            本文
+            Message body
         """
         PrivateMessage.send(self.client, recipient, subject, body)
 
     @property
     def inbox(self) -> PrivateMessageInbox:
         """
-        受信箱を取得する
+        Get the inbox
 
         Returns
         -------
         PrivateMessageInbox
-            受信箱オブジェクト
+            Inbox object
         """
         return PrivateMessageInbox.acquire(self.client)
 
     @property
     def sentbox(self) -> PrivateMessageSentBox:
         """
-        送信箱を取得する
+        Get the sent box
 
         Returns
         -------
         PrivateMessageSentBox
-            送信箱オブジェクト
+            Sent box object
         """
         return PrivateMessageSentBox.acquire(self.client)
 
     def get_messages(self, message_ids: list[int]) -> PrivateMessageCollection:
         """
-        複数のメッセージIDからメッセージのコレクションを取得する
+        Get a collection of messages from multiple message IDs
 
         Parameters
         ----------
         message_ids : list[int]
-            メッセージIDのリスト
+            List of message IDs
 
         Returns
         -------
         PrivateMessageCollection
-            メッセージのコレクション
+            Collection of messages
         """
         return PrivateMessageCollection.from_ids(self.client, message_ids)
 
     def get_message(self, message_id: int) -> PrivateMessage:
         """
-        メッセージIDからメッセージを取得する
+        Get a message from a message ID
 
         Parameters
         ----------
         message_id : int
-            メッセージID
+            Message ID
 
         Returns
         -------
         PrivateMessage
-            メッセージオブジェクト
+            Message object
         """
         return PrivateMessage.from_id(self.client, message_id)
 
 
 class ClientSiteAccessor:
     """
-    サイト関連の操作を提供するクラス
+    A class that provides site-related operations
 
-    クライアントインスタンスに関連付けられ、Wikidotサイトの取得や操作を行うメソッドを提供する。
-    Client.siteプロパティを通じてアクセスする。
+    Associated with a client instance, provides methods for retrieving and manipulating Wikidot sites.
+    Access through the Client.site property.
     """
 
     def __init__(self, client: "Client"):
         """
-        初期化メソッド
+        Initialize method
 
         Parameters
         ----------
         client : Client
-            親クライアントインスタンス
+            Parent client instance
         """
         self.client = client
 
     def get(self, unix_name: str) -> "Site":
         """
-        UNIX名からサイトオブジェクトを取得する
+        Get a site object from a UNIX name
 
         Parameters
         ----------
         unix_name : str
-            サイトのUNIX名（例: 'fondation'）
+            UNIX name of the site (e.g., 'fondation')
 
         Returns
         -------
         Site
-            サイトオブジェクト
+            Site object
         """
         return Site.from_unix_name(self.client, unix_name)
 
 
 class Client:
     """
-    Wikidot APIへの接続とインタラクションを管理する基幹クライアント
+    Core client for managing connections and interactions with the Wikidot API
 
-    このクラスは、Wikidot APIとの全てのインタラクションの基盤となる。
-    ユーザー認証、サイト操作、ページ管理などすべての機能はこのクライアントを通じて提供される。
+    This class serves as the foundation for all interactions with the Wikidot API.
+    All functionality such as user authentication, site operations, and page management is provided through this client.
     """
 
     # Accessor属性
@@ -227,18 +227,18 @@ class Client:
         logging_level: str = "WARNING",
     ):
         """
-        クライアントの初期化とオプションでの認証を行う
+        Initialize the client and optionally perform authentication
 
         Parameters
         ----------
         username : str | None, default None
-            ユーザー名。設定すると認証試行を行う
+            Username. If provided, authentication will be attempted
         password : str | None, default None
-            パスワード。設定すると認証試行を行う
+            Password. If provided, authentication will be attempted
         amc_config : AjaxModuleConnectorConfig | None, default None
-            AjaxModuleConnectorの設定
+            AjaxModuleConnector configuration
         logging_level : str, default "WARNING"
-            ロギングレベル
+            Logging level
         """
         # ロギング設定を行う
         from wikidot.common.logger import setup_console_handler
@@ -274,14 +274,14 @@ class Client:
 
     def __enter__(self) -> "Client":
         """
-        コンテキストマネージャプロトコルのエントリーポイント
+        Context manager protocol entry point
 
-        with文でクライアントを使用する際に呼び出される。
+        Called when using the client with a with statement.
 
         Returns
         -------
         Client
-            自身のインスタンス
+            Self instance
         """
         return self
 
@@ -292,18 +292,18 @@ class Client:
         traceback: TracebackType | None,
     ) -> None:
         """
-        コンテキストマネージャプロトコルの終了処理
+        Context manager protocol exit processing
 
-        with文の終了時に呼び出され、自動的にログアウト処理を行う。
+        Called at the end of a with statement and automatically performs logout processing.
 
         Parameters
         ----------
         exc_type : type
-            発生した例外の型
+            Type of exception that occurred
         exc_value : Exception
-            発生した例外
+            Exception that occurred
         traceback : traceback
-            例外のトレースバック
+            Exception traceback
         """
         if self.is_logged_in:
             try:
@@ -317,26 +317,26 @@ class Client:
 
     def __str__(self) -> str:
         """
-        オブジェクトの文字列表現
+        String representation of the object
 
         Returns
         -------
         str
-            クライアントの文字列表現
+            String representation of the client
         """
         return f"Client(username={self.username}, is_logged_in={self.is_logged_in})"
 
     def login_check(self) -> None:
         """
-        ログイン状態の確認
+        Check login status
 
-        ログインが必要な操作を実行する前に呼び出される。
-        ログインしていない場合は例外を送出する。
+        Called before executing operations that require login.
+        Raises an exception if not logged in.
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         """
         if not self.is_logged_in:
             raise LoginRequiredException("Login is required to execute this function")
@@ -344,16 +344,16 @@ class Client:
 
     def close(self) -> None:
         """
-        クライアントのリソースを明示的に解放
+        Explicitly release client resources
 
-        ログイン中であればログアウト処理を行い、関連するリソースをクリーンアップする。
-        with文を使用しない場合は、このメソッドを明示的に呼び出してリソースを解放すること。
+        Performs logout processing if logged in and cleans up associated resources.
+        If not using a with statement, explicitly call this method to release resources.
 
         Examples
         --------
         >>> client = Client(username="user", password="pass")
         >>> try:
-        ...     # 何か処理
+        ...     # Some processing
         ...     pass
         ... finally:
         ...     client.close()

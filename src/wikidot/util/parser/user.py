@@ -9,20 +9,20 @@ if TYPE_CHECKING:
 
 
 def user_parse(client: "Client", elem: bs4.Tag) -> user.AbstractUser:
-    """printuser要素をパースし、ユーザーオブジェクトを返す
+    """Parse a printuser element and return a user object
 
     Parameters
     ----------
     elem: bs4.Tag
-        パース対象の要素（printuserクラスがついた要素）
+        Element to parse (element with printuser class)
     client: Client
-        クライアント
+        Client
 
     Returns
     -------
     user.AbstractUser
-        パースされて得られたユーザーオブジェクト
-        User | DeletedUser | AnonymousUser | GuestUser | WikidotUser のいずれか
+        Parsed user object
+        One of User | DeletedUser | AnonymousUser | GuestUser | WikidotUser
     """
 
     if ("class" in elem.attrs and "deleted" in elem["class"]) or (

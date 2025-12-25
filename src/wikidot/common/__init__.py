@@ -1,8 +1,8 @@
 """
-Wikidotライブラリの共通機能モジュール
+Common functionality module for the Wikidot library
 
-このパッケージは、ライブラリ全体で使用される共通機能を提供する。
-例外クラス、デコレータ、ロギング機能などの汎用的な機能が含まれる。
+This package provides common functionality used throughout the library.
+It includes generic features such as exception classes, decorators, and logging functionality.
 """
 
 from .logger import logger as wd_logger

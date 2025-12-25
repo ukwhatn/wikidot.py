@@ -1,19 +1,19 @@
 # ---
-# 基底クラス
+# Base class
 # ---
 
 
 class WikidotException(Exception):
     """
-    wikidot.py独自の例外の基底クラス
+    Base class for wikidot.py specific exceptions
 
-    ライブラリ内で発生する全ての例外の親クラスとなる。
-    具体的な例外は各サブクラスで定義される。
+    This serves as the parent class for all exceptions raised within the library.
+    Specific exceptions are defined in each subclass.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -21,21 +21,21 @@ class WikidotException(Exception):
 
 
 # ---
-# ワイルドカード
+# Wildcard
 # ---
 
 
 class UnexpectedException(WikidotException):
     """
-    予期せぬ例外が発生したときに送出される例外
+    Exception raised when an unexpected error occurs
 
-    特定のエラー状態に分類できない、予期しない状況で発生する。
-    通常は内部エラーやバグを示す。
+    Raised in unexpected situations that cannot be classified into a specific error state.
+    Usually indicates an internal error or bug.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -43,21 +43,21 @@ class UnexpectedException(WikidotException):
 
 
 # ---
-# セッション関連
+# Session related
 # ---
 
 
 class SessionCreateException(WikidotException):
     """
-    セッションの作成に失敗したときに送出される例外
+    Exception raised when session creation fails
 
-    ログイン処理やセッション確立時に問題が発生した場合に使用される。
-    通常は認証情報の誤りやサーバー側の問題が原因となる。
+    Used when a problem occurs during login processing or session establishment.
+    Usually caused by incorrect credentials or server-side issues.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -66,14 +66,14 @@ class SessionCreateException(WikidotException):
 
 class LoginRequiredException(WikidotException):
     """
-    ログインが必要なメソッドを未ログイン状態で呼び出したときに送出される例外
+    Exception raised when calling a method that requires login while not logged in
 
-    認証が必要な操作を実行する前に、ログイン状態をチェックする際に使用される。
+    Used when checking login status before executing an operation that requires authentication.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -81,19 +81,20 @@ class LoginRequiredException(WikidotException):
 
 
 # ---
-# AMC関連
+# AMC related
 # ---
 class AjaxModuleConnectorException(WikidotException):
     """
-    Ajax Module Connectorへのリクエストに関連する例外の基底クラス
+    Base class for exceptions related to Ajax Module Connector requests
 
-    ajax-module-connector.phpへのAPIリクエスト処理中に発生する例外の親クラス。
-    具体的なエラー状態は各サブクラスで表現される。
+    Parent class for exceptions that occur during API request processing
+    to ajax-module-connector.php.
+    Specific error states are expressed in each subclass.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -102,21 +103,21 @@ class AjaxModuleConnectorException(WikidotException):
 
 class AMCHttpStatusCodeException(AjaxModuleConnectorException):
     """
-    AMCのHTTPステータスコードが200以外だった場合に送出される例外
+    Exception raised when the AMC HTTP status code is not 200
 
-    Ajax Module ConnectorへのリクエストでHTTPレベルのエラーが発生した場合に使用される。
+    Used when an HTTP-level error occurs in a request to the Ajax Module Connector.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     status_code : int
-        エラーとなったHTTPステータスコード
+        The HTTP status code that caused the error
 
     Attributes
     ----------
     status_code : int
-        エラーとなったHTTPステータスコード
+        The HTTP status code that caused the error
     """
 
     def __init__(self, message: str, status_code: int) -> None:
@@ -126,22 +127,23 @@ class AMCHttpStatusCodeException(AjaxModuleConnectorException):
 
 class WikidotStatusCodeException(AjaxModuleConnectorException):
     """
-    AMCからのレスポンスのステータスが「ok」でなかった場合に送出される例外
+    Exception raised when the response status from AMC is not "ok"
 
-    HTTP通信自体は成功したが、Wikidot側で処理エラーが発生した場合に使用される。
-    HTTPステータスが200以外の場合は代わりにAMCHttpStatusCodeExceptionが使用される。
+    Used when HTTP communication itself succeeds but a processing error
+    occurs on the Wikidot side.
+    AMCHttpStatusCodeException is used instead when the HTTP status is not 200.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     status_code : str
-        Wikidotから返されたエラーステータスコード
+        Error status code returned by Wikidot
 
     Attributes
     ----------
     status_code : str
-        Wikidotから返されたエラーステータスコード
+        Error status code returned by Wikidot
     """
 
     def __init__(self, message: str, status_code: str) -> None:
@@ -151,14 +153,14 @@ class WikidotStatusCodeException(AjaxModuleConnectorException):
 
 class ResponseDataException(AjaxModuleConnectorException):
     """
-    AMCからのレスポンスデータが不正だった場合に送出される例外
+    Exception raised when response data from AMC is invalid
 
-    レスポンスのパース失敗や、期待された形式と異なるデータが返された場合に使用される。
+    Used when response parsing fails or data in an unexpected format is returned.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -166,21 +168,21 @@ class ResponseDataException(AjaxModuleConnectorException):
 
 
 # ---
-# ターゲットエラー関連
+# Target error related
 # ---
 
 
 class NotFoundException(WikidotException):
     """
-    要求されたリソースが見つからない場合に送出される例外
+    Exception raised when the requested resource is not found
 
-    サイト、ページ、ユーザー、リビジョンなど、指定されたリソースが
-    Wikidot上に存在しない場合に使用される。
+    Used when the specified resource such as site, page, user, or revision
+    does not exist on Wikidot.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -189,14 +191,14 @@ class NotFoundException(WikidotException):
 
 class TargetExistsException(WikidotException):
     """
-    既に存在するリソースを作成しようとした場合に送出される例外
+    Exception raised when attempting to create a resource that already exists
 
-    新規作成操作が既存のリソースと衝突する場合に使用される。
+    Used when a creation operation conflicts with an existing resource.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -205,15 +207,15 @@ class TargetExistsException(WikidotException):
 
 class TargetErrorException(WikidotException):
     """
-    対象オブジェクトに操作を適用できない場合に送出される例外
+    Exception raised when an operation cannot be applied to the target object
 
-    リソースは存在するが、現在の状態では要求された操作を
-    実行できない場合に使用される（例：ロック中のページを編集しようとする）。
+    Used when the resource exists but the requested operation cannot be
+    executed in its current state (e.g., trying to edit a locked page).
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -222,15 +224,15 @@ class TargetErrorException(WikidotException):
 
 class ForbiddenException(WikidotException):
     """
-    権限不足により操作が拒否された場合に送出される例外
+    Exception raised when an operation is denied due to insufficient permissions
 
-    ユーザーが操作に必要な権限を持っていない場合や、
-    プライベートサイトへのアクセスが拒否された場合などに使用される。
+    Used when the user does not have the required permissions for an operation,
+    or when access to a private site is denied.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:
@@ -238,21 +240,21 @@ class ForbiddenException(WikidotException):
 
 
 # ---
-# 処理エラー関連
+# Processing error related
 # ---
 
 
 class NoElementException(WikidotException):
     """
-    必要な要素が見つからない場合に送出される例外
+    Exception raised when a required element is not found
 
-    HTML解析時に期待された要素が見つからない場合など、
-    処理中に必要なデータが欠落している場合に使用される。
+    Used when expected elements are not found during HTML parsing,
+    or when required data is missing during processing.
 
     Parameters
     ----------
     message : str
-        例外メッセージ
+        Exception message
     """
 
     def __init__(self, message: str) -> None:

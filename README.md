@@ -2,67 +2,67 @@
 
 [![Documentation Status](https://github.com/ukwhatn/wikidot.py/actions/workflows/docs.yml/badge.svg)](https://ukwhatn.github.io/wikidot.py/)
 
-Pythonで簡単にWikidotサイトと対話するためのライブラリです。
+A Python library for easily interacting with Wikidot sites.
 
-## 主な機能
+## Key Features
 
-- サイト、ページ、ユーザー、フォーラムなどの情報取得と操作
-- ページの作成、編集、削除
-- フォーラムスレッドの取得、作成、返信
-- ユーザー管理とサイトメンバーシップ
-- プライベートメッセージの送受信
-- ログイン不要の機能と認証が必要な機能両方をサポート
+- Retrieve and manipulate sites, pages, users, forums, and more
+- Create, edit, and delete pages
+- Get, create, and reply to forum threads
+- User management and site membership
+- Send and receive private messages
+- Supports both no-login features and authenticated features
 
-## インストール
+## Installation
 
 ```bash
 pip install wikidot
 ```
 
-## 使用例（基本）
+## Basic Usage
 
 ```python
 import wikidot
 
-# ログインなしでの使用
+# Use without login
 client = wikidot.Client()
 
-# サイトとページの情報取得
+# Get site and page information
 site = client.site.get("scp-jp")
 page = site.page.get("scp-173")
 
-print(f"タイトル: {page.title}")
-print(f"評価: {page.rating}")
-print(f"作成者: {page.created_by.name}")
+print(f"Title: {page.title}")
+print(f"Rating: {page.rating}")
+print(f"Author: {page.created_by.name}")
 ```
 
-## ドキュメント
+## Documentation
 
-詳細な使用方法、APIリファレンス、例は公式ドキュメントをご覧ください：
+For detailed usage, API reference, and examples, please see the official documentation:
 
-📚 **[公式ドキュメント](https://ukwhatn.github.io/wikidot.py/)**
+**[Official Documentation](https://ukwhatn.github.io/wikidot.py/)**
 
-- [インストール方法](https://ukwhatn.github.io/wikidot.py/installation.html)
-- [クイックスタート](https://ukwhatn.github.io/wikidot.py/quickstart.html)
-- [使用例](https://ukwhatn.github.io/wikidot.py/examples.html)
-- [APIリファレンス](https://ukwhatn.github.io/wikidot.py/reference/index.html)
+- [Installation](https://ukwhatn.github.io/wikidot.py/installation.html)
+- [Quickstart](https://ukwhatn.github.io/wikidot.py/quickstart.html)
+- [Examples](https://ukwhatn.github.io/wikidot.py/examples.html)
+- [API Reference](https://ukwhatn.github.io/wikidot.py/reference/index.html)
 
-## ドキュメント構築
+## Building Documentation
 
-ローカルでドキュメントを構築するには:
+To build the documentation locally:
 
 ```bash
-# ドキュメント生成に必要なパッケージをインストール
+# Install packages required for documentation generation
 make docs-install
 
-# ドキュメントをビルド
+# Build the documentation
 make docs-build
 
-# ローカルサーバーでドキュメントを確認（オプション）
+# View documentation on local server (optional)
 make docs-serve
 ```
 
 ## Contribution
 
-- [ロードマップ](https://ukwhatn.notion.site/wikidot-py-roadmap?pvs=4)
+- [Roadmap](https://ukwhatn.notion.site/wikidot-py-roadmap?pvs=4)
 - [Issue](https://github.com/ukwhatn/wikidot.py/issues)

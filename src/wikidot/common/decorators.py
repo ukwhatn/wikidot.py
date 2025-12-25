@@ -1,8 +1,8 @@
 """
-各種デコレータを提供するモジュール
+Module providing various decorators
 
-このモジュールは、ライブラリ内で使用される共通のデコレータを提供する。
-現在は認証関連のデコレータが実装されている。
+This module provides common decorators used within the library.
+Currently, authentication-related decorators are implemented.
 """
 
 from collections.abc import Callable
@@ -15,38 +15,38 @@ T = TypeVar("T")
 
 def login_required(func: Callable[P, T]) -> Callable[P, T]:
     """
-    ログインが必要なメソッドや関数に適用するデコレータ
+    Decorator to apply to methods or functions that require login
 
-    このデコレータを適用したメソッドや関数は、実行前に自動的にログイン状態をチェックする。
-    ログインしていない場合はLoginRequiredExceptionが送出される。
+    Methods or functions with this decorator automatically check login status before execution.
+    If not logged in, LoginRequiredException is raised.
 
-    クライアントインスタンスは以下の優先順位で検索される：
-    1. client という名前の引数
-    2. Client クラスのインスタンスである引数
-    3. self.client（呼び出し元オブジェクトの属性）
-    4. selfが持つ属性が持つclientクラス（例：self.site.client）
+    The client instance is searched in the following priority order:
+    1. Argument named "client"
+    2. Argument that is an instance of Client class
+    3. self.client (attribute of the calling object)
+    4. Client class held by an attribute of self (e.g., self.site.client)
 
     Parameters
     ----------
     func : callable
-        デコレートする関数またはメソッド
+        Function or method to decorate
 
     Returns
     -------
     callable
-        ラップされた関数またはメソッド
+        Wrapped function or method
 
     Raises
     ------
     ValueError
-        クライアントインスタンスが見つからない場合
+        If client instance is not found
     LoginRequiredException
-        ログインしていない場合（client.login_check()による）
+        If not logged in (determined by client.login_check())
     """
 
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> T:
-        # 循環参照を避けるため、関数内でインポート
+        # Import inside function to avoid circular references
         from wikidot.module.client import Client
 
         client: Client | None = None
@@ -61,7 +61,7 @@ def login_required(func: Callable[P, T]) -> Callable[P, T]:
                     client = arg
                     break
 
-        # selfに存在するか？
+        # Check if it exists in self
         if client is None and args:
             self_obj: Any = args[0]
             if hasattr(self_obj, "client"):
@@ -69,7 +69,7 @@ def login_required(func: Callable[P, T]) -> Callable[P, T]:
                 if isinstance(maybe_client, Client):
                     client = maybe_client
             else:
-                # selfが持つ属性にclientが存在するか探索する
+                # Search for client in attributes held by self
                 for attr_name in dir(self_obj):
                     if attr_name.startswith("_"):
                         continue

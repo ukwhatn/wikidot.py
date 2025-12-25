@@ -1,8 +1,8 @@
 """
-Wikidotサイトのメンバーを扱うモジュール
+Module for handling Wikidot site members
 
-このモジュールは、Wikidotサイトのメンバーに関連するクラスや機能を提供する。
-メンバーの情報取得や権限変更などの操作が可能。
+This module provides classes and functionality related to Wikidot site members.
+It enables operations such as retrieving member information and changing permissions.
 """
 
 from dataclasses import dataclass
@@ -26,18 +26,18 @@ if TYPE_CHECKING:
 @dataclass
 class SiteMember:
     """
-    Wikidotサイトのメンバーを表すクラス
+    Class representing a member of a Wikidot site
 
-    サイトのメンバー情報を保持し、権限変更などの操作機能を提供する。
+    Holds site member information and provides functionality for operations such as permission changes.
 
     Attributes
     ----------
     site : Site
-        メンバーが所属するサイト
+        The site the member belongs to
     user : AbstractUser
-        メンバーユーザー
+        The member user
     joined_at : datetime | None
-        サイトへの参加日時（取得できない場合はNone）
+        Date and time the member joined the site (None if unavailable)
     """
 
     site: "Site"
@@ -47,19 +47,19 @@ class SiteMember:
     @staticmethod
     def _parse(site: "Site", html: BeautifulSoup) -> list["SiteMember"]:
         """
-        メンバーリストページのHTMLからメンバー情報を抽出する内部メソッド
+        Internal method to extract member information from member list page HTML
 
         Parameters
         ----------
         site : Site
-            メンバーが所属するサイト
+            The site the members belong to
         html : BeautifulSoup
-            解析対象のHTML
+            HTML to parse
 
         Returns
         -------
         list[SiteMember]
-            抽出されたメンバーのリスト
+            List of extracted members
         """
         members: list[SiteMember] = []
 
@@ -89,26 +89,26 @@ class SiteMember:
     @staticmethod
     def get(site: "Site", group: str | None = None) -> list["SiteMember"]:
         """
-        サイトのメンバーリストを取得する
+        Retrieve the member list of a site
 
-        指定したグループ（管理者、モデレーターなど）のメンバー一覧を取得する。
+        Retrieves a list of members of the specified group (admins, moderators, etc.).
 
         Parameters
         ----------
         site : Site
-            メンバーリストを取得するサイト
+            The site to retrieve members from
         group : str | None, default None
-            取得するメンバーのグループ（"admins", "moderators", または "" で全メンバー）
+            Group of members to retrieve ("admins", "moderators", or "" for all members)
 
         Returns
         -------
         list[SiteMember]
-            メンバーのリスト
+            List of members
 
         Raises
         ------
         ValueError
-            無効なグループが指定された場合
+            If an invalid group is specified
         """
         if group is None:
             group = ""
@@ -161,25 +161,25 @@ class SiteMember:
 
     def _change_group(self, event: str) -> None:
         """
-        メンバーのグループ（権限）を変更する内部メソッド
+        Internal method to change a member's group (permissions)
 
-        モデレーターや管理者への昇格、または降格を行う共通メソッド。
+        Common method for promoting to or demoting from moderator or admin.
 
         Parameters
         ----------
         event : str
-            変更イベント（"toModerators", "removeModerator", "toAdmins", "removeAdmin"）
+            Change event ("toModerators", "removeModerator", "toAdmins", "removeAdmin")
 
         Raises
         ------
         ValueError
-            無効なイベントが指定された場合
+            If an invalid event is specified
         ForbiddenException
-            権限不足の場合
+            If insufficient permissions
         TargetErrorException
-            ユーザーが既に指定された権限を持っている、または持っていない場合
+            If the user already has or doesn't have the specified permission
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         if event not in [
             "toModerators",
@@ -213,60 +213,60 @@ class SiteMember:
 
     def to_moderator(self) -> None:
         """
-        メンバーをモデレーターに昇格させる
+        Promote a member to moderator
 
         Raises
         ------
         ForbiddenException
-            権限不足の場合
+            If insufficient permissions
         TargetErrorException
-            ユーザーが既にモデレーターである場合
+            If the user is already a moderator
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         self._change_group("toModerators")
 
     def remove_moderator(self) -> None:
         """
-        メンバーのモデレーター権限を削除する
+        Remove moderator permissions from a member
 
         Raises
         ------
         ForbiddenException
-            権限不足の場合
+            If insufficient permissions
         TargetErrorException
-            ユーザーがモデレーターでない場合
+            If the user is not a moderator
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         self._change_group("removeModerator")
 
     def to_admin(self) -> None:
         """
-        メンバーを管理者に昇格させる
+        Promote a member to admin
 
         Raises
         ------
         ForbiddenException
-            権限不足の場合
+            If insufficient permissions
         TargetErrorException
-            ユーザーが既に管理者である場合
+            If the user is already an admin
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         self._change_group("toAdmins")
 
     def remove_admin(self) -> None:
         """
-        メンバーの管理者権限を削除する
+        Remove admin permissions from a member
 
         Raises
         ------
         ForbiddenException
-            権限不足の場合
+            If insufficient permissions
         TargetErrorException
-            ユーザーが管理者でない場合
+            If the user is not an admin
         WikidotStatusCodeException
-            その他のエラーが発生した場合
+            If other errors occur
         """
         self._change_group("removeAdmin")

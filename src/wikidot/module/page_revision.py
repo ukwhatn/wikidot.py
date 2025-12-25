@@ -1,8 +1,8 @@
 """
-Wikidotページの編集履歴（リビジョン）を扱うモジュール
+Module for handling Wikidot page edit history (revisions)
 
-このモジュールは、Wikidotページの編集履歴（リビジョン）に関連するクラスや機能を提供する。
-リビジョンの取得、ソースの取得、HTML表示などの操作が可能。
+This module provides classes and functions related to Wikidot page edit history (revisions).
+It enables operations such as retrieving revisions, getting source code, and displaying HTML.
 """
 
 from collections.abc import Callable, Iterator
@@ -23,10 +23,11 @@ if TYPE_CHECKING:
 
 class PageRevisionCollection(list["PageRevision"]):
     """
-    ページリビジョンのコレクションを表すクラス
+    Class representing a collection of page revisions
 
-    ページの編集履歴（リビジョン）の複数バージョンを格納し、一括して操作するための
-    リスト拡張クラス。ソースコードやHTMLの一括取得など、便利な機能を提供する。
+    A list extension class for storing and operating on multiple versions of a page's
+    edit history (revisions) in bulk. Provides convenient functions such as
+    batch retrieval of source code and HTML.
     """
 
     page: "Page | None"
@@ -37,42 +38,42 @@ class PageRevisionCollection(list["PageRevision"]):
         revisions: list["PageRevision"] | None = None,
     ):
         """
-        初期化メソッド
+        Initialize the collection
 
         Parameters
         ----------
         page : Page | None, default None
-            リビジョンが属するページ。Noneの場合は最初のリビジョンから推測する
+            The page the revisions belong to. If None, inferred from the first revision
         revisions : list[PageRevision] | None, default None
-            格納するリビジョンのリスト
+            List of revisions to store
         """
         super().__init__(revisions or [])
         self.page = page or self[0].page if len(self) > 0 else None
 
     def __iter__(self) -> Iterator["PageRevision"]:
         """
-        コレクション内のリビジョンを順に返すイテレータ
+        Return an iterator over the revisions in the collection
 
         Returns
         -------
         Iterator[PageRevision]
-            リビジョンオブジェクトのイテレータ
+            Iterator of revision objects
         """
         return super().__iter__()
 
     def find(self, id: int) -> Optional["PageRevision"]:
         """
-        指定したリビジョンIDのリビジョンを取得する
+        Get the revision with the specified ID
 
         Parameters
         ----------
         id : int
-            取得するリビジョンのID
+            The ID of the revision to retrieve
 
         Returns
         -------
         PageRevision | None
-            指定したIDのリビジョン。見つからない場合はNone
+            The revision with the specified ID, or None if not found
         """
         for revision in self:
             if revision.id == id:
@@ -88,25 +89,25 @@ class PageRevisionCollection(list["PageRevision"]):
         process_response_func: Callable[["PageRevision", httpx.Response, "Page"], None],
     ) -> list["PageRevision"]:
         """
-        リビジョンデータを一括取得する汎用メソッド
+        Generic method for batch retrieval of revision data
 
         Parameters
         ----------
         page : Page
-            リビジョンが属するページ
+            The page the revisions belong to
         revisions : list[PageRevision]
-            データを取得するリビジョンのリスト
+            List of revisions to retrieve data for
         check_acquired_func : callable
-            データが既に取得済みかチェックする関数
+            Function to check if data is already acquired
         module_name : str
-            AMCリクエストで使用するモジュール名
+            Module name to use in AMC request
         process_response_func : callable
-            レスポンスを処理する関数 (revision, response, page) -> None
+            Function to process the response (revision, response, page) -> None
 
         Returns
         -------
         list[PageRevision]
-            データが更新されたリビジョンのリスト
+            List of revisions with updated data
         """
         target_revisions = [revision for revision in revisions if not check_acquired_func(revision)]
 
@@ -125,31 +126,31 @@ class PageRevisionCollection(list["PageRevision"]):
     @staticmethod
     def _acquire_sources(page: "Page", revisions: list["PageRevision"]) -> list["PageRevision"]:
         """
-        複数のリビジョンのソースコードを一括取得する内部メソッド
+        Internal method to batch retrieve source code for multiple revisions
 
-        未取得のリビジョンソースコードを一括でリクエストし、取得する。
+        Requests and retrieves source code for revisions that haven't been fetched yet.
 
         Parameters
         ----------
         page : Page
-            リビジョンが属するページ
+            The page the revisions belong to
         revisions : list[PageRevision]
-            ソースコードを取得するリビジョンのリスト
+            List of revisions to retrieve source code for
 
         Returns
         -------
         list[PageRevision]
-            ソースコード情報が更新されたリビジョンのリスト
+            List of revisions with updated source code information
 
         Raises
         ------
         NoElementException
-            ソース要素が見つからない場合
+            If source element is not found
         """
 
         def process_source_response(revision: "PageRevision", response: httpx.Response, page: "Page") -> None:
             body = response.json()["body"]
-            # nbspをスペースに置換
+            # Replace nbsp with space
             body = body.replace("&nbsp;", " ")
             body_html = BeautifulSoup(body, "lxml")
             wiki_text_elem = body_html.select_one("div.page-source")
@@ -170,12 +171,12 @@ class PageRevisionCollection(list["PageRevision"]):
 
     def get_sources(self) -> "PageRevisionCollection":
         """
-        コレクション内のすべてのリビジョンのソースコードを取得する
+        Get source code for all revisions in the collection
 
         Returns
         -------
         PageRevisionCollection
-            自身（メソッドチェーン用）
+            Self (for method chaining)
         """
         if self.page is None:
             raise ValueError("Page is not set for this collection")
@@ -185,21 +186,21 @@ class PageRevisionCollection(list["PageRevision"]):
     @staticmethod
     def _acquire_htmls(page: "Page", revisions: list["PageRevision"]) -> list["PageRevision"]:
         """
-        複数のリビジョンのHTML表示を一括取得する内部メソッド
+        Internal method to batch retrieve HTML display for multiple revisions
 
-        未取得のリビジョンHTMLを一括でリクエストし、取得する。
+        Requests and retrieves HTML for revisions that haven't been fetched yet.
 
         Parameters
         ----------
         page : Page
-            リビジョンが属するページ
+            The page the revisions belong to
         revisions : list[PageRevision]
-            HTMLを取得するリビジョンのリスト
+            List of revisions to retrieve HTML for
 
         Returns
         -------
         list[PageRevision]
-            HTML情報が更新されたリビジョンのリスト
+            List of revisions with updated HTML information
         """
 
         def process_html_response(revision: "PageRevision", response: httpx.Response, page: "Page") -> None:
@@ -223,12 +224,12 @@ class PageRevisionCollection(list["PageRevision"]):
 
     def get_htmls(self) -> "PageRevisionCollection":
         """
-        コレクション内のすべてのリビジョンのHTML表示を取得する
+        Get HTML display for all revisions in the collection
 
         Returns
         -------
         PageRevisionCollection
-            自身（メソッドチェーン用）
+            Self (for method chaining)
         """
         if self.page is None:
             raise ValueError("Page is not set for this collection")
@@ -239,29 +240,30 @@ class PageRevisionCollection(list["PageRevision"]):
 @dataclass
 class PageRevision:
     """
-    ページのリビジョン（編集履歴のバージョン）を表すクラス
+    Class representing a page revision (version in edit history)
 
-    ページの特定のバージョンに関する情報を保持する。リビジョン番号、作成者、作成日時、
-    編集コメントなどの基本情報に加え、ソースコードやHTML表示へのアクセス機能を提供する。
+    Holds information about a specific version of a page. Provides basic information
+    such as revision number, creator, creation date, and edit comment, along with
+    access to source code and HTML display.
 
     Attributes
     ----------
     page : Page
-        リビジョンが属するページ
+        The page this revision belongs to
     id : int
-        リビジョンID
+        Revision ID
     rev_no : int
-        リビジョン番号
+        Revision number
     created_by : AbstractUser
-        リビジョンの作成者
+        The creator of the revision
     created_at : datetime
-        リビジョンの作成日時
+        The creation date and time of the revision
     comment : str
-        編集コメント
+        Edit comment
     _source : PageSource | None, default None
-        リビジョンのソースコード（内部キャッシュ用）
+        The revision's source code (internal cache)
     _html : str | None, default None
-        リビジョンのHTML表示（内部キャッシュ用）
+        The revision's HTML display (internal cache)
     """
 
     page: "Page"
@@ -275,37 +277,37 @@ class PageRevision:
 
     def is_source_acquired(self) -> bool:
         """
-        ソースコードが既に取得済みかどうかを確認する
+        Check if source code has already been acquired
 
         Returns
         -------
         bool
-            ソースコードが取得済みの場合はTrue、そうでない場合はFalse
+            True if source code is acquired, False otherwise
         """
         return self._source is not None
 
     def is_html_acquired(self) -> bool:
         """
-        HTML表示が既に取得済みかどうかを確認する
+        Check if HTML display has already been acquired
 
         Returns
         -------
         bool
-            HTML表示が取得済みの場合はTrue、そうでない場合はFalse
+            True if HTML display is acquired, False otherwise
         """
         return self._html is not None
 
     @property
     def source(self) -> Optional["PageSource"]:
         """
-        リビジョンのソースコードを取得する
+        Get the revision's source code
 
-        ソースコードが未取得の場合は自動的に取得処理を行う。
+        Automatically fetches the source code if not yet acquired.
 
         Returns
         -------
         PageSource | None
-            リビジョンのソースコード
+            The revision's source code
         """
         if not self.is_source_acquired():
             PageRevisionCollection(self.page, [self]).get_sources()
@@ -314,26 +316,26 @@ class PageRevision:
     @source.setter
     def source(self, value: "PageSource") -> None:
         """
-        リビジョンのソースコードを設定する
+        Set the revision's source code
 
         Parameters
         ----------
         value : PageSource
-            設定するソースコード
+            The source code to set
         """
         self._source = value
 
     @property
     def html(self) -> str | None:
         """
-        リビジョンのHTML表示を取得する
+        Get the revision's HTML display
 
-        HTML表示が未取得の場合は自動的に取得処理を行う。
+        Automatically fetches the HTML display if not yet acquired.
 
         Returns
         -------
         str | None
-            リビジョンのHTML表示
+            The revision's HTML display
         """
         if not self.is_html_acquired():
             PageRevisionCollection(self.page, [self]).get_htmls()
@@ -342,11 +344,11 @@ class PageRevision:
     @html.setter
     def html(self, value: str) -> None:
         """
-        リビジョンのHTML表示を設定する
+        Set the revision's HTML display
 
         Parameters
         ----------
         value : str
-            設定するHTML表示
+            The HTML display to set
         """
         self._html = value

@@ -11,9 +11,9 @@ if TYPE_CHECKING:
 
 class HTTPAuthentication:
     """
-    WikidotへのHTTP認証を提供するクラス
+    Class that provides HTTP authentication for Wikidot
 
-    ログインおよびログアウト処理を管理するための静的メソッドを提供する。
+    Provides static methods for managing login and logout processing.
     """
 
     @staticmethod
@@ -23,23 +23,23 @@ class HTTPAuthentication:
         password: str,
     ) -> None:
         """
-        ユーザー名とパスワードでWikidotにログインする
+        Log in to Wikidot with username and password
 
         Parameters
         ----------
         client : Client
-            接続するクライアントインスタンス
+            The client instance to connect
         username : str
-            ログインするユーザー名
+            The username to log in with
         password : str
-            ユーザーのパスワード
+            The user's password
 
         Raises
         ------
         SessionCreateException
-            ログイン試行が失敗した場合（HTTP応答コードエラー、認証情報不一致、Cookieの問題等）
+            If the login attempt fails (HTTP response code error, credential mismatch, cookie issues, etc.)
         """
-        # ログインリクエスト実行
+        # Execute login request
         response = httpx.post(
             url="https://www.wikidot.com/default--flow/login__LoginPopupScreen",
             data={
@@ -72,16 +72,16 @@ class HTTPAuthentication:
     @staticmethod
     def logout(client: "Client") -> None:
         """
-        Wikidotからログアウトする
+        Log out from Wikidot
 
         Parameters
         ----------
         client : Client
-            ログアウトするクライアントインスタンス
+            The client instance to log out
 
         Notes
         -----
-        ログアウト処理でエラーが発生しても無視され、Cookieの削除は常に行われる。
+        Errors during the logout process are ignored, and cookie deletion is always performed.
         """
         with contextlib.suppress(Exception):
             client.amc_client.request([{"action": "Login2Action", "event": "logout", "moduleName": "Empty"}])

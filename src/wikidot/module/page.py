@@ -30,12 +30,12 @@ if TYPE_CHECKING:
 
 class PageConstants:
     """
-    ページモジュールで使用される定数を一元管理するクラス
+    A class for centrally managing constants used in the page module
 
     Attributes
     ----------
     DEFAULT_PER_PAGE : int
-        ListPagesModuleのデフォルト1ページあたり件数
+        Default number of items per page for ListPagesModule
     """
 
     DEFAULT_PER_PAGE: int = 250
@@ -67,51 +67,51 @@ DEFAULT_MODULE_BODY = [
 
 class SearchPagesQueryParams(TypedDict, total=False):
     """
-    ページ検索クエリのパラメータを定義するTypedDict
+    A TypedDict defining page search query parameters
 
-    SitePagesAccessor.search()およびSearchPagesQuery.__init__()の
-    キーワード引数の型定義に使用する。IDEのオートコンプリートと型チェックを有効にする。
+    Used for type definition of keyword arguments in SitePagesAccessor.search()
+    and SearchPagesQuery.__init__(). Enables IDE autocomplete and type checking.
 
     Attributes
     ----------
     pagetype : str
-        ページタイプ（例: "normal", "admin"等）。デフォルト: "*"
+        Page type (e.g., "normal", "admin", etc.). Default: "*"
     category : str
-        カテゴリ名。デフォルト: "*"
+        Category name. Default: "*"
     tags : str | list[str]
-        検索対象のタグ（文字列または文字列のリスト）
+        Tags to search for (string or list of strings)
     parent : str
-        親ページ名
+        Parent page name
     link_to : str
-        リンク先ページ名
+        Linked page name
     created_at : str
-        作成日時の条件（例: "> -86400 86400"）
+        Creation date condition (e.g., "> -86400 86400")
     updated_at : str
-        更新日時の条件
+        Update date condition
     created_by : User | str
-        作成者による絞り込み
+        Filter by creator
     rating : str
-        評価値による絞り込み
+        Filter by rating value
     votes : str
-        投票数による絞り込み
+        Filter by vote count
     name : str
-        ページ名による絞り込み
+        Filter by page name
     fullname : str
-        フルネームによる絞り込み（完全一致）
+        Filter by fullname (exact match)
     range : str
-        範囲指定
+        Range specification
     order : str
-        ソート順（例: "created_at desc", "title asc"）。デフォルト: "created_at desc"
+        Sort order (e.g., "created_at desc", "title asc"). Default: "created_at desc"
     offset : int
-        取得開始位置。デフォルト: 0
+        Starting position for retrieval. Default: 0
     limit : int
-        取得件数制限
+        Limit on number of items to retrieve
     perPage : int
-        1ページあたりの表示件数。デフォルト: 250
+        Number of items displayed per page. Default: 250
     separate : str
-        個別表示するかどうか。デフォルト: "no"
+        Whether to display separately. Default: "no"
     wrapper : str
-        ラッパー要素を表示するかどうか。デフォルト: "no"
+        Whether to display wrapper element. Default: "no"
     """
 
     pagetype: str
@@ -137,56 +137,56 @@ class SearchPagesQueryParams(TypedDict, total=False):
 
 class SearchPagesQuery:
     """
-    ページ検索クエリを表すクラス
+    A class representing a page search query
 
-    Wikidotのページ検索に使用される各種検索条件を定義する。
-    ListPagesModuleに渡すためのクエリパラメータをカプセル化している。
+    Defines various search conditions used for Wikidot page searches.
+    Encapsulates query parameters to pass to ListPagesModule.
 
     Attributes
     ----------
     pagetype : str, default "*"
-        ページタイプ（例: "normal", "admin"等）
+        Page type (e.g., "normal", "admin", etc.)
     category : str, default "*"
-        カテゴリ名
+        Category name
     tags : str | list[str] | None, default None
-        検索対象のタグ（文字列または文字列のリスト）
+        Tags to search for (string or list of strings)
     parent : str | None, default None
-        親ページ名
+        Parent page name
     link_to : str | None, default None
-        リンク先ページ名
+        Linked page name
     created_at : str | None, default None
-        作成日時の条件
+        Creation date condition
     updated_at : str | None, default None
-        更新日時の条件
+        Update date condition
     created_by : User | str | None, default None
-        作成者による絞り込み
+        Filter by creator
     rating : str | None, default None
-        評価値による絞り込み
+        Filter by rating value
     votes : str | None, default None
-        投票数による絞り込み
+        Filter by vote count
     name : str | None, default None
-        ページ名による絞り込み
+        Filter by page name
     fullname : str | None, default None
-        フルネームによる絞り込み（完全一致）
+        Filter by fullname (exact match)
     range : str | None, default None
-        範囲指定
+        Range specification
     order : str, default "created_at desc"
-        ソート順（例: "created_at desc", "title asc"等）
+        Sort order (e.g., "created_at desc", "title asc", etc.)
     offset : int, default 0
-        取得開始位置
+        Starting position for retrieval
     limit : int | None, default None
-        取得件数制限
+        Limit on number of items to retrieve
     perPage : int, default 250
-        1ページあたりの表示件数
+        Number of items displayed per page
     separate : str, default "no"
-        個別表示するかどうか
+        Whether to display separately
     wrapper : str, default "no"
-        ラッパー要素を表示するかどうか
+        Whether to display wrapper element
 
     Raises
     ------
     ValueError
-        無効なキーワード引数が渡された場合
+        When invalid keyword arguments are passed
     """
 
     # 有効なフィールド名のセット
@@ -214,17 +214,17 @@ class SearchPagesQuery:
 
     def __init__(self, **kwargs: Unpack[SearchPagesQueryParams]) -> None:
         """
-        SearchPagesQueryの初期化
+        Initialize SearchPagesQuery
 
         Parameters
         ----------
         **kwargs : Unpack[SearchPagesQueryParams]
-            検索条件のキーワード引数。詳細はSearchPagesQueryParamsを参照。
+            Search condition keyword arguments. See SearchPagesQueryParams for details.
 
         Raises
         ------
         ValueError
-            無効なキーワード引数が含まれている場合
+            When invalid keyword arguments are included
         """
         # 無効なキーのチェック
         invalid_keys = set(kwargs.keys()) - self._VALID_FIELDS
@@ -263,14 +263,14 @@ class SearchPagesQuery:
 
     def as_dict(self) -> dict[str, Any]:
         """
-        クエリパラメータを辞書形式に変換する
+        Convert query parameters to dictionary format
 
-        タグがリスト形式の場合は空白区切りの文字列に変換する。
+        If tags are in list format, converts them to a space-separated string.
 
         Returns
         -------
         dict[str, Any]
-            APIリクエスト用の辞書形式パラメータ
+            Dictionary format parameters for API requests
         """
         res = {k: v for k, v in self.__dict__.items() if v is not None and k in self._VALID_FIELDS}
 
@@ -281,24 +281,24 @@ class SearchPagesQuery:
 
 class PageCollection(list["Page"]):
     """
-    ページオブジェクトのコレクションを表すクラス
+    A class representing a collection of page objects
 
-    複数のページオブジェクトを格納し、一括して操作するための機能を提供する。
-    ページの検索、一括取得、一括操作などの機能を集約している。
+    Stores multiple page objects and provides functionality for batch operations.
+    Consolidates features such as page search, batch retrieval, and batch operations.
     """
 
     site: "Site"
 
     def __init__(self, site: Optional["Site"] = None, pages: list["Page"] | None = None):
         """
-        初期化メソッド
+        Initialize method
 
         Parameters
         ----------
         site : Site | None, default None
-            ページが属するサイト。Noneの場合は最初のページから推測する
+            Site to which pages belong. If None, inferred from the first page
         pages : list[Page] | None, default None
-            格納するページのリスト
+            List of pages to store
         """
         super().__init__(pages or [])
 
@@ -309,28 +309,28 @@ class PageCollection(list["Page"]):
 
     def __iter__(self) -> Iterator["Page"]:
         """
-        コレクション内のページを順に返すイテレータ
+        An iterator that returns pages in the collection sequentially
 
         Returns
         -------
         Iterator[Page]
-            ページオブジェクトのイテレータ
+            Iterator of page objects
         """
         return super().__iter__()
 
     def find(self, fullname: str) -> Optional["Page"]:
         """
-        指定したフルネームのページを取得する
+        Get a page with the specified fullname
 
         Parameters
         ----------
         fullname : str
-            取得するページのフルネーム
+            Fullname of the page to retrieve
 
         Returns
         -------
         Page | None
-            指定したフルネームのページ。存在しない場合はNone
+            Page with the specified fullname. None if it does not exist
         """
         for page in self:
             if page.fullname == fullname:
@@ -340,24 +340,24 @@ class PageCollection(list["Page"]):
     @staticmethod
     def _parse(site: "Site", html_body: BeautifulSoup) -> "PageCollection":
         """
-        ListPagesModuleのレスポンスをパースしてページオブジェクトのリストを生成する
+        Parse ListPagesModule responses and generate a list of page objects
 
         Parameters
         ----------
         site : Site
-            ページが属するサイト
+            Site to which pages belong
         html_body : BeautifulSoup
-            パース対象のHTML
+            HTML to parse
 
         Returns
         -------
         PageCollection
-            パース結果のページコレクション
+            Page collection from parsing results
 
         Raises
         ------
         NoElementException
-            必要な要素が見つからない場合
+            When required elements are not found
         """
         pages = []
 
@@ -444,31 +444,31 @@ class PageCollection(list["Page"]):
     @staticmethod
     def search_pages(site: "Site", query: SearchPagesQuery | None = None) -> "PageCollection":
         """
-        サイト内のページを検索する
+        Search for pages within a site
 
-        指定されたクエリに基づいてサイト内のページを検索し、結果を返す。
-        Wikidotの「ListPagesModule」を使用して検索を実行する。
+        Searches for pages within a site based on the specified query and returns the results.
+        Executes the search using Wikidot's "ListPagesModule".
 
         Parameters
         ----------
         site : Site
-            検索対象のサイト
+            Site to search
         query : SearchPagesQuery | None, default None
-            検索条件。Noneの場合はデフォルトの検索条件を使用する。
+            Search conditions. If None, default search conditions are used.
 
         Returns
         -------
         PageCollection
-            検索結果のページコレクション
+            Page collection of search results
 
         Raises
         ------
         ForbiddenException
-            プライベートサイトでアクセスが拒否された場合
+            When access is denied on a private site
         WikidotStatusCodeException
-            その他のAPIエラーが発生した場合
+            When other API errors occur
         NoElementException
-            レスポンスからページ情報を抽出できない場合
+            When page information cannot be extracted from the response
         """
         if query is None:
             query = SearchPagesQuery()
@@ -530,27 +530,27 @@ class PageCollection(list["Page"]):
     @staticmethod
     def _acquire_page_ids(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
-        ページIDを取得する内部メソッド
+        Internal method to retrieve page IDs
 
-        未取得のページIDを一括で取得する。norender/noredirectオプション付きで
-        ページにアクセスし、ページソースからIDを抽出する。
+        Batch retrieves unacquired page IDs. Accesses pages with norender/noredirect options
+        and extracts IDs from page source.
 
         Parameters
         ----------
         site : Site
-            ページが属するサイト
+            Site to which pages belong
         pages : list[Page]
-            対象ページのリスト
+            List of target pages
 
         Returns
         -------
         list[Page]
-            ID情報が更新されたページのリスト
+            List of pages with updated ID information
 
         Raises
         ------
         UnexpectedException
-            ページIDが見つからない場合や、予期しないレスポンスタイプの場合
+            When page ID is not found or response type is unexpected
         """
         # pagesからidが設定されていないものを抽出
         target_pages = [page for page in pages if not page.is_id_acquired()]
@@ -581,14 +581,14 @@ class PageCollection(list["Page"]):
 
     def get_page_ids(self) -> "PageCollection":
         """
-        コレクション内の全ページのIDを取得する
+        Get IDs for all pages in the collection
 
-        IDが設定されていないページについて、一括でIDを取得する。
+        Batch retrieves IDs for pages that do not have IDs set.
 
         Returns
         -------
         PageCollection
-            自身（メソッドチェーン用）
+            Self (for method chaining)
         """
         PageCollection._acquire_page_ids(self.site, self)
         return self
@@ -596,26 +596,26 @@ class PageCollection(list["Page"]):
     @staticmethod
     def _acquire_page_sources(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
-        ページソースを取得する内部メソッド
+        Internal method to retrieve page sources
 
-        指定されたページのソースコード（Wikidot記法）を一括で取得する。
+        Batch retrieves source code (Wikidot markup) for specified pages.
 
         Parameters
         ----------
         site : Site
-            ページが属するサイト
+            Site to which pages belong
         pages : list[Page]
-            対象ページのリスト
+            List of target pages
 
         Returns
         -------
         list[Page]
-            ソース情報が更新されたページのリスト
+            List of pages with updated source information
 
         Raises
         ------
         NoElementException
-            ソース要素が見つからない場合
+            When source elements are not found
         """
         if len(pages) == 0:
             return pages
@@ -640,14 +640,14 @@ class PageCollection(list["Page"]):
 
     def get_page_sources(self) -> "PageCollection":
         """
-        コレクション内の全ページのソースコードを取得する
+        Get source code for all pages in the collection
 
-        ページのソースコード（Wikidot記法）を一括で取得し、各ページのsourceプロパティに設定する。
+        Batch retrieves source code (Wikidot markup) for pages and sets the source property for each page.
 
         Returns
         -------
         PageCollection
-            自身（メソッドチェーン用）
+            Self (for method chaining)
         """
         PageCollection._acquire_page_sources(self.site, self)
         return self
@@ -655,26 +655,26 @@ class PageCollection(list["Page"]):
     @staticmethod
     def _acquire_page_revisions(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
-        ページリビジョン履歴を取得する内部メソッド
+        Internal method to retrieve page revision history
 
-        指定されたページのリビジョン（編集履歴）を一括で取得する。
+        Batch retrieves revisions (edit history) for specified pages.
 
         Parameters
         ----------
         site : Site
-            ページが属するサイト
+            Site to which pages belong
         pages : list[Page]
-            対象ページのリスト
+            List of target pages
 
         Returns
         -------
         list[Page]
-            リビジョン情報が更新されたページのリスト
+            List of pages with updated revision information
 
         Raises
         ------
         NoElementException
-            必要な要素が見つからない場合
+            When required elements are not found
         """
         if len(pages) == 0:
             return pages
@@ -732,14 +732,14 @@ class PageCollection(list["Page"]):
 
     def get_page_revisions(self) -> "PageCollection":
         """
-        コレクション内の全ページのリビジョン履歴を取得する
+        Get revision history for all pages in the collection
 
-        ページのリビジョン（編集履歴）を一括で取得し、各ページのrevisionsプロパティに設定する。
+        Batch retrieves revisions (edit history) for pages and sets the revisions property for each page.
 
         Returns
         -------
         PageCollection
-            自身（メソッドチェーン用）
+            Self (for method chaining)
         """
         PageCollection._acquire_page_revisions(self.site, self)
         return self
@@ -747,26 +747,26 @@ class PageCollection(list["Page"]):
     @staticmethod
     def _acquire_page_votes(site: "Site", pages: list["Page"]) -> list["Page"]:
         """
-        ページへの投票情報を取得する内部メソッド
+        Internal method to retrieve vote information for pages
 
-        指定されたページへの投票（レーティング）情報を一括で取得する。
+        Batch retrieves vote (rating) information for specified pages.
 
         Parameters
         ----------
         site : Site
-            ページが属するサイト
+            Site to which pages belong
         pages : list[Page]
-            対象ページのリスト
+            List of target pages
 
         Returns
         -------
         list[Page]
-            投票情報が更新されたページのリスト
+            List of pages with updated vote information
 
         Raises
         ------
         UnexpectedException
-            ユーザー要素と投票値要素の数が一致しない場合
+            When the number of user elements and vote value elements do not match
         """
         if len(pages) == 0:
             return pages
@@ -802,14 +802,14 @@ class PageCollection(list["Page"]):
 
     def get_page_votes(self) -> "PageCollection":
         """
-        コレクション内の全ページの投票情報を取得する
+        Get vote information for all pages in the collection
 
-        ページへの投票（レーティング）情報を一括で取得し、各ページのvotesプロパティに設定する。
+        Batch retrieves vote (rating) information for pages and sets the votes property for each page.
 
         Returns
         -------
         PageCollection
-            自身（メソッドチェーン用）
+            Self (for method chaining)
         """
         PageCollection._acquire_page_votes(self.site, self)
         return self
@@ -818,63 +818,63 @@ class PageCollection(list["Page"]):
 @dataclass
 class Page:
     """
-    Wikidotページを表すクラス
+    A class representing a Wikidot page
 
-    Wikidotサイト内の単一ページに関する情報と操作機能を提供する。
-    ページの基本情報、メタデータ、履歴、評価などを管理する。
+    Provides information and operation functions for a single page within a Wikidot site.
+    Manages page basic information, metadata, history, ratings, etc.
 
     Attributes
     ----------
     site : Site
-        ページが存在するサイト
+        Site where the page exists
     fullname : str
-        ページのフルネーム（例: "コンポーネント:scp-173"）
+        Fullname of the page (e.g., "component:scp-173")
     name : str
-        ページ名（例: "scp-173"）
+        Page name (e.g., "scp-173")
     category : str
-        カテゴリ（例: "コンポーネント"）
+        Category (e.g., "component")
     title : str
-        ページのタイトル
+        Title of the page
     children_count : int
-        子ページの数
+        Number of child pages
     comments_count : int
-        コメント数
+        Number of comments
     size : int
-        ページのサイズ（バイト数）
+        Size of the page (in bytes)
     rating : int | float
-        レーティング（+/-評価の場合はint、5つ星評価の場合はfloat）
+        Rating (int for +/- rating, float for 5-star rating)
     votes_count : int
-        投票数
+        Number of votes
     rating_percent : float
-        5つ星評価システムにおけるパーセンテージ値（0.0～1.0）
+        Percentage value in 5-star rating system (0.0 to 1.0)
     revisions_count : int
-        リビジョン（編集履歴）の数
+        Number of revisions (edit history)
     parent_fullname : str | None
-        親ページのフルネーム（親がない場合はNone）
+        Fullname of parent page (None if no parent)
     tags : list[str]
-        付けられたタグのリスト
+        List of tags attached
     created_by : User
-        ページの作成者
+        Creator of the page
     created_at : datetime
-        ページの作成日時
+        Date and time the page was created
     updated_by : User
-        最終更新者
+        Last updater
     updated_at : datetime
-        最終更新日時
+        Last update date and time
     commented_by : User | None
-        最後にコメントしたユーザー（コメントがない場合はNone）
+        User who last commented (None if no comments)
     commented_at : datetime | None
-        最後のコメント日時（コメントがない場合はNone）
+        Date and time of last comment (None if no comments)
     _id : int | None
-        ページのID（内部識別子）
+        Page ID (internal identifier)
     _source : PageSource | None
-        ページのソースコード（要求時に取得）
+        Source code of the page (retrieved on request)
     _revisions : PageRevisionCollection | None
-        ページのリビジョン履歴（要求時に取得）
+        Revision history of the page (retrieved on request)
     _votes : PageVoteCollection | None
-        ページへの投票情報（要求時に取得）
+        Vote information for the page (retrieved on request)
     _metas : dict[str, str] | None
-        ページのメタタグ情報（要求時に取得）
+        Meta tag information for the page (retrieved on request)
     """
 
     site: "Site"
@@ -908,33 +908,33 @@ class Page:
 
     def get_url(self) -> str:
         """
-        ページの完全なURLを取得する
+        Get the full URL of the page
 
-        サイトのURLとページ名から完全なページURLを生成する。
+        Generates the full page URL from the site URL and page name.
 
         Returns
         -------
         str
-            ページの完全なURL
+            Full URL of the page
         """
         return f"{self.site.url}/{self.fullname}"
 
     @property
     def id(self) -> int:
         """
-        ページIDを取得する
+        Get the page ID
 
-        IDが未取得の場合は自動的に取得処理を行う。
+        Automatically performs retrieval processing if the ID has not been acquired.
 
         Returns
         -------
         int
-            ページID
+            Page ID
 
         Raises
         ------
         NotFoundException
-            ページIDが見つからない場合
+            When the page ID is not found
         """
         if not self.is_id_acquired():
             PageCollection(self.site, [self]).get_page_ids()
@@ -947,42 +947,42 @@ class Page:
     @id.setter
     def id(self, value: int) -> None:
         """
-        ページIDを設定する
+        Set the page ID
 
         Parameters
         ----------
         value : int
-            設定するページID
+            Page ID to set
         """
         self._id = value
 
     def is_id_acquired(self) -> bool:
         """
-        ページIDが既に取得済みかどうかを確認する
+        Check whether the page ID has already been acquired
 
         Returns
         -------
         bool
-            IDが取得済みの場合はTrue、未取得の場合はFalse
+            True if the ID has been acquired, False if not acquired
         """
         return self._id is not None
 
     @property
     def source(self) -> PageSource:
         """
-        ページのソースコードを取得する
+        Get the source code of the page
 
-        ソースコードが未取得の場合は自動的に取得処理を行う。
+        Automatically performs retrieval processing if the source code has not been acquired.
 
         Returns
         -------
         PageSource
-            ページのソースコードオブジェクト
+            Source code object of the page
 
         Raises
         ------
         NotFoundException
-            ページソースが見つからない場合
+            When the page source is not found
         """
         if self._source is None:
             PageCollection(self.site, [self]).get_page_sources()
@@ -995,31 +995,31 @@ class Page:
     @source.setter
     def source(self, value: PageSource) -> None:
         """
-        ページのソースコードを設定する
+        Set the source code of the page
 
         Parameters
         ----------
         value : PageSource
-            設定するソースコードオブジェクト
+            Source code object to set
         """
         self._source = value
 
     @property
     def revisions(self) -> PageRevisionCollection:
         """
-        ページのリビジョン履歴を取得する
+        Get the revision history of the page
 
-        リビジョン履歴が未取得の場合は自動的に取得処理を行う。
+        Automatically performs retrieval processing if the revision history has not been acquired.
 
         Returns
         -------
         PageRevisionCollection
-            ページのリビジョン履歴コレクション
+            Revision history collection of the page
 
         Raises
         ------
         NotFoundException
-            リビジョン履歴が見つからない場合
+            When the revision history is not found
         """
         if self._revisions is None:
             PageCollection(self.site, [self]).get_page_revisions()
@@ -1028,12 +1028,12 @@ class Page:
     @revisions.setter
     def revisions(self, value: list["PageRevision"] | PageRevisionCollection) -> None:
         """
-        ページのリビジョン履歴を設定する
+        Set the revision history of the page
 
         Parameters
         ----------
         value : list[PageRevision] | PageRevisionCollection
-            設定するリビジョンのリストまたはコレクション
+            List or collection of revisions to set
         """
         if isinstance(value, list):
             self._revisions = PageRevisionCollection(self, value)
@@ -1043,19 +1043,19 @@ class Page:
     @property
     def latest_revision(self) -> PageRevision:
         """
-        ページの最新リビジョンを取得する
+        Get the latest revision of the page
 
-        revision_countとrev_noが一致するリビジョンを最新として返す。
+        Returns the revision where revision_count and rev_no match as the latest.
 
         Returns
         -------
         PageRevision
-            最新のリビジョンオブジェクト
+            Latest revision object
 
         Raises
         ------
         NotFoundException
-            最新リビジョンが見つからない場合
+            When the latest revision is not found
         """
         # revision_countとrev_noが一致するものを取得
         for revision in self.revisions:
@@ -1067,19 +1067,19 @@ class Page:
     @property
     def votes(self) -> PageVoteCollection:
         """
-        ページへの投票情報を取得する
+        Get vote information for the page
 
-        投票情報が未取得の場合は自動的に取得処理を行う。
+        Automatically performs retrieval processing if the vote information has not been acquired.
 
         Returns
         -------
         PageVoteCollection
-            ページへの投票情報コレクション
+            Vote information collection for the page
 
         Raises
         ------
         NotFoundException
-            投票情報が見つからない場合
+            When the vote information is not found
         """
         if self._votes is None:
             PageCollection(self.site, [self]).get_page_votes()
@@ -1092,27 +1092,27 @@ class Page:
     @votes.setter
     def votes(self, value: PageVoteCollection) -> None:
         """
-        ページへの投票情報を設定する
+        Set vote information for the page
 
         Parameters
         ----------
         value : PageVoteCollection
-            設定する投票情報コレクション
+            Vote information collection to set
         """
         self._votes = value
 
     @property
     def discussion(self) -> Optional["ForumThread"]:
         """
-        ページのディスカッションスレッドを取得する
+        Get the discussion thread for the page
 
-        ページに関連付けられたフォーラムスレッド（コメント欄）を取得する。
-        ディスカッションが存在しない場合はNoneを返す。
+        Retrieves the forum thread (comments section) associated with the page.
+        Returns None if the discussion does not exist.
 
         Returns
         -------
         ForumThread | None
-            ディスカッションスレッド。存在しない場合はNone
+            Discussion thread. None if it does not exist
         """
         if not self._discussion_checked:
             response = self.site.amc_request(
@@ -1138,14 +1138,14 @@ class Page:
     @property
     def files(self) -> "PageFileCollection":
         """
-        ページに添付されたファイル一覧を取得する
+        Get a list of files attached to the page
 
-        ファイル一覧が未取得の場合は自動的に取得処理を行う。
+        Automatically performs retrieval processing if the file list has not been acquired.
 
         Returns
         -------
         PageFileCollection
-            ページに添付されたファイルのコレクション
+            Collection of files attached to the page
         """
         if self._files is None:
             from .page_file import PageFileCollection
@@ -1155,16 +1155,16 @@ class Page:
 
     def destroy(self) -> None:
         """
-        ページを削除する
+        Delete the page
 
-        ログイン状態でのみ実行可能。ページの完全削除を行う。
+        Can only be executed while logged in. Performs complete deletion of the page.
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         WikidotStatusCodeException
-            削除に失敗した場合
+            When deletion fails
         """
         self.site.client.login_check()
         self.site.amc_request(
@@ -1181,14 +1181,14 @@ class Page:
     @property
     def metas(self) -> dict[str, str]:
         """
-        ページのメタタグ情報を取得する
+        Get meta tag information for the page
 
-        メタタグ情報が未取得の場合は自動的に取得処理を行う。
+        Automatically performs retrieval processing if the meta tag information has not been acquired.
 
         Returns
         -------
         dict[str, str]
-            メタタグ名とその内容の辞書
+            Dictionary of meta tag names and their contents
         """
         if self._metas is None:
             response = self.site.amc_request(
@@ -1215,21 +1215,21 @@ class Page:
     @metas.setter
     def metas(self, value: dict[str, str]) -> None:
         """
-        ページのメタタグ情報を設定する
+        Set meta tag information for the page
 
-        現在のメタタグと比較し、削除されたものは削除、追加・更新されたものは保存する。
+        Compares with current meta tags, deletes removed ones, and saves added/updated ones.
 
         Parameters
         ----------
         value : dict[str, str]
-            設定するメタタグ名とその内容の辞書
+            Dictionary of meta tag names and their contents to set
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         WikidotStatusCodeException
-            メタタグの設定に失敗した場合
+            When setting meta tags fails
         """
         self.site.client.login_check()
         current_metas = self.metas
@@ -1292,49 +1292,49 @@ class Page:
         raise_on_exists: bool = False,
     ) -> "Page":
         """
-        ページを作成または編集する
+        Create or edit a page
 
-        新規ページの作成または既存ページの編集を行う。
-        編集の場合はページロックの取得とページ保存の処理を行う。
+        Creates a new page or edits an existing page.
+        For editing, acquires page lock and performs page save processing.
 
         Parameters
         ----------
         site : Site
-            ページが属するサイト
+            Site to which the page belongs
         fullname : str
-            ページのフルネーム
+            Fullname of the page
         page_id : int | None, default None
-            編集する場合のページID（新規作成時はNone）
+            Page ID when editing (None when creating new)
         title : str, default ""
-            ページのタイトル
+            Title of the page
         source : str, default ""
-            ページのソースコード（Wikidot記法）
+            Source code of the page (Wikidot markup)
         comment : str, default ""
-            編集コメント
+            Edit comment
         force_edit : bool, default False
-            他のユーザーによるロックを強制的に解除するかどうか
+            Whether to forcibly release locks by other users
         raise_on_exists : bool, default False
-            ページが既に存在する場合に例外を送出するかどうか
+            Whether to raise an exception if the page already exists
 
         Returns
         -------
         Page
-            作成または編集されたページオブジェクト
+            Created or edited page object
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         TargetErrorException
-            ページがロックされている場合
+            When the page is locked
         TargetExistsException
-            ページが既に存在し、raise_on_existsがTrueの場合
+            When the page already exists and raise_on_exists is True
         ValueError
-            既存ページの編集時にpage_idが指定されていない場合
+            When page_id is not specified when editing an existing page
         WikidotStatusCodeException
-            ページの保存に失敗した場合
+            When saving the page fails
         NotFoundException
-            ページの作成後に検索できない場合
+            When the page cannot be found after creation
         """
         site.client.login_check()
 
@@ -1405,29 +1405,29 @@ class Page:
         force_edit: bool = False,
     ) -> "Page":
         """
-        このページを編集する
+        Edit this page
 
-        既存ページの内容を更新する。指定されていないパラメータは現在の値を維持する。
+        Updates the contents of an existing page. Parameters not specified maintain their current values.
 
         Parameters
         ----------
         title : str | None, default None
-            新しいタイトル（Noneの場合は現在のタイトルを維持）
+            New title (maintains current title if None)
         source : str | None, default None
-            新しいソースコード（Noneの場合は現在のソースを維持）
+            New source code (maintains current source if None)
         comment : str | None, default None
-            編集コメント
+            Edit comment
         force_edit : bool, default False
-            他のユーザーによるロックを強制的に解除するかどうか
+            Whether to forcibly release locks by other users
 
         Returns
         -------
         Page
-            編集後のページオブジェクト
+            Edited page object
 
         Raises
         ------
-        同上（create_or_editメソッドと同様）
+        Same as above (same as create_or_edit method)
         """
         # Noneならそのままにする
         title = title or self.title
@@ -1446,21 +1446,21 @@ class Page:
 
     def commit_tags(self) -> "Page":
         """
-        ページのタグ情報を保存する
+        Save tag information for the page
 
-        現在のtagsプロパティの内容をWikidotに保存する。
+        Saves the contents of the current tags property to Wikidot.
 
         Returns
         -------
         Page
-            自身（メソッドチェーン用）
+            Self (for method chaining)
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         WikidotStatusCodeException
-            タグの保存に失敗した場合
+            When saving tags fails
         """
         self.site.client.login_check()
         self.site.amc_request(
@@ -1478,27 +1478,27 @@ class Page:
 
     def set_parent(self, parent_fullname: str | None) -> "Page":
         """
-        親ページを設定する
+        Set the parent page
 
-        指定した親ページをこのページの親として設定する。
-        Noneまたは空文字列を指定すると親ページの設定を解除する。
+        Sets the specified parent page as the parent of this page.
+        Specifying None or an empty string removes the parent page setting.
 
         Parameters
         ----------
         parent_fullname : str | None
-            親ページのフルネーム。Noneまたは空文字列で親を解除
+            Fullname of the parent page. None or empty string removes the parent
 
         Returns
         -------
         Page
-            自身（メソッドチェーン用）
+            Self (for method chaining)
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         WikidotStatusCodeException
-            親ページの設定に失敗した場合
+            When setting the parent page fails
         """
         self.site.client.login_check()
         self.site.amc_request(
@@ -1517,27 +1517,27 @@ class Page:
 
     def rename(self, new_fullname: str) -> "Page":
         """
-        ページ名を変更する
+        Rename the page
 
-        ページのフルネームを新しい名前に変更する。
-        カテゴリも含めた完全なフルネームを指定する必要がある。
+        Changes the page's fullname to a new name.
+        Must specify the complete fullname including category.
 
         Parameters
         ----------
         new_fullname : str
-            新しいフルネーム（例: "component:new-name"）
+            New fullname (e.g., "component:new-name")
 
         Returns
         -------
         Page
-            自身（メソッドチェーン用）
+            Self (for method chaining)
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         WikidotStatusCodeException
-            ページ名の変更に失敗した場合（同名ページが存在する場合など）
+            When renaming the page fails (e.g., when a page with the same name exists)
         """
         self.site.client.login_check()
         self.site.amc_request(
@@ -1561,27 +1561,27 @@ class Page:
 
     def vote(self, value: int) -> int:
         """
-        ページに投票する
+        Vote on the page
 
-        ページに対して+1または-1の投票を行う。
-        既に投票している場合は上書きされる。
+        Casts a +1 or -1 vote on the page.
+        Overwrites if already voted.
 
         Parameters
         ----------
         value : int
-            投票値（1または-1）
+            Vote value (1 or -1)
 
         Returns
         -------
         int
-            投票後の新しいレーティング値
+            New rating value after voting
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         WikidotStatusCodeException
-            投票に失敗した場合
+            When voting fails
         """
         self.site.client.login_check()
         response = self.site.amc_request(
@@ -1602,21 +1602,21 @@ class Page:
 
     def cancel_vote(self) -> int:
         """
-        投票をキャンセルする
+        Cancel the vote
 
-        このページに対する自分の投票を取り消す。
+        Cancels your vote on this page.
 
         Returns
         -------
         int
-            キャンセル後の新しいレーティング値
+            New rating value after cancellation
 
         Raises
         ------
         LoginRequiredException
-            ログインしていない場合
+            When not logged in
         WikidotStatusCodeException
-            投票キャンセルに失敗した場合
+            When vote cancellation fails
         """
         self.site.client.login_check()
         response = self.site.amc_request(
