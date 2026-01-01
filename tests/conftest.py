@@ -533,6 +533,24 @@ def forum_savepost_success() -> dict[str, Any]:
     return _load_json("forum", "savepost_success.json")
 
 
+@pytest.fixture
+def forum_post_revisions() -> dict[str, Any]:
+    """ポストリビジョン一覧レスポンス"""
+    return _load_json("forum", "post_revisions.json")
+
+
+@pytest.fixture
+def forum_post_revisions_single() -> dict[str, Any]:
+    """ポストリビジョン一覧レスポンス（1件）"""
+    return _load_json("forum", "post_revisions_single.json")
+
+
+@pytest.fixture
+def forum_post_revision_content() -> dict[str, Any]:
+    """ポストリビジョンコンテンツレスポンス"""
+    return _load_json("forum", "post_revision_content.json")
+
+
 # ============================================================
 # QuickModule関連フィクスチャ
 # ============================================================
