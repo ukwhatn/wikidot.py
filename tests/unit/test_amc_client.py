@@ -271,26 +271,66 @@ class TestAjaxModuleConnectorClientRequest:
         with pytest.raises(AMCHttpStatusCodeException):
             client.request([{"moduleName": "Test"}])
 
-    def test_invalid_json_response(self, httpx_mock: HTTPXMock) -> None:
-        """不正なJSONレスポンスでResponseDataException"""
+    def test_retry_on_non_json_response(self, httpx_mock: HTTPXMock) -> None:
+        """非JSONレスポンスでリトライ"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            text="",  # 空レスポンス（JSONパースエラー）
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+        responses = client.request([{"moduleName": "Test"}])
+
+        assert len(httpx_mock.get_requests()) == 2
+        assert responses[0].json()["status"] == "ok"
+
+    @pytest.mark.httpx_mock(can_send_already_matched_responses=True)
+    def test_non_json_response_max_retry(self, httpx_mock: HTTPXMock) -> None:
+        """非JSONレスポンスでリトライ上限超過"""
         httpx_mock.add_response(
             url="https://www.wikidot.com/ajax-module-connector.php",
             text="not a json",
         )
 
-        client = AjaxModuleConnectorClient(site_name="www")
+        config = AjaxModuleConnectorConfig(attempt_limit=2, retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
 
         with pytest.raises(ResponseDataException):
             client.request([{"moduleName": "Test"}])
 
-    def test_empty_response(self, httpx_mock: HTTPXMock) -> None:
-        """空レスポンスでResponseDataException"""
+    def test_retry_on_empty_json_response(self, httpx_mock: HTTPXMock) -> None:
+        """空JSONレスポンスでリトライ"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={},  # 空オブジェクト
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+        responses = client.request([{"moduleName": "Test"}])
+
+        assert len(httpx_mock.get_requests()) == 2
+        assert responses[0].json()["status"] == "ok"
+
+    @pytest.mark.httpx_mock(can_send_already_matched_responses=True)
+    def test_empty_response_max_retry(self, httpx_mock: HTTPXMock) -> None:
+        """空レスポンスでリトライ上限超過"""
         httpx_mock.add_response(
             url="https://www.wikidot.com/ajax-module-connector.php",
             json={},
         )
 
-        client = AjaxModuleConnectorClient(site_name="www")
+        config = AjaxModuleConnectorConfig(attempt_limit=2, retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
 
         with pytest.raises(ResponseDataException):
             client.request([{"moduleName": "Test"}])
