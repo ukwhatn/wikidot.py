@@ -375,15 +375,41 @@ class AjaxModuleConnectorClient:
                 # Parse body as JSON data
                 try:
                     _response_body = response.json()
-                except json.decoder.JSONDecodeError as e:
-                    # Treat as error if parsing fails
-                    wd_logger.error(f'AMC is respond non-json data: "{response.text}" -> {_mask_sensitive_data(_body)}')
-                    raise ResponseDataException(f'AMC is respond non-json data: "{response.text}"') from e
+                except json.decoder.JSONDecodeError:
+                    # Retry on JSON parse error (e.g., empty response)
+                    retry_count += 1
+                    if retry_count >= self.config.attempt_limit:
+                        wd_logger.error(
+                            f'AMC is respond non-json data: "{response.text}" -> {_mask_sensitive_data(_body)}'
+                        )
+                        raise ResponseDataException(f'AMC is respond non-json data: "{response.text}"') from None
 
-                # Treat as error if response is empty
+                    backoff = _calculate_backoff(
+                        retry_count,
+                        self.config.retry_interval,
+                        self.config.backoff_factor,
+                        self.config.max_backoff,
+                    )
+                    wd_logger.info(f"AMC responded with non-JSON data (retry: {retry_count}, backoff: {backoff:.2f}s)")
+                    await asyncio.sleep(backoff)
+                    continue
+
+                # Retry if response is empty
                 if _response_body is None or len(_response_body) == 0:
-                    wd_logger.error(f"AMC is respond empty data -> {_mask_sensitive_data(_body)}")
-                    raise ResponseDataException("AMC is respond empty data")
+                    retry_count += 1
+                    if retry_count >= self.config.attempt_limit:
+                        wd_logger.error(f"AMC is respond empty data -> {_mask_sensitive_data(_body)}")
+                        raise ResponseDataException("AMC is respond empty data")
+
+                    backoff = _calculate_backoff(
+                        retry_count,
+                        self.config.retry_interval,
+                        self.config.backoff_factor,
+                        self.config.max_backoff,
+                    )
+                    wd_logger.info(f"AMC responded with empty data (retry: {retry_count}, backoff: {backoff:.2f}s)")
+                    await asyncio.sleep(backoff)
+                    continue
 
                 # Treat as error if status is not ok
                 if "status" in _response_body:
