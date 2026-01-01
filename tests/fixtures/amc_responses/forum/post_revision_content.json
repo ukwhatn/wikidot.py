@@ -1,0 +1,8 @@
+{
+  "status": "ok",
+  "title": "Test Post Title",
+  "content": "<p>This is the revision content.</p>\n<p>Second paragraph.</p>",
+  "postId": 5001,
+  "CURRENT_TIMESTAMP": 1700000000,
+  "body": "ok"
+}

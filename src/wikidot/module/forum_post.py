@@ -17,6 +17,7 @@ from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
 if TYPE_CHECKING:
+    from .forum_post_revision import ForumPostRevisionCollection
     from .forum_thread import ForumThread
     from .user import AbstractUser
 
@@ -306,6 +307,7 @@ class ForumPost:
     edited_at: datetime | None = None
     _parent_id: int | None = None
     _source: str | None = None
+    _revisions: Optional["ForumPostRevisionCollection"] = None
 
     def __str__(self) -> str:
         """
@@ -333,6 +335,36 @@ class ForumPost:
             Parent post ID, or None if no parent
         """
         return self._parent_id
+
+    @property
+    def has_revisions(self) -> bool:
+        """
+        Check if the post has been edited (has revisions)
+
+        Returns
+        -------
+        bool
+            True if the post has been edited, False otherwise
+        """
+        return self.edited_by is not None
+
+    @property
+    def revisions(self) -> "ForumPostRevisionCollection":
+        """
+        Retrieve all revisions for this post
+
+        Automatically retrieves if revisions have not been fetched.
+
+        Returns
+        -------
+        ForumPostRevisionCollection
+            Collection of all revisions for this post
+        """
+        if self._revisions is None:
+            from .forum_post_revision import ForumPostRevisionCollection
+
+            self._revisions = ForumPostRevisionCollection.acquire_all(self)
+        return self._revisions
 
     @property
     def source(self) -> str:
