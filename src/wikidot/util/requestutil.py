@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from .async_helper import run_coroutine
-from .http import calculate_backoff
+from .http import _is_retryable_status, calculate_backoff
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client
@@ -45,7 +45,20 @@ class RequestUtil:
                             response = await _client.get(url)
                             response.raise_for_status()
                             return response
-                    except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError):
+                    except httpx.HTTPStatusError as e:
+                        # Don't retry 4xx errors - they are client errors that won't change on retry
+                        if not _is_retryable_status(e.response.status_code):
+                            raise
+                        if attempt >= config.attempt_limit - 1:
+                            raise
+                        backoff = calculate_backoff(
+                            attempt + 1,
+                            config.retry_interval,
+                            config.backoff_factor,
+                            config.max_backoff,
+                        )
+                        await asyncio.sleep(backoff)
+                    except (httpx.TimeoutException, httpx.NetworkError):
                         if attempt >= config.attempt_limit - 1:
                             raise
                         backoff = calculate_backoff(
@@ -65,7 +78,20 @@ class RequestUtil:
                             response = await _client.post(url)
                             response.raise_for_status()
                             return response
-                    except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError):
+                    except httpx.HTTPStatusError as e:
+                        # Don't retry 4xx errors - they are client errors that won't change on retry
+                        if not _is_retryable_status(e.response.status_code):
+                            raise
+                        if attempt >= config.attempt_limit - 1:
+                            raise
+                        backoff = calculate_backoff(
+                            attempt + 1,
+                            config.retry_interval,
+                            config.backoff_factor,
+                            config.max_backoff,
+                        )
+                        await asyncio.sleep(backoff)
+                    except (httpx.TimeoutException, httpx.NetworkError):
                         if attempt >= config.attempt_limit - 1:
                             raise
                         backoff = calculate_backoff(

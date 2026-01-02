@@ -7,6 +7,11 @@ import time
 import httpx
 
 
+def _is_retryable_status(status_code: int) -> bool:
+    """Check if HTTP status code is retryable (5xx server errors)."""
+    return 500 <= status_code < 600
+
+
 def calculate_backoff(
     retry_count: int,
     base_interval: float,
@@ -88,7 +93,20 @@ async def async_get_with_retry(
                 response = await client.get(url, headers=headers, follow_redirects=follow_redirects)
                 response.raise_for_status()
                 return response
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError):
+        except httpx.HTTPStatusError as e:
+            # Don't retry 4xx errors - they are client errors that won't change on retry
+            if not _is_retryable_status(e.response.status_code):
+                raise
+            if attempt >= attempt_limit - 1:
+                raise
+            backoff = calculate_backoff(
+                attempt + 1,
+                retry_interval,
+                backoff_factor,
+                max_backoff,
+            )
+            await asyncio.sleep(backoff)
+        except (httpx.TimeoutException, httpx.NetworkError):
             if attempt >= attempt_limit - 1:
                 raise
             backoff = calculate_backoff(
@@ -161,7 +179,20 @@ def sync_get_with_retry(
             if raise_for_status:
                 response.raise_for_status()
             return response
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError):
+        except httpx.HTTPStatusError as e:
+            # Don't retry 4xx errors - they are client errors that won't change on retry
+            if not _is_retryable_status(e.response.status_code):
+                raise
+            if attempt >= attempt_limit - 1:
+                raise
+            backoff = calculate_backoff(
+                attempt + 1,
+                retry_interval,
+                backoff_factor,
+                max_backoff,
+            )
+            time.sleep(backoff)
+        except (httpx.TimeoutException, httpx.NetworkError):
             if attempt >= attempt_limit - 1:
                 raise
             backoff = calculate_backoff(
@@ -234,7 +265,20 @@ def sync_post_with_retry(
             if raise_for_status:
                 response.raise_for_status()
             return response
-        except (httpx.TimeoutException, httpx.NetworkError, httpx.HTTPStatusError):
+        except httpx.HTTPStatusError as e:
+            # Don't retry 4xx errors - they are client errors that won't change on retry
+            if not _is_retryable_status(e.response.status_code):
+                raise
+            if attempt >= attempt_limit - 1:
+                raise
+            backoff = calculate_backoff(
+                attempt + 1,
+                retry_interval,
+                backoff_factor,
+                max_backoff,
+            )
+            time.sleep(backoff)
+        except (httpx.TimeoutException, httpx.NetworkError):
             if attempt >= attempt_limit - 1:
                 raise
             backoff = calculate_backoff(
