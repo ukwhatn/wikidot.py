@@ -814,6 +814,54 @@ class PageCollection(list["Page"]):
         PageCollection._acquire_page_votes(self.site, self)
         return self
 
+    @staticmethod
+    def _acquire_page_files(site: "Site", pages: list["Page"]) -> list["Page"]:
+        """
+        Internal method to retrieve file attachments for pages
+
+        Batch retrieves file attachments for specified pages.
+
+        Parameters
+        ----------
+        site : Site
+            Site to which pages belong
+        pages : list[Page]
+            List of target pages
+
+        Returns
+        -------
+        list[Page]
+            List of pages with updated file information
+        """
+        if len(pages) == 0:
+            return pages
+
+        from .page_file import PageFileCollection
+
+        responses = site.amc_request([{"moduleName": "files/PageFilesModule", "page_id": page.id} for page in pages])
+
+        for page, response in zip(pages, responses, strict=True):
+            body = response.json()["body"]
+            html = BeautifulSoup(body, "lxml")
+            files = PageFileCollection._parse_from_html(page, html)
+            page._files = PageFileCollection(page=page, files=files)
+
+        return pages
+
+    def get_page_files(self) -> "PageCollection":
+        """
+        Get file attachments for all pages in the collection
+
+        Batch retrieves file attachments for pages and sets the files property for each page.
+
+        Returns
+        -------
+        PageCollection
+            Self (for method chaining)
+        """
+        PageCollection._acquire_page_files(self.site, self)
+        return self
+
 
 @dataclass
 class Page:
@@ -1148,9 +1196,13 @@ class Page:
             Collection of files attached to the page
         """
         if self._files is None:
+            PageCollection(self.site, [self]).get_page_files()
+
+        # _files should be set by get_page_files(), but provide a fallback
+        if self._files is None:
             from .page_file import PageFileCollection
 
-            self._files = PageFileCollection.acquire(self)
+            self._files = PageFileCollection(page=self, files=[])
         return self._files
 
     def destroy(self) -> None:

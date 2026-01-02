@@ -454,7 +454,8 @@ class ForumThread:
         if self._posts is None:
             from .forum_post import ForumPostCollection
 
-            self._posts = ForumPostCollection.acquire_all_in_thread(self)
+            result = ForumPostCollection.acquire_all_in_threads([self])
+            self._posts = result.get(self.id, ForumPostCollection(thread=self, posts=[]))
         return self._posts
 
     def reply(self, source: str, title: str = "", parent_post_id: int | None = None) -> "ForumThread":
