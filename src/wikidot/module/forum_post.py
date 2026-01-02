@@ -261,6 +261,97 @@ class ForumPostCollection(list["ForumPost"]):
 
         return ForumPostCollection(thread=thread, posts=posts)
 
+    @staticmethod
+    def acquire_all_in_threads(
+        threads: list["ForumThread"],
+    ) -> dict[int, "ForumPostCollection"]:
+        """
+        Retrieve all posts from multiple threads
+
+        Batch retrieves all posts from the specified threads.
+        Handles pagination for each thread.
+
+        Parameters
+        ----------
+        threads : list[ForumThread]
+            List of threads to retrieve posts from
+
+        Returns
+        -------
+        dict[int, ForumPostCollection]
+            Dictionary mapping thread ID to ForumPostCollection
+
+        Raises
+        ------
+        NoElementException
+            If HTML element parsing fails
+        """
+        if len(threads) == 0:
+            return {}
+
+        result: dict[int, ForumPostCollection] = {}
+        site = threads[0].site
+
+        # Step 1: Get the first page of all threads
+        first_page_responses = site.amc_request(
+            [
+                {
+                    "moduleName": "forum/ForumViewThreadPostsModule",
+                    "pageNo": "1",
+                    "t": str(thread.id),
+                }
+                for thread in threads
+            ]
+        )
+
+        # Step 2: Parse first pages and determine pagination
+        additional_requests: list[tuple[ForumThread, int]] = []
+
+        for thread, response in zip(threads, first_page_responses, strict=True):
+            body = response.json()["body"]
+            html = BeautifulSoup(body, "lxml")
+
+            posts = ForumPostCollection._parse(thread, html)
+            result[thread.id] = ForumPostCollection(thread=thread, posts=posts)
+
+            # Check pagination
+            pager = html.select_one("div.pager")
+            if pager is None:
+                continue
+
+            pager_targets = pager.select("span.target")
+            if len(pager_targets) < 2:
+                continue
+
+            last_page = int(pager_targets[-2].get_text().strip())
+            if last_page <= 1:
+                continue
+
+            # Queue additional page requests
+            for page in range(2, last_page + 1):
+                additional_requests.append((thread, page))
+
+        # Step 3: Fetch additional pages
+        if len(additional_requests) > 0:
+            additional_responses = site.amc_request(
+                [
+                    {
+                        "moduleName": "forum/ForumViewThreadPostsModule",
+                        "pageNo": str(page),
+                        "t": str(thread.id),
+                    }
+                    for thread, page in additional_requests
+                ]
+            )
+
+            for (thread, _page), response in zip(additional_requests, additional_responses, strict=True):
+                body = response.json()["body"]
+                html = BeautifulSoup(body, "lxml")
+                posts = ForumPostCollection._parse(thread, html)
+                result[thread.id].extend(posts)
+
+        return result
+
 
 @dataclass
 class ForumPost:
@@ -363,7 +454,8 @@ class ForumPost:
         if self._revisions is None:
             from .forum_post_revision import ForumPostRevisionCollection
 
-            self._revisions = ForumPostRevisionCollection.acquire_all(self)
+            result = ForumPostRevisionCollection.acquire_all_for_posts([self])
+            self._revisions = result.get(self.id, ForumPostRevisionCollection(post=self, revisions=[]))
         return self._revisions
 
     @property

@@ -123,34 +123,28 @@ class PageFileCollection(list["PageFile"]):
         return 0
 
     @staticmethod
-    def acquire(page: "Page") -> "PageFileCollection":
+    def _parse_from_html(page: "Page", html: BeautifulSoup) -> list["PageFile"]:
         """
-        Get the list of files attached to a page
+        Parse file information from HTML response
+
+        Internal helper method used by acquire() and PageCollection._acquire_page_files().
 
         Parameters
         ----------
         page : Page
-            The page to retrieve files from
+            The page the files belong to
+        html : BeautifulSoup
+            Parsed HTML response from files/PageFilesModule
 
         Returns
         -------
-        PageFileCollection
-            Collection of files attached to the page
+        list[PageFile]
+            List of parsed PageFile objects
         """
-        response = page.site.amc_request(
-            [
-                {
-                    "moduleName": "files/PageFilesModule",
-                    "page_id": page.id,
-                }
-            ]
-        )[0]
-
-        html = BeautifulSoup(response.json()["body"], "lxml")
         files_table = html.select_one("table.page-files")
 
         if files_table is None:
-            return PageFileCollection(page=page, files=[])
+            return []
 
         files: list[PageFile] = []
         for row in files_table.select("tbody tr[id^='file-row-']"):
@@ -187,6 +181,35 @@ class PageFileCollection(list["PageFile"]):
                     size=size,
                 )
             )
+
+        return files
+
+    @staticmethod
+    def acquire(page: "Page") -> "PageFileCollection":
+        """
+        Get the list of files attached to a page
+
+        Parameters
+        ----------
+        page : Page
+            The page to retrieve files from
+
+        Returns
+        -------
+        PageFileCollection
+            Collection of files attached to the page
+        """
+        response = page.site.amc_request(
+            [
+                {
+                    "moduleName": "files/PageFilesModule",
+                    "page_id": page.id,
+                }
+            ]
+        )[0]
+
+        html = BeautifulSoup(response.json()["body"], "lxml")
+        files = PageFileCollection._parse_from_html(page, html)
 
         return PageFileCollection(page=page, files=files)
 

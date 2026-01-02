@@ -200,6 +200,78 @@ class ForumPostRevisionCollection(list["ForumPostRevision"]):
         revisions = ForumPostRevisionCollection._parse(post, html)
         return ForumPostRevisionCollection(post=post, revisions=revisions)
 
+    @staticmethod
+    def acquire_all_for_posts(
+        posts: list["ForumPost"],
+        with_html: bool = False,
+    ) -> dict[int, "ForumPostRevisionCollection"]:
+        """
+        Get all revisions for multiple posts
+
+        Batch retrieves revision history for the specified posts.
+        Optionally retrieves HTML content for all revisions.
+
+        Parameters
+        ----------
+        posts : list[ForumPost]
+            List of posts to get revisions for
+        with_html : bool, default False
+            If True, also retrieves HTML content for all revisions
+
+        Returns
+        -------
+        dict[int, ForumPostRevisionCollection]
+            Dictionary mapping post ID to ForumPostRevisionCollection
+        """
+        if len(posts) == 0:
+            return {}
+
+        result: dict[int, ForumPostRevisionCollection] = {}
+        site = posts[0].thread.site
+
+        # Step 1: Get revision lists for all posts
+        responses = site.amc_request(
+            [
+                {
+                    "moduleName": "forum/sub/ForumPostRevisionsModule",
+                    "postId": post.id,
+                }
+                for post in posts
+            ]
+        )
+
+        # Step 2: Parse revision lists
+        for post, response in zip(posts, responses, strict=True):
+            body = response.json()["body"]
+            html = BeautifulSoup(body, "lxml")
+            revisions = ForumPostRevisionCollection._parse(post, html)
+            result[post.id] = ForumPostRevisionCollection(post=post, revisions=revisions)
+
+        # Step 3: Optionally get HTML content for all revisions
+        if with_html:
+            all_revisions: list[ForumPostRevision] = []
+            for collection in result.values():
+                for revision in collection:
+                    if not revision.is_html_acquired():
+                        all_revisions.append(revision)
+
+            if len(all_revisions) > 0:
+                html_responses = site.amc_request(
+                    [
+                        {
+                            "moduleName": "forum/sub/ForumPostRevisionModule",
+                            "revisionId": revision.id,
+                        }
+                        for revision in all_revisions
+                    ]
+                )
+
+                for revision, response in zip(all_revisions, html_responses, strict=True):
+                    data = response.json()
+                    revision._html = str(data.get("content", ""))
+
+        return result
+
     def get_htmls(self) -> "ForumPostRevisionCollection":
         """
         Get HTML content for all revisions in the collection
