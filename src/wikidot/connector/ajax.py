@@ -23,6 +23,7 @@ from ..common.exceptions import (
     WikidotStatusCodeException,
 )
 from ..util.async_helper import run_coroutine
+from ..util.http import sync_get_with_retry
 
 
 class AjaxRequestHeader:
@@ -246,7 +247,16 @@ class AjaxModuleConnectorClient:
             return True
 
         # For other sites, determine by checking if redirected to https
-        response = httpx.get(f"http://{self.site_name}.wikidot.com")
+        response = sync_get_with_retry(
+            f"http://{self.site_name}.wikidot.com",
+            timeout=self.config.request_timeout,
+            attempt_limit=self.config.attempt_limit,
+            retry_interval=self.config.retry_interval,
+            max_backoff=self.config.max_backoff,
+            backoff_factor=self.config.backoff_factor,
+            follow_redirects=False,
+            raise_for_status=False,
+        )
 
         # Raise exception if not found
         if response.status_code == httpx.codes.NOT_FOUND:

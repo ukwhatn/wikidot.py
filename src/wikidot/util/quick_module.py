@@ -4,6 +4,8 @@ from typing import Any, TypeVar
 
 import httpx
 
+from .http import sync_get_with_retry
+
 
 @dataclass
 class QMCUser:
@@ -67,7 +69,7 @@ class QuickModule:
             raise ValueError("Invalid module name")
 
         url = f"https://www.wikidot.com/quickmodule.php?module={module_name}&s={site_id}&q={query}"
-        response = httpx.get(url, timeout=300)
+        response = sync_get_with_retry(url, timeout=300, raise_for_status=False)
         if response.status_code == httpx.codes.INTERNAL_SERVER_ERROR:
             raise ValueError("Site is not found")
         return response.json()
