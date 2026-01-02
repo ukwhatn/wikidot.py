@@ -14,6 +14,7 @@ else:
 
 from ..common import exceptions
 from ..common.decorators import login_required
+from ..util.http import sync_get_with_retry
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 from ..util.quick_module import QMCUser, QuickModule
@@ -334,11 +335,17 @@ class Site:
             When an error occurs during site information parsing
         """
         # サイト情報を取得
-        # リダイレクトには従う
-        response = httpx.get(
+        # リダイレクトには従う、リトライ付き
+        config = client.amc_client.config
+        response = sync_get_with_retry(
             f"http://{unix_name}.wikidot.com",
+            timeout=config.request_timeout,
+            attempt_limit=config.attempt_limit,
+            retry_interval=config.retry_interval,
+            max_backoff=config.max_backoff,
+            backoff_factor=config.backoff_factor,
             follow_redirects=True,
-            timeout=client.amc_client.config.request_timeout,
+            raise_for_status=False,
         )
 
         # サイトが存在しない場合

@@ -4,9 +4,13 @@ from typing import TYPE_CHECKING
 import httpx
 
 from ..common.exceptions import SessionCreateException
+from ..util.http import sync_post_with_retry
 
 if TYPE_CHECKING:
     from .client import Client
+
+# Login retry limit (reduced to prevent account lockout)
+LOGIN_RETRY_LIMIT = 3
 
 
 class HTTPAuthentication:
@@ -39,8 +43,9 @@ class HTTPAuthentication:
         SessionCreateException
             If the login attempt fails (HTTP response code error, credential mismatch, cookie issues, etc.)
         """
-        # Execute login request
-        response = httpx.post(
+        # Execute login request with retry (reduced retry limit to prevent account lockout)
+        config = client.amc_client.config
+        response = sync_post_with_retry(
             url="https://www.wikidot.com/default--flow/login__LoginPopupScreen",
             data={
                 "login": username,
@@ -49,7 +54,12 @@ class HTTPAuthentication:
                 "event": "login",
             },
             headers=client.amc_client.header.get_header(),
-            timeout=20,
+            timeout=config.request_timeout,
+            attempt_limit=LOGIN_RETRY_LIMIT,
+            retry_interval=config.retry_interval,
+            max_backoff=config.max_backoff,
+            backoff_factor=config.backoff_factor,
+            raise_for_status=False,
         )
 
         # Check status code
