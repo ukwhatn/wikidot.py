@@ -341,20 +341,17 @@ class AjaxModuleConnectorClient:
                             timeout=self.config.request_timeout,
                         )
                         response.raise_for_status()
-                except (httpx.HTTPStatusError, httpx.TimeoutException) as e:
-                    # Retry on HTTP status error or timeout
+                except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                    # Retry on all request errors (HTTP errors, timeouts, network errors, etc.)
+                    # Wikidot server has a relatively high error rate, so retry is essential
                     retry_count += 1
 
                     # Raise exception if retry limit reached
                     if retry_count >= self.config.attempt_limit:
-                        wd_logger.error(
-                            f"AMC is respond HTTP error code: "
-                            f"{response.status_code if response is not None else 'timeout'} -> "
-                            f"{_mask_sensitive_data(_body)}"
-                        )
+                        error_detail = str(response.status_code) if response is not None else str(e)
+                        wd_logger.error(f"AMC request failed: {error_detail} -> {_mask_sensitive_data(_body)}")
                         raise AMCHttpStatusCodeException(
-                            f"AMC is respond HTTP error code: "
-                            f"{response.status_code if response is not None else 'timeout'}",
+                            f"AMC request failed: {error_detail}",
                             response.status_code if response is not None else 999,
                         ) from e
 
@@ -365,8 +362,9 @@ class AjaxModuleConnectorClient:
                         self.config.backoff_factor,
                         self.config.max_backoff,
                     )
+                    error_info = str(response.status_code) if response is not None else str(e)
                     wd_logger.info(
-                        f"AMC is respond status: {response.status_code if response is not None else 'timeout'} "
+                        f"AMC request error: {error_info} "
                         f"(retry: {retry_count}, backoff: {backoff:.2f}s) -> {_mask_sensitive_data(_body)}"
                     )
                     await asyncio.sleep(backoff)
