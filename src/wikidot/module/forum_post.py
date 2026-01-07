@@ -352,6 +352,72 @@ class ForumPostCollection(list["ForumPost"]):
 
         return result
 
+    @staticmethod
+    def _acquire_post_sources(thread: "ForumThread", posts: list["ForumPost"]) -> list["ForumPost"]:
+        """
+        Internal method to retrieve post sources
+
+        Batch retrieves source code (Wikidot syntax) for specified posts.
+
+        Parameters
+        ----------
+        thread : ForumThread
+            Thread to which posts belong
+        posts : list[ForumPost]
+            List of target posts
+
+        Returns
+        -------
+        list[ForumPost]
+            List of posts with updated source information
+
+        Raises
+        ------
+        NoElementException
+            When source elements are not found
+        """
+        if len(posts) == 0:
+            return posts
+
+        target_posts = [post for post in posts if post._source is None]
+
+        if len(target_posts) == 0:
+            return posts
+
+        responses = thread.site.amc_request(
+            [
+                {
+                    "moduleName": "forum/sub/ForumEditPostFormModule",
+                    "threadId": thread.id,
+                    "postId": post.id,
+                }
+                for post in target_posts
+            ]
+        )
+
+        for post, response in zip(target_posts, responses, strict=True):
+            html = BeautifulSoup(response.json()["body"], "lxml")
+            source_elem = html.select_one("textarea[name='source']")
+            if source_elem is None:
+                raise NoElementException(f"Source textarea is not found for post: {post.id}")
+            post._source = source_elem.get_text()
+
+        return posts
+
+    def get_post_sources(self) -> "ForumPostCollection":
+        """
+        Get source code for all posts in the collection
+
+        Batch retrieves source code (Wikidot syntax) for posts and sets the source property for each post.
+
+        Returns
+        -------
+        ForumPostCollection
+            Self (for method chaining)
+        """
+        ForumPostCollection._acquire_post_sources(self.thread, self)
+        return self
+
 
 @dataclass
 class ForumPost:
@@ -476,21 +542,10 @@ class ForumPost:
             If source element is not found
         """
         if self._source is None:
-            response = self.thread.site.amc_request(
-                [
-                    {
-                        "moduleName": "forum/sub/ForumEditPostFormModule",
-                        "threadId": self.thread.id,
-                        "postId": self.id,
-                    }
-                ]
-            )[0]
+            ForumPostCollection(self.thread, [self]).get_post_sources()
 
-            html = BeautifulSoup(response.json()["body"], "lxml")
-            source_elem = html.select_one("textarea[name='source']")
-            if source_elem is None:
-                raise NoElementException("Source textarea is not found.")
-            self._source = source_elem.get_text()
+        if self._source is None:
+            raise NoElementException("Source textarea is not found.")
 
         # self._source is guaranteed to be str here (either from cache or just fetched)
         assert self._source is not None
