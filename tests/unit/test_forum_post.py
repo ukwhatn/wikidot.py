@@ -113,6 +113,79 @@ class TestForumPostCollectionAcquireAll:
         assert len(collection) == 4
 
 
+class TestForumPostCollectionGetSources:
+    """ForumPostCollection.get_post_sourcesのテスト"""
+
+    def test_get_post_sources_success(
+        self,
+        mock_forum_thread_no_http: ForumThread,
+        mock_forum_post_no_http: ForumPost,
+        forum_editpost_form: dict[str, Any],
+    ) -> None:
+        """ソースを正常に取得できる"""
+        collection = ForumPostCollection(mock_forum_thread_no_http, [mock_forum_post_no_http])
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = forum_editpost_form
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        result = collection.get_post_sources()
+        assert result == collection
+        assert mock_forum_post_no_http._source is not None
+        assert mock_forum_post_no_http._source == "Test source content in wikidot syntax"
+
+    def test_get_post_sources_skips_already_acquired(
+        self, mock_forum_thread_no_http: ForumThread, mock_forum_post_no_http: ForumPost
+    ) -> None:
+        """既に取得済みのソースはスキップ"""
+        mock_forum_post_no_http._source = "cached source"
+        mock_forum_thread_no_http.site.amc_request = MagicMock()
+        collection = ForumPostCollection(mock_forum_thread_no_http, [mock_forum_post_no_http])
+
+        result = collection.get_post_sources()
+        mock_forum_thread_no_http.site.amc_request.assert_not_called()
+        assert result == collection
+        assert mock_forum_post_no_http._source == "cached source"
+
+    def test_get_post_sources_empty_collection(self, mock_forum_thread_no_http: ForumThread) -> None:
+        """空のコレクションでも動作する"""
+        collection = ForumPostCollection(mock_forum_thread_no_http, [])
+        result = collection.get_post_sources()
+        assert result == collection
+        assert len(collection) == 0
+
+    def test_get_post_sources_multiple_posts(
+        self,
+        mock_forum_thread_no_http: ForumThread,
+        mock_forum_post_no_http: ForumPost,
+        forum_editpost_form: dict[str, Any],
+    ) -> None:
+        """複数の投稿のソースを一括取得できる"""
+        # 2つ目の投稿を作成
+        post2 = ForumPost(
+            thread=mock_forum_thread_no_http,
+            id=5002,
+            title="Second Post",
+            text="<p>Second post content</p>",
+            element=mock_forum_post_no_http.element,
+            created_by=mock_forum_post_no_http.created_by,
+            created_at=mock_forum_post_no_http.created_at,
+        )
+
+        collection = ForumPostCollection(mock_forum_thread_no_http, [mock_forum_post_no_http, post2])
+
+        mock_response1 = MagicMock()
+        mock_response1.json.return_value = forum_editpost_form
+        mock_response2 = MagicMock()
+        mock_response2.json.return_value = forum_editpost_form
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response1, mock_response2])
+
+        result = collection.get_post_sources()
+        assert result == collection
+        assert mock_forum_post_no_http._source is not None
+        assert post2._source is not None
+
+
 # ============================================================
 # ForumPostテスト
 # ============================================================
