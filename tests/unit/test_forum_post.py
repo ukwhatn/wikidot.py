@@ -76,6 +76,30 @@ class TestForumPostCollectionParse:
         assert post2.id == 5002
         assert post2.title == "Second Post"
 
+    def test_parse_ignores_pseudo_posts(
+        self, mock_forum_thread_no_http: ForumThread, forum_posts_with_pseudo_post: dict[str, Any]
+    ) -> None:
+        """コンテンツ内の疑似ポストを無視してトップレベルの投稿のみをパースする"""
+        html = BeautifulSoup(forum_posts_with_pseudo_post["body"], "lxml")
+        posts = ForumPostCollection._parse(mock_forum_thread_no_http, html)
+
+        # 疑似ポストを除いてトップレベルの投稿のみ（2件）
+        assert len(posts) == 2
+        assert posts[0].id == 5001
+        assert posts[1].id == 5002
+
+    def test_parse_pseudo_post_user_not_mixed(
+        self, mock_forum_thread_no_http: ForumThread, forum_posts_with_pseudo_post: dict[str, Any]
+    ) -> None:
+        """疑似ポスト内のユーザー情報が本物の投稿に混入しない"""
+        html = BeautifulSoup(forum_posts_with_pseudo_post["body"], "lxml")
+        posts = ForumPostCollection._parse(mock_forum_thread_no_http, html)
+
+        # 1つ目の投稿者はtest_user_1（疑似ポスト内のtest_user_3/4ではない）
+        assert posts[0].created_by.name == "test_user_1"
+        # 2つ目の投稿者はtest_user_2
+        assert posts[1].created_by.name == "test_user_2"
+
 
 class TestForumPostCollectionAcquireAll:
     """ForumPostCollection.acquire_all_in_threadのテスト"""

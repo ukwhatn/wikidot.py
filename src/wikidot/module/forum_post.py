@@ -106,7 +106,8 @@ class ForumPostCollection(list["ForumPost"]):
             If required elements are not found
         """
         posts: list[ForumPost] = []
-        post_elements = html.select("div.post")
+        # Use attribute selector to get only top-level posts (with id starting with "post-")
+        post_elements = html.select("div.post[id^='post-']")
 
         for post_elem in post_elements:
             post_id_attr = post_elem.get("id")
@@ -129,26 +130,27 @@ class ForumPostCollection(list["ForumPost"]):
                                 parent_id = int(str(parent_id_attr).removeprefix("post-"))
 
             # タイトルと本文の取得
-            wrapper = post_elem.select_one("div.long")
+            # Use :scope > to get direct children only (avoid matching nested pseudo-posts)
+            wrapper = post_elem.select_one(":scope > div.long")
             if wrapper is None:
                 raise NoElementException("Post wrapper element is not found.")
 
-            head = wrapper.select_one("div.head")
+            head = wrapper.select_one(":scope > div.head")
             if head is None:
                 raise NoElementException("Post head element is not found.")
 
-            title_elem = head.select_one("div.title")
+            title_elem = head.select_one(":scope > div.title")
             if title_elem is None:
                 raise NoElementException("Post title element is not found.")
             title = title_elem.get_text().strip()
 
-            content_elem = wrapper.select_one("div.content")
+            content_elem = wrapper.select_one(":scope > div.content")
             if content_elem is None:
                 raise NoElementException("Post content element is not found.")
             text = str(content_elem)
 
             # 投稿者と日時
-            info_elem = head.select_one("div.info")
+            info_elem = head.select_one(":scope > div.info")
             if info_elem is None:
                 raise NoElementException("Post info element is not found.")
 

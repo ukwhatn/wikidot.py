@@ -522,6 +522,12 @@ def forum_posts_nested() -> dict[str, Any]:
 
 
 @pytest.fixture
+def forum_posts_with_pseudo_post() -> dict[str, Any]:
+    """疑似ポストを含む投稿レスポンス"""
+    return _load_json("forum", "posts_with_pseudo_post.json")
+
+
+@pytest.fixture
 def forum_editpost_form() -> dict[str, Any]:
     """投稿編集フォームレスポンス"""
     return _load_json("forum", "editpost_form.json")
