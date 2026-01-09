@@ -18,8 +18,8 @@ updates:
           - "ruff"
           - "mypy"
     cooldown:
-      default: 3
-      patch: 1
+      default-days: 3
+      semver-patch-days: 1
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
