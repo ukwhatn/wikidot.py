@@ -8,6 +8,8 @@ on:
 
 jobs:
   integration-test:
+    # Dependabotはsecretsにアクセスできないためスキップ
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
