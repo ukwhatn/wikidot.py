@@ -305,7 +305,7 @@ class ForumThreadCollection(list["ForumThread"]):
         if last_page == 1:
             return ForumThreadCollection(site=category.site, threads=threads)
 
-        responses = category.site.amc_request(
+        responses = category.site.amc_request_with_retry(
             [
                 {
                     "p": page,
@@ -317,6 +317,8 @@ class ForumThreadCollection(list["ForumThread"]):
         )
 
         for response in responses:
+            if response is None:
+                continue
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
             threads.extend(ForumThreadCollection._parse_list_in_category(category.site, html, category))

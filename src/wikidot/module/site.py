@@ -14,6 +14,7 @@ else:
 
 from ..common import exceptions
 from ..common.decorators import login_required
+from ..common.logger import logger
 from ..util.http import sync_get_with_retry
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
@@ -423,6 +424,51 @@ class Site:
             return self.client.amc_client.request(bodies, True, self.unix_name, self.ssl_supported)
         else:
             return self.client.amc_client.request(bodies, False, self.unix_name, self.ssl_supported)
+
+    def amc_request_with_retry(self, bodies: list[dict[str, Any]]) -> tuple[httpx.Response | None, ...]:
+        """Execute amc_request with partial failure tolerance.
+
+        Failed requests are retried once. Still-failed requests return None.
+
+        Parameters
+        ----------
+        bodies : list[dict]
+            List of request bodies
+
+        Returns
+        -------
+        tuple[httpx.Response | None, ...]
+            Responses for each body. None for permanently failed requests.
+        """
+        responses = self.amc_request(bodies, return_exceptions=True)
+        results: list[httpx.Response | None] = []
+        failed_indices: list[int] = []
+
+        for i, resp_or_exc in enumerate(responses):
+            if isinstance(resp_or_exc, Exception):
+                results.append(None)
+                failed_indices.append(i)
+            else:
+                results.append(resp_or_exc)
+
+        if failed_indices:
+            retry_bodies = [bodies[i] for i in failed_indices]
+            logger.warning(
+                "amc_request_with_retry: %d/%d requests failed, retrying",
+                len(failed_indices),
+                len(bodies),
+            )
+            retry_responses = self.amc_request(retry_bodies, return_exceptions=True)
+            for idx, retry_resp in zip(failed_indices, retry_responses, strict=True):
+                if isinstance(retry_resp, Exception):
+                    logger.warning(
+                        "amc_request_with_retry: retry failed, skipping: %s",
+                        retry_resp,
+                    )
+                else:
+                    results[idx] = retry_resp
+
+        return tuple(results)
 
     @property
     def applications(self) -> list[SiteApplication]:
