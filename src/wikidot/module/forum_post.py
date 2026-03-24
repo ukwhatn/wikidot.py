@@ -295,7 +295,7 @@ class ForumPostCollection(list["ForumPost"]):
         site = threads[0].site
 
         # Step 1: Get the first page of all threads
-        first_page_responses = site.amc_request(
+        first_page_responses = site.amc_request_with_retry(
             [
                 {
                     "moduleName": "forum/ForumViewThreadPostsModule",
@@ -310,6 +310,8 @@ class ForumPostCollection(list["ForumPost"]):
         additional_requests: list[tuple[ForumThread, int]] = []
 
         for thread, response in zip(threads, first_page_responses, strict=True):
+            if response is None:
+                continue
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
 
@@ -335,7 +337,7 @@ class ForumPostCollection(list["ForumPost"]):
 
         # Step 3: Fetch additional pages
         if len(additional_requests) > 0:
-            additional_responses = site.amc_request(
+            additional_responses = site.amc_request_with_retry(
                 [
                     {
                         "moduleName": "forum/ForumViewThreadPostsModule",
@@ -347,6 +349,8 @@ class ForumPostCollection(list["ForumPost"]):
             )
 
             for (thread, _page), response in zip(additional_requests, additional_responses, strict=True):
+                if response is None:
+                    continue
                 body = response.json()["body"]
                 html = BeautifulSoup(body, "lxml")
                 posts = ForumPostCollection._parse(thread, html)

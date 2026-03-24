@@ -679,7 +679,7 @@ class PageCollection(list["Page"]):
         if len(pages) == 0:
             return pages
 
-        responses = site.amc_request(
+        responses = site.amc_request_with_retry(
             [
                 {
                     "moduleName": "history/PageRevisionListModule",
@@ -692,6 +692,8 @@ class PageCollection(list["Page"]):
         )
 
         for page, response in zip(pages, responses, strict=True):
+            if response is None:
+                continue
             body = response.json()["body"]
             revs = []
             body_html = BeautifulSoup(body, "lxml")
@@ -771,11 +773,13 @@ class PageCollection(list["Page"]):
         if len(pages) == 0:
             return pages
 
-        responses = site.amc_request(
+        responses = site.amc_request_with_retry(
             [{"moduleName": "pagerate/WhoRatedPageModule", "pageId": page.id} for page in pages]
         )
 
         for page, response in zip(pages, responses, strict=True):
+            if response is None:
+                continue
             body = response.json()["body"]
             html = BeautifulSoup(body, "lxml")
             user_elems = html.select("span.printuser")
