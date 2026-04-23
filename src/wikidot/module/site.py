@@ -425,50 +425,81 @@ class Site:
         else:
             return self.client.amc_client.request(bodies, False, self.unix_name, self.ssl_supported)
 
-    def amc_request_with_retry(self, bodies: list[dict[str, Any]]) -> tuple[httpx.Response | None, ...]:
-        """Execute amc_request with partial failure tolerance.
+    def amc_request_with_retry(
+        self,
+        bodies: list[dict[str, Any]],
+        *,
+        batch_size: int = 50,
+        max_retries: int = 3,
+    ) -> tuple[httpx.Response | None, ...]:
+        """Execute amc_request with batch splitting and partial failure tolerance.
 
-        Failed requests are retried once. Still-failed requests return None.
+        Requests are split into batches and failed requests are retried
+        up to max_retries times. Still-failed requests return None.
 
         Parameters
         ----------
         bodies : list[dict]
             List of request bodies
+        batch_size : int, default 50
+            Number of requests per batch
+        max_retries : int, default 3
+            Maximum number of retry attempts for failed requests
 
         Returns
         -------
         tuple[httpx.Response | None, ...]
             Responses for each body. None for permanently failed requests.
         """
-        responses = self.amc_request(bodies, return_exceptions=True)
-        results: list[httpx.Response | None] = []
-        failed_indices: list[int] = []
+        all_results: list[httpx.Response | None] = []
 
-        for i, resp_or_exc in enumerate(responses):
-            if isinstance(resp_or_exc, Exception):
-                results.append(None)
-                failed_indices.append(i)
-            else:
-                results.append(resp_or_exc)
+        for batch_start in range(0, len(bodies), batch_size):
+            batch = bodies[batch_start : batch_start + batch_size]
 
-        if failed_indices:
-            retry_bodies = [bodies[i] for i in failed_indices]
-            logger.warning(
-                "amc_request_with_retry: %d/%d requests failed, retrying",
-                len(failed_indices),
-                len(bodies),
-            )
-            retry_responses = self.amc_request(retry_bodies, return_exceptions=True)
-            for idx, retry_resp in zip(failed_indices, retry_responses, strict=True):
-                if isinstance(retry_resp, Exception):
-                    logger.warning(
-                        "amc_request_with_retry: retry failed, skipping: %s",
-                        retry_resp,
-                    )
+            responses = self.amc_request(batch, return_exceptions=True)
+            batch_results: list[httpx.Response | None] = []
+            failed_indices: list[int] = []
+
+            for i, resp_or_exc in enumerate(responses):
+                if isinstance(resp_or_exc, Exception):
+                    batch_results.append(None)
+                    failed_indices.append(i)
                 else:
-                    results[idx] = retry_resp
+                    batch_results.append(resp_or_exc)
 
-        return tuple(results)
+            for attempt in range(max_retries):
+                if not failed_indices:
+                    break
+                retry_bodies = [batch[i] for i in failed_indices]
+                logger.warning(
+                    "amc_request_with_retry: %d/%d requests failed, retrying (attempt %d/%d)",
+                    len(failed_indices),
+                    len(batch),
+                    attempt + 1,
+                    max_retries,
+                )
+                retry_responses = self.amc_request(retry_bodies, return_exceptions=True)
+
+                still_failed_indices: list[int] = []
+                for j, retry_resp in enumerate(retry_responses):
+                    if isinstance(retry_resp, Exception):
+                        still_failed_indices.append(failed_indices[j])
+                    else:
+                        batch_results[failed_indices[j]] = retry_resp
+                failed_indices = still_failed_indices
+
+            all_results.extend(batch_results)
+
+        failed_count = sum(1 for r in all_results if r is None)
+        if failed_count > 0:
+            logger.warning(
+                "amc_request_with_retry: %d/%d succeeded (%d failed)",
+                len(all_results) - failed_count,
+                len(all_results),
+                failed_count,
+            )
+
+        return tuple(all_results)
 
     @property
     def applications(self) -> list[SiteApplication]:
