@@ -429,8 +429,8 @@ class Site:
         self,
         bodies: list[dict[str, Any]],
         *,
-        batch_size: int = 50,
-        max_retries: int = 3,
+        batch_size: int | None = None,
+        max_retries: int | None = None,
     ) -> tuple[httpx.Response | None, ...]:
         """Execute amc_request with batch splitting and partial failure tolerance.
 
@@ -441,16 +441,21 @@ class Site:
         ----------
         bodies : list[dict]
             List of request bodies
-        batch_size : int, default 50
-            Number of requests per batch
-        max_retries : int, default 3
-            Maximum number of retry attempts for failed requests
+        batch_size : int | None, optional
+            Number of requests per batch.
+            Defaults to config.retry_batch_size if not specified.
+        max_retries : int | None, optional
+            Maximum number of retry attempts for failed requests.
+            Defaults to config.retry_max_retries if not specified.
 
         Returns
         -------
         tuple[httpx.Response | None, ...]
             Responses for each body. None for permanently failed requests.
         """
+        config = self.client.amc_client.config
+        batch_size = batch_size if batch_size is not None else config.retry_batch_size
+        max_retries = max_retries if max_retries is not None else config.retry_max_retries
         all_results: list[httpx.Response | None] = []
 
         for batch_start in range(0, len(bodies), batch_size):

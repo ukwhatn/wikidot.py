@@ -129,6 +129,10 @@ class AjaxModuleConnectorConfig:
         Exponential backoff factor (interval is multiplied by this factor for each retry)
     semaphore_limit : int, default 10
         Maximum number of concurrent async requests
+    retry_batch_size : int, default 50
+        Default batch size for amc_request_with_retry
+    retry_max_retries : int, default 3
+        Default maximum retry attempts for amc_request_with_retry
     """
 
     request_timeout: int = 20
@@ -137,6 +141,8 @@ class AjaxModuleConnectorConfig:
     max_backoff: float = 60.0
     backoff_factor: float = 2.0
     semaphore_limit: int = 10
+    retry_batch_size: int = 50
+    retry_max_retries: int = 3
 
 
 def _mask_sensitive_data(body: dict[str, Any]) -> dict[str, Any]:
