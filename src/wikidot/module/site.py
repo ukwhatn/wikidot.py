@@ -456,6 +456,12 @@ class Site:
         config = self.client.amc_client.config
         batch_size = batch_size if batch_size is not None else config.retry_batch_size
         max_retries = max_retries if max_retries is not None else config.retry_max_retries
+
+        if batch_size <= 0:
+            raise ValueError(f"batch_size must be positive, got {batch_size}")
+        if max_retries < 0:
+            raise ValueError(f"max_retries must be non-negative, got {max_retries}")
+
         all_results: list[httpx.Response | None] = []
 
         for batch_start in range(0, len(bodies), batch_size):
