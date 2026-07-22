@@ -3,31 +3,42 @@ updates:
   - package-ecosystem: "uv"
     directory: "/"
     schedule:
-      interval: "daily"
+      interval: "weekly"
     target-branch: "main"
+    open-pull-requests-limit: 10
     assignees:
       - "ukwhatn"
-    groups:
-      dev-dependencies:
-        dependency-type: "development"
-      testing:
-        patterns:
-          - "pytest*"
-      linting:
-        patterns:
-          - "ruff"
-          - "mypy"
     cooldown:
       default-days: 3
       semver-patch-days: 1
+    groups:
+      # group を分けると同じ weekly run で複数PRが同じ uv.lock を触って
+      # コンフリクトが発生するため、全 version-updates を 1PR に集約する
+      uv-all:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      # security-updates は即応が必要なので version-updates とは別 PR で fast-track
+      uv-security:
+        applies-to: security-updates
+        patterns:
+          - "*"
   - package-ecosystem: "github-actions"
     directory: "/"
     schedule:
       interval: "weekly"
     target-branch: "main"
+    open-pull-requests-limit: 5
     assignees:
       - "ukwhatn"
+    cooldown:
+      default-days: 3
     groups:
       github-actions:
+        applies-to: version-updates
+        patterns:
+          - "*"
+      github-actions-security:
+        applies-to: security-updates
         patterns:
           - "*"
