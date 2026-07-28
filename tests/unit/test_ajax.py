@@ -6,6 +6,7 @@ AjaxRequestHeaderとAjaxModuleConnectorConfigのテストはtest_amc_client.py�
 
 from wikidot.connector.ajax import (
     _calculate_backoff,
+    _encode_amc_body,
     _mask_sensitive_data,
 )
 
@@ -92,3 +93,32 @@ class TestCalculateBackoff:
         # 3^2 * 1.0 = 9.0（ジッターなしの場合）
         result = _calculate_backoff(3, 1.0, 3.0, 60.0)
         assert 9.0 <= result <= 9.9
+
+
+class TestEncodeAmcBody:
+    """_encode_amc_body関数のテスト"""
+
+    def test_scalar_only_body_unchanged(self):
+        """list値を含まないbodyはそのまま返る"""
+        body = {"moduleName": "Test", "page_id": 123, "wikidot_token7": 123456}
+        result = _encode_amc_body(body)
+        assert result == body
+
+    def test_list_value_gets_bracket_key(self):
+        """list値を持つキーは[]サフィックス付きにリネームされる"""
+        body = {"moduleName": "DashboardMessageAction", "selected": [1, 2, 3]}
+        result = _encode_amc_body(body)
+        assert "selected" not in result
+        assert result["selected[]"] == [1, 2, 3]
+        assert result["moduleName"] == "DashboardMessageAction"
+
+    def test_multiple_list_values(self):
+        """複数のlist値キーがそれぞれ[]付きになる"""
+        body = {"selected": [1, 2], "messages": [3, 4], "other": "scalar"}
+        result = _encode_amc_body(body)
+        assert result == {"selected[]": [1, 2], "messages[]": [3, 4], "other": "scalar"}
+
+    def test_result_is_still_a_mapping(self):
+        """戻り値はhttpxのdata=がサポートするMapping（dict）のまま"""
+        result = _encode_amc_body({"others": [1, 2]})
+        assert isinstance(result, dict)

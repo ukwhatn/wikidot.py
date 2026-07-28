@@ -471,6 +471,35 @@ class TestAjaxModuleConnectorClientRequest:
 
         assert len(httpx_mock.get_requests()) == 2
 
+    def test_list_value_sent_with_bracket_notation(self, httpx_mock: HTTPXMock) -> None:
+        """list値を含むbodyはkey[]=v1&key[]=v2形式で送信される（jQuery.param互換）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+        client.request([{"moduleName": "DashboardMessageAction", "selected": [1, 2]}])
+
+        sent_body = httpx_mock.get_requests()[0].content.decode()
+        assert "selected%5B%5D=1" in sent_body
+        assert "selected%5B%5D=2" in sent_body
+        assert "selected=1" not in sent_body
+
+    def test_scalar_body_unaffected_by_bracket_encoding(self, httpx_mock: HTTPXMock) -> None:
+        """list値を含まないbodyのエンコード結果は変わらない"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+        client.request([{"moduleName": "Test", "page_id": 123}])
+
+        sent_body = httpx_mock.get_requests()[0].content.decode()
+        assert "page_id=123" in sent_body
+        assert "moduleName=Test" in sent_body
+
 
 class TestAjaxModuleConnectorClientFormErrors:
     """form_errors / form_error ステータスのハンドリングのテスト"""

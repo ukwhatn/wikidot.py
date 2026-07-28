@@ -204,6 +204,38 @@ def _calculate_backoff(
     return min(backoff + jitter, max_backoff)
 
 
+def _encode_amc_body(body: dict[str, Any]) -> dict[str, Any]:
+    """
+    Rewrite list-valued keys to their bracket form for an AMC request body
+
+    Browsers serialize array parameters via jQuery.param as repeated
+    `key[]=v1&key[]=v2`. httpx's `data=` accepts a Mapping whose values may
+    be a list, but it reuses the key as-is for each item, producing
+    `key=v1&key=v2` (no brackets) instead. Some AMC modules
+    (DashboardMessageAction, ManageSiteNewsletterAction/send) expect the
+    bracketed form, so list-valued keys are renamed to "key[]" here; httpx's
+    own list expansion (see httpx._content.encode_urlencoded_data) then
+    produces "key[]=v1&key[]=v2" as desired. The result stays a plain dict
+    (still a Mapping) since httpx's data= only supports raw byte content for
+    non-Mapping values.
+
+    Parameters
+    ----------
+    body : dict[str, Any]
+        Request body to encode
+
+    Returns
+    -------
+    dict[str, Any]
+        body with list-valued keys renamed to "key[]"; scalar-only bodies
+        are returned unchanged
+    """
+    if not any(isinstance(v, list) for v in body.values()):
+        return body
+
+    return {(f"{key}[]" if isinstance(value, list) else key): value for key, value in body.items()}
+
+
 class AjaxModuleConnectorClient:
     """
     Client class for communicating with Wikidot's Ajax Module Connector
@@ -358,7 +390,7 @@ class AjaxModuleConnectorClient:
                         response = await client.post(
                             url,
                             headers=self.header.get_header(),
-                            data=_body,
+                            data=_encode_amc_body(_body),
                             timeout=self.config.request_timeout,
                         )
                         response.raise_for_status()
