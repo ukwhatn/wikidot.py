@@ -16,6 +16,7 @@ from typing_extensions import Self
 from ..common import exceptions
 from ..common.decorators import login_required
 from ..connector.ajax import require_body
+from ..util.amc_body import omit_falsy
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -239,6 +240,101 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         """
         return cls(PrivateMessageCollection._acquire(client, module_name))
 
+    @staticmethod
+    @login_required
+    def mark_as_read(client: "Client", message_ids: list[int]) -> None:
+        """
+        Mark messages as read
+
+        Wraps `DashboardMessageAction/setAsReaded` (the misspelling is
+        Wikidot's own event name on the wire and is intentionally kept
+        as-is here; only this Python method name uses correct spelling).
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        message_ids : list[int]
+            IDs of the messages to mark as read
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        client.amc_client.request(
+            [
+                {
+                    "action": "DashboardMessageAction",
+                    "event": "setAsReaded",
+                    "selected": message_ids,
+                    "moduleName": "Empty",
+                }
+            ]
+        )
+
+    @staticmethod
+    @login_required
+    def mark_as_unread(client: "Client", message_ids: list[int]) -> None:
+        """
+        Mark messages as unread
+
+        Wraps `DashboardMessageAction/setAsUnreaded`.
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        message_ids : list[int]
+            IDs of the messages to mark as unread
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        client.amc_client.request(
+            [
+                {
+                    "action": "DashboardMessageAction",
+                    "event": "setAsUnreaded",
+                    "selected": message_ids,
+                    "moduleName": "Empty",
+                }
+            ]
+        )
+
+    @staticmethod
+    @login_required
+    def remove_messages(client: "Client", message_ids: list[int]) -> None:
+        """
+        Delete messages
+
+        Wraps `DashboardMessageAction/removeMessages`.
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        message_ids : list[int]
+            IDs of the messages to delete
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        client.amc_client.request(
+            [
+                {
+                    "action": "DashboardMessageAction",
+                    "event": "removeMessages",
+                    "messages": message_ids,
+                    "moduleName": "Empty",
+                }
+            ]
+        )
+
 
 class PrivateMessageInbox(PrivateMessageCollection):
     """
@@ -447,3 +543,447 @@ class PrivateMessage:
                 }
             ]
         )
+
+    @staticmethod
+    @login_required
+    def save_draft(client: "Client", subject: str, body: str, recipient: Optional["User"] = None) -> None:
+        """
+        Save a private message draft
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        subject : str
+            Draft subject
+        body : str
+            Draft body
+        recipient : User | None, default None
+            Intended recipient. May be omitted (the real form allows a
+            draft with no recipient selected yet)
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        client.amc_client.request(
+            [
+                {
+                    "action": "DashboardMessageAction",
+                    "event": "saveDraft",
+                    "source": body,
+                    "subject": subject,
+                    "moduleName": "Empty",
+                    **omit_falsy(to_user_id=recipient.id if recipient is not None else False),
+                }
+            ]
+        )
+
+    @staticmethod
+    @login_required
+    def check_can_send(client: "Client", user: "AbstractUser") -> None:
+        """
+        Check whether the account is allowed to send a private message to a user
+
+        Wraps `DashboardMessageAction/checkCan`. Does not return a boolean:
+        only the generic no_permission rejection path was confirmed during
+        the investigation, so other rejection reasons (e.g. the recipient's
+        receive-messages setting) may surface as a plain
+        WikidotStatusCodeException instead of ForbiddenException. Treat "no
+        exception raised" as "allowed".
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        user : AbstractUser
+            Prospective recipient
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        ForbiddenException
+            If sending is not allowed
+        WikidotStatusCodeException
+            If sending is not allowed for a reason other than no_permission
+        """
+        client.amc_client.request(
+            [
+                {
+                    "action": "DashboardMessageAction",
+                    "event": "checkCan",
+                    "userId": user.id,
+                    "moduleName": "Empty",
+                }
+            ]
+        )
+
+    @staticmethod
+    @login_required
+    def preview(client: "Client", subject: str, body: str, recipient: Optional["User"] = None) -> str:
+        """
+        Render a preview of a private message without sending it
+
+        Wraps the `dashboard/messages/DMPreviewModule` module.
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        subject : str
+            Message subject
+        body : str
+            Message body
+        recipient : User | None, default None
+            Intended recipient
+
+        Returns
+        -------
+        str
+            Rendered HTML preview
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        response = client.amc_client.request(
+            [
+                {
+                    "moduleName": "dashboard/messages/DMPreviewModule",
+                    "source": body,
+                    "subject": subject,
+                    **omit_falsy(to_user_id=recipient.id if recipient is not None else False),
+                }
+            ]
+        )[0]
+        return require_body(response, "dashboard/messages/DMPreviewModule")
+
+    @staticmethod
+    @login_required
+    def fetch_reply_form_html(client: "Client", reply_message_id: int) -> str:
+        """
+        Fetch the pre-filled "new message" form HTML for replying to a message
+
+        Wraps the `dashboard/messages/DMNewMessageModule` module with
+        `replyMessageId` set, which renders the form with the original
+        sender pre-filled as recipient (`toUserId`/`toUserName` in the
+        rendered HTML). Returns the raw body since the investigation
+        captured the request/response shape but not the specific markup
+        used to extract those pre-filled values.
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        reply_message_id : int
+            ID of the message being replied to
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        response = client.amc_client.request(
+            [{"moduleName": "dashboard/messages/DMNewMessageModule", "replyMessageId": reply_message_id}]
+        )[0]
+        return require_body(response, "dashboard/messages/DMNewMessageModule")
+
+    def mark_as_read(self) -> None:
+        """
+        Mark this message as read
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        PrivateMessageCollection.mark_as_read(self.client, [self.id])
+
+    def mark_as_unread(self) -> None:
+        """
+        Mark this message as unread
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        PrivateMessageCollection.mark_as_unread(self.client, [self.id])
+
+    def delete(self) -> None:
+        """
+        Delete this message
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        PrivateMessageCollection.remove_messages(self.client, [self.id])
+
+
+# ----------------------------------------------------------------------
+# Site invitations / applications / contacts (/account/messages tabs)
+#
+# These represent the account's own outgoing/incoming relationships to
+# sites and other users, rendered by dashboard/messages/DM*Module. Row
+# markup for these list modules was not captured during the investigation
+# (unlike the inbox/sent tr.message structure above), so listing functions
+# return the raw rendered HTML rather than a parsed collection.
+# ----------------------------------------------------------------------
+
+
+@login_required
+def get_invitations_html(client: "Client", page: int = 1) -> str:
+    """
+    Fetch a page of the account's pending site invitations (raw HTML)
+
+    Wraps `dashboard/messages/DMInvitationsModule`.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+    page : int, default 1
+        Page number
+
+    Returns
+    -------
+    str
+        Raw rendered HTML body
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    response = client.amc_client.request([{"moduleName": "dashboard/messages/DMInvitationsModule", "page": page}])[0]
+    return require_body(response, "dashboard/messages/DMInvitationsModule")
+
+
+@login_required
+def get_invitation_detail_html(client: "Client", item: int) -> str:
+    """
+    Fetch the detail HTML of a single site invitation
+
+    Wraps `dashboard/messages/DMViewInvitationModule`.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+    item : int
+        Invitation ID
+
+    Returns
+    -------
+    str
+        Raw rendered HTML body
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    response = client.amc_client.request([{"moduleName": "dashboard/messages/DMViewInvitationModule", "item": item}])[0]
+    return require_body(response, "dashboard/messages/DMViewInvitationModule")
+
+
+@login_required
+def get_applications_html(client: "Client", page: int = 1) -> str:
+    """
+    Fetch a page of the account's pending site join applications (raw HTML)
+
+    Wraps `dashboard/messages/DMApplicationsModule`. This is the account's
+    own outgoing applications to other sites; do not confuse it with
+    SiteApplication (site_application.py), which is a site admin's view of
+    incoming applications to their own site.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+    page : int, default 1
+        Page number
+
+    Returns
+    -------
+    str
+        Raw rendered HTML body
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    response = client.amc_client.request([{"moduleName": "dashboard/messages/DMApplicationsModule", "page": page}])[0]
+    return require_body(response, "dashboard/messages/DMApplicationsModule")
+
+
+@login_required
+def get_application_detail_html(client: "Client", item: int) -> str:
+    """
+    Fetch the detail HTML of a single site join application
+
+    Wraps `dashboard/messages/DMViewApplicationModule`.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+    item : int
+        Application ID
+
+    Returns
+    -------
+    str
+        Raw rendered HTML body
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    response = client.amc_client.request([{"moduleName": "dashboard/messages/DMViewApplicationModule", "item": item}])[
+        0
+    ]
+    return require_body(response, "dashboard/messages/DMViewApplicationModule")
+
+
+@login_required
+def get_contacts_html(client: "Client") -> str:
+    """
+    Fetch the account's contact list (raw HTML)
+
+    Wraps `dashboard/messages/DMContactsModule`.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+
+    Returns
+    -------
+    str
+        Raw rendered HTML body
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    response = client.amc_client.request([{"moduleName": "dashboard/messages/DMContactsModule"}])[0]
+    return require_body(response, "dashboard/messages/DMContactsModule")
+
+
+@login_required
+def get_contacts_list_html(client: "Client") -> str:
+    """
+    Fetch the contact picker used when composing a new message (raw HTML)
+
+    Wraps `dashboard/messages/DMContactsListModule`.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+
+    Returns
+    -------
+    str
+        Raw rendered HTML body
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    response = client.amc_client.request([{"moduleName": "dashboard/messages/DMContactsListModule"}])[0]
+    return require_body(response, "dashboard/messages/DMContactsListModule")
+
+
+@login_required
+def add_contact(client: "Client", user: "AbstractUser") -> None:
+    """
+    Add a user to the account's contact list
+
+    Wraps `ContactsAction/addContact`.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+    user : AbstractUser
+        User to add
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    client.amc_client.request(
+        [{"action": "ContactsAction", "event": "addContact", "userId": user.id, "moduleName": "Empty"}]
+    )
+
+
+@login_required
+def remove_contact(client: "Client", user: "AbstractUser") -> None:
+    """
+    Remove a user from the account's contact list
+
+    Wraps `ContactsAction/removeContact`.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+    user : AbstractUser
+        User to remove
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    client.amc_client.request(
+        [{"action": "ContactsAction", "event": "removeContact", "userId": user.id, "moduleName": "Empty"}]
+    )
+
+
+@login_required
+def add_contact_via_profile(client: "Client", user: "AbstractUser") -> str:
+    """
+    Add a user to the account's contact list from their profile page
+
+    Wraps `userinfo/UserAddToContactsModule`, a second (module-render-as-
+    action) path to add a contact distinct from ContactsAction/addContact,
+    used from a user's profile ("user:info") page rather than the messages
+    dashboard.
+
+    Parameters
+    ----------
+    client : Client
+        Client instance
+    user : AbstractUser
+        User to add
+
+    Returns
+    -------
+    str
+        Raw rendered HTML body
+
+    Raises
+    ------
+    LoginRequiredException
+        If not logged in
+    """
+    response = client.amc_client.request([{"moduleName": "userinfo/UserAddToContactsModule", "userId": user.id}])[0]
+    return require_body(response, "userinfo/UserAddToContactsModule")
