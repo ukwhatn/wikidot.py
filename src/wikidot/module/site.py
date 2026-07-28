@@ -34,6 +34,7 @@ from .site_application import SiteApplication
 from .site_member import SiteMember
 from .site_member_admin import MemberAccessor
 from .site_settings import SiteSettingsAccessor
+from .site_tools import SiteToolsAccessor
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -373,6 +374,7 @@ class Site:
     forum: "SiteForumAccessor" = field(init=False, repr=False)
     settings: "SiteSettingsAccessor" = field(init=False, repr=False)
     member: "MemberAccessor" = field(init=False, repr=False)
+    tools: "SiteToolsAccessor" = field(init=False, repr=False)
 
     # キャッシュ属性
     _members: list["SiteMember"] | None = field(init=False, default=None, repr=False)
@@ -390,6 +392,7 @@ class Site:
         self.forum = SiteForumAccessor(self)
         self.settings = SiteSettingsAccessor(self)
         self.member = MemberAccessor(self)
+        self.tools = SiteToolsAccessor(self)
 
     def __str__(self) -> str:
         """
