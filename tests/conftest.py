@@ -640,6 +640,12 @@ def site_applications() -> dict[str, Any]:
 
 
 @pytest.fixture
+def site_categories_single() -> dict[str, Any]:
+    """カテゴリ1件（_default）のManage Siteレスポンス"""
+    return _load_json("site", "categories_single.json")
+
+
+@pytest.fixture
 def site_applications_empty() -> dict[str, Any]:
     """サイト参加申請（空）レスポンス"""
     return _load_json("site", "applications_empty.json")
