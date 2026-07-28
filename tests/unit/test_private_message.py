@@ -12,15 +12,17 @@ import pytest
 from wikidot.common.exceptions import ForbiddenException, LoginRequiredException
 from wikidot.module.client import Client
 from wikidot.module.private_message import (
+    Contact,
     PrivateMessage,
     PrivateMessageCollection,
     PrivateMessageInbox,
     PrivateMessageSentBox,
+    SiteJoinApplication,
     add_contact,
     add_contact_via_profile,
     get_application_detail_html,
-    get_applications_html,
-    get_contacts_html,
+    get_applications,
+    get_contacts,
     get_contacts_list_html,
     get_invitation_detail_html,
     get_invitations_html,
@@ -356,15 +358,45 @@ class TestInvitationsApplicationsContacts:
         assert call_args["moduleName"] == "dashboard/messages/DMViewInvitationModule"
         assert call_args["item"] == 9
 
-    def test_get_applications_html(self, mock_client):
+    def test_get_applications_parses_rows(self, mock_client):
+        """DMApplicationsModuleの行マークアップ（2026-07-29実測）に基づくfixture"""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"body": "<div>apps</div>"}
+        mock_response.json.return_value = {
+            "body": """
+            <table>
+            <tr>
+                <td>
+                    <span class="from">Foo Site</span>
+                    <span class="subject">Membership application</span>
+                    <span class="preview">Please let me join!</span>
+                    <span class="date"><span class="odate time_1700000000">01 Jan 2024</span></span>
+                </td>
+            </tr>
+            </table>
+            """
+        }
         mock_client.amc_client.request.return_value = [mock_response]
 
-        get_applications_html(mock_client)
+        result = get_applications(mock_client)
 
         call_args = mock_client.amc_client.request.call_args[0][0][0]
         assert call_args["moduleName"] == "dashboard/messages/DMApplicationsModule"
+        assert len(result) == 1
+        application = result[0]
+        assert isinstance(application, SiteJoinApplication)
+        assert application.from_site == "Foo Site"
+        assert application.subject == "Membership application"
+        assert application.preview == "Please let me join!"
+        assert application.submitted_at == datetime.fromtimestamp(1700000000)
+
+    def test_get_applications_skips_rows_without_from(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<table><tr><td>no from span here</td></tr></table>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = get_applications(mock_client)
+
+        assert result == []
 
     def test_get_application_detail_html(self, mock_client):
         mock_response = MagicMock()
@@ -377,15 +409,56 @@ class TestInvitationsApplicationsContacts:
         assert call_args["moduleName"] == "dashboard/messages/DMViewApplicationModule"
         assert call_args["item"] == 3
 
-    def test_get_contacts_html(self, mock_client):
+    def test_get_contacts_parses_rows(self, mock_client):
+        """DMContactsModuleの行マークアップ（2026-07-29実測）に基づくfixture"""
         mock_response = MagicMock()
-        mock_response.json.return_value = {"body": "<div>contacts</div>"}
+        mock_response.json.return_value = {
+            "body": """
+            <table>
+            <tr>
+                <td>
+                    <span class="printuser avatarhover">
+                        <a href="http://www.wikidot.com/user:info/contact-user"
+                           onclick="WIKIDOT.page.listeners.userInfo(54321); return false;">contact-user</a>
+                    </span>
+                </td>
+                <td><a class="awesome red small" href="#">x</a></td>
+            </tr>
+            </table>
+            """
+        }
         mock_client.amc_client.request.return_value = [mock_response]
 
-        get_contacts_html(mock_client)
+        result = get_contacts(mock_client)
 
         call_args = mock_client.amc_client.request.call_args[0][0][0]
         assert call_args["moduleName"] == "dashboard/messages/DMContactsModule"
+        assert len(result) == 1
+        contact = result[0]
+        assert isinstance(contact, Contact)
+        assert contact.user.id == 54321
+        assert contact.user.name == "contact-user"
+
+    def test_contact_remove_delegates_to_remove_contact(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "body": """
+            <span class="printuser avatarhover">
+                <a href="http://www.wikidot.com/user:info/contact-user"
+                   onclick="WIKIDOT.page.listeners.userInfo(54321); return false;">contact-user</a>
+            </span>
+            """
+        }
+        mock_client.amc_client.request.return_value = [mock_response]
+        user = MagicMock(id=54321)
+        contact = Contact(client=mock_client, user=user)
+
+        contact.remove()
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["action"] == "ContactsAction"
+        assert call_args["event"] == "removeContact"
+        assert call_args["userId"] == 54321
 
     def test_get_contacts_list_html(self, mock_client):
         mock_response = MagicMock()

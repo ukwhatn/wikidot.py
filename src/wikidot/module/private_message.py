@@ -797,35 +797,134 @@ def get_invitation_detail_html(client: "Client", item: int) -> str:
     return require_body(response, "dashboard/messages/DMViewInvitationModule")
 
 
-@login_required
-def get_applications_html(client: "Client", page: int = 1) -> str:
+@dataclass
+class SiteJoinApplication:
     """
-    Fetch a page of the account's pending site join applications (raw HTML)
+    A row of the account's own outgoing site-join applications
+    (dashboard/messages/DMApplicationsModule)
 
-    Wraps `dashboard/messages/DMApplicationsModule`. This is the account's
-    own outgoing applications to other sites; do not confuse it with
-    SiteApplication (site_application.py), which is a site admin's view of
-    incoming applications to their own site.
+    Distinct from SiteApplication (site_application.py), which is a site
+    admin's view of incoming applications to their own site.
+
+    Row markup was measured 2026-07-29 (see `70_account.md` "一覧モジュールの
+    行マークアップ"): each row is a `tr` with `span.from` / `span.subject` /
+    `span.preview` / `span.date > span.odate`. The measurement did not find a
+    site-id/application-id-bearing attribute on the row, so this object
+    cannot drive `DMViewApplicationModule` or
+    `DashboardSitesAction/removeApplication` directly; use
+    `ClientSiteAccessor.remove_application(site_id)` with a site_id obtained
+    elsewhere if you need to withdraw an application.
+
+    Attributes
+    ----------
+    client : Client
+        Client instance
+    from_site : str
+        Text of span.from (the site the application was submitted to)
+    subject : str
+        Text of span.subject
+    preview : str
+        Text of span.preview
+    submitted_at : datetime
+        Submission date and time (span.date > span.odate)
+    """
+
+    client: "Client"
+    from_site: str
+    subject: str
+    preview: str
+    submitted_at: datetime
+
+    def __str__(self) -> str:
+        """
+        String representation of the object
+
+        Returns
+        -------
+        str
+            String representation of the application
+        """
+        return f"SiteJoinApplication(from_site={self.from_site}, subject={self.subject})"
+
+    @staticmethod
+    def _parse_row(client: "Client", row: Tag) -> "SiteJoinApplication | None":
+        """
+        Internal method to parse a single DMApplicationsModule row
+
+        Parameters
+        ----------
+        client : Client
+            Client instance
+        row : bs4.Tag
+            `tr` element to parse
+
+        Returns
+        -------
+        SiteJoinApplication | None
+            Parsed row, or None if a required element is missing
+        """
+        from_elem = row.select_one("span.from")
+        if from_elem is None:
+            return None
+
+        subject_elem = row.select_one("span.subject")
+        preview_elem = row.select_one("span.preview")
+        odate_elem = row.select_one("span.date span.odate")
+
+        return SiteJoinApplication(
+            client=client,
+            from_site=from_elem.get_text().strip(),
+            subject=subject_elem.get_text().strip() if subject_elem else "",
+            preview=preview_elem.get_text().strip() if preview_elem else "",
+            submitted_at=(odate_parser(odate_elem) if odate_elem else datetime.fromtimestamp(0)),
+        )
+
+
+@login_required
+def get_applications(client: "Client") -> list["SiteJoinApplication"]:
+    """
+    Get all of the account's pending outgoing site join applications
+
+    Wraps `dashboard/messages/DMApplicationsModule`, fetching all pages.
 
     Parameters
     ----------
     client : Client
         Client instance
-    page : int, default 1
-        Page number
 
     Returns
     -------
-    str
-        Raw rendered HTML body
+    list[SiteJoinApplication]
+        All pending applications
 
     Raises
     ------
     LoginRequiredException
         If not logged in
     """
-    response = client.amc_client.request([{"moduleName": "dashboard/messages/DMApplicationsModule", "page": page}])[0]
-    return require_body(response, "dashboard/messages/DMApplicationsModule")
+    module_name = "dashboard/messages/DMApplicationsModule"
+    first_response = client.amc_client.request([{"moduleName": module_name}])[0]
+    first_html = BeautifulSoup(require_body(first_response, module_name), "lxml")
+
+    pager: ResultSet[Tag] = first_html.select("div.pager span.target")
+    max_page: int = int(pager[-2].get_text()) if len(pager) > 2 else 1
+
+    applications: list[SiteJoinApplication] = []
+    for row in first_html.select("tr"):
+        application = SiteJoinApplication._parse_row(client, row)
+        if application is not None:
+            applications.append(application)
+
+    if max_page > 1:
+        bodies = [{"page": page, "moduleName": module_name} for page in range(2, max_page + 1)]
+        for response in client.amc_client.request(bodies):
+            html = BeautifulSoup(require_body(response, module_name), "lxml")
+            for row in html.select("tr"):
+                application = SiteJoinApplication._parse_row(client, row)
+                if application is not None:
+                    applications.append(application)
+
+    return applications
 
 
 @login_required
@@ -858,12 +957,60 @@ def get_application_detail_html(client: "Client", item: int) -> str:
     return require_body(response, "dashboard/messages/DMViewApplicationModule")
 
 
-@login_required
-def get_contacts_html(client: "Client") -> str:
+@dataclass
+class Contact:
     """
-    Fetch the account's contact list (raw HTML)
+    A row of the account's contact list (dashboard/messages/DMContactsModule)
 
-    Wraps `dashboard/messages/DMContactsModule`.
+    Row markup was measured 2026-07-29 (see `70_account.md` "一覧モジュールの
+    行マークアップ"): each row is a `tr` with
+    `td > span.printuser.avatarhover > a > img.small` and a delete button
+    (`td > a.awesome.red.small`). The user is parsed via the existing
+    printuser parser rather than the delete button, since removal only needs
+    the user ID (ContactsAction/removeContact), which the printuser element
+    already carries.
+
+    Attributes
+    ----------
+    client : Client
+        Client instance
+    user : AbstractUser
+        The contact
+    """
+
+    client: "Client"
+    user: "AbstractUser"
+
+    def __str__(self) -> str:
+        """
+        String representation of the object
+
+        Returns
+        -------
+        str
+            String representation of the contact
+        """
+        return f"Contact(user={self.user})"
+
+    def remove(self) -> None:
+        """
+        Remove this user from the account's contact list
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        remove_contact(self.client, self.user)
+
+
+@login_required
+def get_contacts(client: "Client") -> list["Contact"]:
+    """
+    Get the account's contact list
+
+    Wraps `dashboard/messages/DMContactsModule` (single request; this module
+    is not paginated).
 
     Parameters
     ----------
@@ -872,8 +1019,8 @@ def get_contacts_html(client: "Client") -> str:
 
     Returns
     -------
-    str
-        Raw rendered HTML body
+    list[Contact]
+        All contacts
 
     Raises
     ------
@@ -881,7 +1028,16 @@ def get_contacts_html(client: "Client") -> str:
         If not logged in
     """
     response = client.amc_client.request([{"moduleName": "dashboard/messages/DMContactsModule"}])[0]
-    return require_body(response, "dashboard/messages/DMContactsModule")
+    html = BeautifulSoup(require_body(response, "dashboard/messages/DMContactsModule"), "lxml")
+
+    contacts: list[Contact] = []
+    for row in html.select("tr"):
+        printuser_elem = row.select_one("span.printuser")
+        if printuser_elem is None:
+            continue
+        contacts.append(Contact(client=client, user=user_parser(client, printuser_elem)))
+
+    return contacts
 
 
 @login_required

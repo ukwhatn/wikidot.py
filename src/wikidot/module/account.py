@@ -9,12 +9,18 @@ All requests in this module are sent to `www.wikidot.com` (Client.amc_client's
 default host), never to a site's own host.
 """
 
+import re
+from dataclasses import dataclass
+from datetime import datetime
 from typing import TYPE_CHECKING, Any, Literal
+
+from bs4 import BeautifulSoup
 
 from ..common import exceptions
 from ..common.decorators import login_required
 from ..connector.ajax import require_body
 from ..util.amc_body import checkbox, flag, json_param, omit_falsy
+from ..util.parser import odate as odate_parser
 
 if TYPE_CHECKING:
     from .client import Client
@@ -697,6 +703,103 @@ class AccountProfile:
         return dict(data)
 
 
+@dataclass
+class UserChange:
+    """
+    A row of the account's own recent page edits (userinfo/UserChangesListModule)
+
+    Nearly identical in structure to SiteChange (site.py's
+    changes/SiteChangesListModule row), with a site column added since this
+    view spans every site the account belongs to (measured 2026-07-29, see
+    `70_account.md` "一覧モジュールの行マークアップ").
+
+    Attributes
+    ----------
+    client : Client
+        Client instance
+    site_title : str
+        Title of the site the change occurred on (td.site > a)
+    site_url : str
+        URL of the site the change occurred on (td.site > a href)
+    page_fullname : str
+        Fullname of the changed page
+    page_title : str
+        Title of the changed page
+    revision_no : int
+        Revision number
+    changed_at : datetime
+        Date and time of change
+    flags : list[str]
+        Change flags ("N"=new, "S"=source change, "T"=title change,
+        "R"=rename, "M"=move, "F"=file, "A"=delete)
+    """
+
+    client: "Client"
+    site_title: str
+    site_url: str
+    page_fullname: str
+    page_title: str
+    revision_no: int
+    changed_at: datetime
+    flags: list[str]
+
+    def __str__(self) -> str:
+        """
+        String representation of the object
+
+        Returns
+        -------
+        str
+            String representation of the change history entry
+        """
+        return (
+            f"UserChange(site_title={self.site_title}, page_fullname={self.page_fullname}, "
+            f"revision_no={self.revision_no}, changed_at={self.changed_at}, flags={self.flags})"
+        )
+
+
+@dataclass
+class RecentPost:
+    """
+    A row of the account's own recent forum posts (userinfo/UserRecentPostsListModule)
+
+    Row markup was measured 2026-07-29 (see `70_account.md` "一覧モジュールの
+    行マークアップ"): each row is `div.post`, with
+    `div.long > div.head > div.title > a` (title/link), `div.info > span.odate`
+    (date), and `div.content` (post text).
+
+    Attributes
+    ----------
+    client : Client
+        Client instance
+    title : str
+        Post/thread title (div.title > a)
+    url : str
+        Link to the post (div.title > a href)
+    created_at : datetime
+        Date and time of the post
+    content : str
+        Post text (div.content)
+    """
+
+    client: "Client"
+    title: str
+    url: str
+    created_at: datetime
+    content: str
+
+    def __str__(self) -> str:
+        """
+        String representation of the object
+
+        Returns
+        -------
+        str
+            String representation of the post
+        """
+        return f"RecentPost(title={self.title}, created_at={self.created_at})"
+
+
 class AccountRecentActivity:
     """
     A class that provides operations on the `/account/recent` dashboard tab
@@ -715,52 +818,105 @@ class AccountRecentActivity:
             Parent client instance
         """
         self.client = client
+        self._changes_user_id_cache: int | None = None
+        self._posts_user_id_cache: int | None = None
 
-    def _own_user_id(self) -> int:
+    def _fetch_hidden_user_id(self, module_name: str, element_id: str) -> int:
         """
-        Internal helper to get the logged-in account's own user ID
+        Internal helper to fetch a hidden `userId` field from a shell module
+
+        `www.wikidot.com` pages do not expose `WIKIREQUEST.info.userId`
+        (unlike a site's own pages), and userinfo/UserChangesListModule /
+        userinfo/UserRecentPostsListModule respond with status "not_ok" and
+        an empty body if `userId` is omitted. The real UI reads it from a
+        hidden input on the shell module that renders the tab
+        (userinfo/UserChangesModule / userinfo/UserRecentPostsModule) before
+        requesting the list module.
+
+        Parameters
+        ----------
+        module_name : str
+            Shell module to fetch ("userinfo/UserChangesModule" or
+            "userinfo/UserRecentPostsModule")
+        element_id : str
+            id of the hidden input holding the user ID
+            ("changes-user-id" or "recent-posts-user-id")
 
         Returns
         -------
         int
-            User ID of Client.me
+            The account's own user ID
 
         Raises
         ------
         UnexpectedException
-            If Client.me is unset despite being logged in (should not happen)
+            If the hidden field is missing or non-numeric
         """
-        me = self.client.me
-        if me is None or me.id is None:
-            raise exceptions.UnexpectedException("Client.me is not set despite being logged in")
-        return me.id
+        response = self.client.amc_client.request([{"moduleName": module_name}])[0]
+        html = BeautifulSoup(require_body(response, module_name), "lxml")
+        hidden = html.select_one(f"#{element_id}")
+        if hidden is None:
+            raise exceptions.UnexpectedException(f"Cannot find #{element_id} in {module_name}")
+        value = hidden.get("value")
+        if value is None or not str(value).isdigit():
+            raise exceptions.UnexpectedException(f"#{element_id} in {module_name} is not numeric: {value!r}")
+        return int(str(value))
+
+    def _changes_user_id(self) -> int:
+        """
+        Internal helper to get (and cache) the userId for UserChangesListModule
+
+        Returns
+        -------
+        int
+            User ID, as read from userinfo/UserChangesModule's
+            #changes-user-id hidden field
+        """
+        if self._changes_user_id_cache is None:
+            self._changes_user_id_cache = self._fetch_hidden_user_id("userinfo/UserChangesModule", "changes-user-id")
+        return self._changes_user_id_cache
+
+    def _posts_user_id(self) -> int:
+        """
+        Internal helper to get (and cache) the userId for UserRecentPostsListModule
+
+        Returns
+        -------
+        int
+            User ID, as read from userinfo/UserRecentPostsModule's
+            #recent-posts-user-id hidden field
+        """
+        if self._posts_user_id_cache is None:
+            self._posts_user_id_cache = self._fetch_hidden_user_id(
+                "userinfo/UserRecentPostsModule", "recent-posts-user-id"
+            )
+        return self._posts_user_id_cache
 
     @login_required
-    def get_changes_html(
+    def get_changes(
         self,
-        page: int = 1,
-        perpage: int = 20,
         options: dict[str, bool] | None = None,
-    ) -> str:
+        limit: int | None = None,
+    ) -> list["UserChange"]:
         """
-        Fetch a page of the account's own recent page edits (raw HTML)
+        Get the account's own recent page edits, across all sites
+
+        Wraps `userinfo/UserChangesListModule`, fetching pages until
+        exhausted or `limit` is reached.
 
         Parameters
         ----------
-        page : int, default 1
-            Page number
-        perpage : int, default 20
-            Entries per page
         options : dict[str, bool] | None, default None
             Filter flags. Keys must be a subset of RECENT_CHANGES_OPTION_KEYS
             ("all", "source", "title", "move", "files", "new", "meta"); unlike
             history/PageHistoryModule's options, there is no "tags" key here
+        limit : int | None, default None
+            Maximum number of entries to retrieve. If None, retrieves all
 
         Returns
         -------
-        str
-            Raw rendered HTML body (row markup was not captured during the
-            investigation, so this is not parsed into a structured list)
+        list[UserChange]
+            List of change history (in descending order by date)
 
         Raises
         ------
@@ -768,6 +924,8 @@ class AccountRecentActivity:
             If not logged in
         ValueError
             If options contains a key outside RECENT_CHANGES_OPTION_KEYS
+        NoElementException
+            If HTML element parsing fails
         """
         if options is not None:
             unknown = set(options) - RECENT_CHANGES_OPTION_KEYS
@@ -777,49 +935,170 @@ class AccountRecentActivity:
                     f"(no 'tags' key here, unlike page-history options): {sorted(unknown)}"
                 )
 
-        response = self.client.amc_client.request(
-            [
-                {
-                    "moduleName": "userinfo/UserChangesListModule",
-                    "page": page,
-                    "perpage": perpage,
-                    "userId": self._own_user_id(),
-                    **omit_falsy(options=json_param(options) if options else False),
-                }
-            ]
-        )[0]
-        return require_body(response, "userinfo/UserChangesListModule")
+        user_id = self._changes_user_id()
+
+        changes: list[UserChange] = []
+        per_page = min(limit, 1000) if limit is not None else 1000
+        page_no = 1
+
+        while True:
+            response = self.client.amc_client.request(
+                [
+                    {
+                        "moduleName": "userinfo/UserChangesListModule",
+                        "page": page_no,
+                        "perpage": per_page,
+                        "userId": user_id,
+                        **omit_falsy(options=json_param(options) if options else False),
+                    }
+                ]
+            )[0]
+            html = BeautifulSoup(require_body(response, "userinfo/UserChangesListModule"), "lxml")
+            items = html.select("div.changes-list-item")
+
+            if not items:
+                break
+
+            for item in items:
+                site_elem = item.select_one("td.site a")
+
+                title_elem = item.select_one("td.title a")
+                if title_elem is None:
+                    raise exceptions.NoElementException("Title element is not found.")
+                page_title = title_elem.get_text().strip()
+                href = title_elem.get("href", "")
+                page_fullname = str(href).strip("/")
+
+                odate_elem = item.select_one("td.mod-date span.odate")
+                if odate_elem is None:
+                    raise exceptions.NoElementException("Odate element is not found.")
+                changed_at = odate_parser(odate_elem)
+
+                rev_elem = item.select_one("td.revision-no")
+                if rev_elem is None:
+                    raise exceptions.NoElementException("Revision number element is not found.")
+                rev_match = re.search(r"(\d+)", rev_elem.get_text())
+                if rev_match is None:
+                    raise exceptions.NoElementException("Revision number is not found.")
+                revision_no = int(rev_match.group(1))
+
+                flags_elem = item.select("td.flags span.spantip")
+                flags = [span.get_text().strip() for span in flags_elem]
+
+                changes.append(
+                    UserChange(
+                        client=self.client,
+                        site_title=site_elem.get_text().strip() if site_elem else "",
+                        site_url=str(site_elem.get("href", "")) if site_elem else "",
+                        page_fullname=page_fullname,
+                        page_title=page_title,
+                        revision_no=revision_no,
+                        changed_at=changed_at,
+                        flags=flags,
+                    )
+                )
+
+                if limit is not None and len(changes) >= limit:
+                    return changes
+
+            pager = html.select_one("div.pager")
+            if pager is None:
+                break
+
+            pager_links = pager.select("a")
+            if len(pager_links) < 2:
+                break
+
+            last_page = int(pager_links[-2].get_text().strip())
+            if page_no >= last_page:
+                break
+
+            page_no += 1
+
+        return changes
 
     @login_required
-    def get_posts_html(self, page: int = 1) -> str:
+    def get_posts(self, limit: int | None = None) -> list["RecentPost"]:
         """
-        Fetch a page of the account's own recent forum posts (raw HTML)
+        Get the account's own recent forum posts, across all sites
+
+        Wraps `userinfo/UserRecentPostsListModule`, fetching pages until
+        exhausted or `limit` is reached.
 
         Parameters
         ----------
-        page : int, default 1
-            Page number
+        limit : int | None, default None
+            Maximum number of entries to retrieve. If None, retrieves all
 
         Returns
         -------
-        str
-            Raw rendered HTML body
+        list[RecentPost]
+            List of recent posts (in descending order by date)
 
         Raises
         ------
         LoginRequiredException
             If not logged in
+        NoElementException
+            If HTML element parsing fails
         """
-        response = self.client.amc_client.request(
-            [
-                {
-                    "moduleName": "userinfo/UserRecentPostsListModule",
-                    "page": page,
-                    "userId": self._own_user_id(),
-                }
-            ]
-        )[0]
-        return require_body(response, "userinfo/UserRecentPostsListModule")
+        user_id = self._posts_user_id()
+
+        posts: list[RecentPost] = []
+        page_no = 1
+
+        while True:
+            response = self.client.amc_client.request(
+                [
+                    {
+                        "moduleName": "userinfo/UserRecentPostsListModule",
+                        "page": page_no,
+                        "userId": user_id,
+                    }
+                ]
+            )[0]
+            html = BeautifulSoup(require_body(response, "userinfo/UserRecentPostsListModule"), "lxml")
+            items = html.select("div.post")
+
+            if not items:
+                break
+
+            for item in items:
+                title_elem = item.select_one("div.long div.head div.title a")
+                if title_elem is None:
+                    raise exceptions.NoElementException("Title element is not found.")
+
+                odate_elem = item.select_one("div.info span.odate")
+                content_elem = item.select_one("div.content")
+
+                posts.append(
+                    RecentPost(
+                        client=self.client,
+                        title=title_elem.get_text().strip(),
+                        url=str(title_elem.get("href", "")),
+                        created_at=(odate_parser(odate_elem) if odate_elem else datetime.fromtimestamp(0)),
+                        content=content_elem.get_text().strip() if content_elem else "",
+                    )
+                )
+
+                if limit is not None and len(posts) >= limit:
+                    return posts
+
+            pager = html.select_one("div.pager")
+            if pager is None:
+                break
+
+            pager_links = pager.select("a")
+            if len(pager_links) < 2:
+                break
+
+            last_page = int(pager_links[-2].get_text().strip())
+            if page_no >= last_page:
+                break
+
+            page_no += 1
+
+        return posts
 
 
 class ClientAccountAccessor:

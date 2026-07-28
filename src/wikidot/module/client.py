@@ -7,7 +7,7 @@ from ..connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfi
 from . import private_message as pm
 from .account import ClientAccountAccessor
 from .auth import HTTPAuthentication
-from .dashboard_site import DashboardSites, NewSitePrivacy, NewSiteTemplate
+from .dashboard_site import DashboardSite, DashboardSites, NewSitePrivacy, NewSiteTemplate
 from .private_message import (
     PrivateMessage,
     PrivateMessageCollection,
@@ -298,21 +298,16 @@ class ClientPrivateMessageAccessor:
         """
         return pm.get_invitation_detail_html(self.client, item)
 
-    def get_applications_html(self, page: int = 1) -> str:
+    def get_applications(self) -> list["pm.SiteJoinApplication"]:
         """
-        Fetch a page of the account's pending site join applications (raw HTML)
-
-        Parameters
-        ----------
-        page : int, default 1
-            Page number
+        Get all of the account's pending outgoing site join applications
 
         Returns
         -------
-        str
-            Raw rendered HTML body
+        list[SiteJoinApplication]
+            All pending applications
         """
-        return pm.get_applications_html(self.client, page)
+        return pm.get_applications(self.client)
 
     def get_application_detail_html(self, item: int) -> str:
         """
@@ -330,16 +325,16 @@ class ClientPrivateMessageAccessor:
         """
         return pm.get_application_detail_html(self.client, item)
 
-    def get_contacts_html(self) -> str:
+    def get_contacts(self) -> list["pm.Contact"]:
         """
-        Fetch the account's contact list (raw HTML)
+        Get the account's contact list
 
         Returns
         -------
-        str
-            Raw rendered HTML body
+        list[Contact]
+            All contacts
         """
-        return pm.get_contacts_html(self.client)
+        return pm.get_contacts(self.client)
 
     def get_contacts_list_html(self) -> str:
         """
@@ -478,16 +473,16 @@ class ClientSiteAccessor:
         )
 
     @property
-    def my_sites_html(self) -> str:
+    def my_sites(self) -> list[DashboardSite]:
         """
-        Fetch the raw HTML of the account's site dashboard (all roles + deleted)
+        Get every site the account belongs to (all roles) plus deleted sites
 
         Returns
         -------
-        str
-            Raw rendered HTML body
+        list[DashboardSite]
+            All rows of the account's site dashboard
         """
-        return DashboardSites.list_html(self.client)
+        return DashboardSites.list_sites(self.client)
 
     def accept_invitation(self, invitation_id: int) -> None:
         """

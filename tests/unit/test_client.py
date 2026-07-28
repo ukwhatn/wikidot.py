@@ -263,17 +263,18 @@ class TestClientSiteAccessor:
                 )
                 assert result == "new-site"
 
-    def test_my_sites_html(self):
+    def test_my_sites(self):
         """サイト一覧の取得"""
         with patch("wikidot.module.client.AjaxModuleConnectorClient"):
             client = Client()
-            with patch("wikidot.module.client.DashboardSites.list_html") as mock_list_html:
-                mock_list_html.return_value = "<div>sites</div>"
+            with patch("wikidot.module.client.DashboardSites.list_sites") as mock_list_sites:
+                mock_sites = [MagicMock()]
+                mock_list_sites.return_value = mock_sites
 
-                result = client.site.my_sites_html
+                result = client.site.my_sites
 
-                mock_list_html.assert_called_once_with(client)
-                assert result == "<div>sites</div>"
+                mock_list_sites.assert_called_once_with(client)
+                assert result == mock_sites
 
     def test_accept_invitation(self):
         with patch("wikidot.module.client.AjaxModuleConnectorClient"):
@@ -413,3 +414,23 @@ class TestClientPrivateMessageAccessorExtensions:
                 result = client.private_message.get_invitations_html()
                 mock_get.assert_called_once_with(client, 1)
                 assert result == "<div></div>"
+
+    def test_get_applications(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.pm.get_applications") as mock_get:
+                mock_applications = [MagicMock()]
+                mock_get.return_value = mock_applications
+                result = client.private_message.get_applications()
+                mock_get.assert_called_once_with(client)
+                assert result == mock_applications
+
+    def test_get_contacts(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.pm.get_contacts") as mock_get:
+                mock_contacts = [MagicMock()]
+                mock_get.return_value = mock_contacts
+                result = client.private_message.get_contacts()
+                mock_get.assert_called_once_with(client)
+                assert result == mock_contacts

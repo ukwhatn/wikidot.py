@@ -10,7 +10,7 @@ import pytest
 
 from wikidot.common.exceptions import LoginRequiredException
 from wikidot.module.client import Client
-from wikidot.module.dashboard_site import DashboardSites
+from wikidot.module.dashboard_site import DashboardSite, DashboardSites
 
 
 @pytest.fixture
@@ -133,16 +133,92 @@ class TestDashboardSitesResignAndRestore:
         assert body["limit"] == "500"
 
 
-class TestDashboardSitesListHtml:
-    """list_htmlのテスト"""
+#: DSListModule row fixture, based on the 2026-07-29 markup measurement
+#: recorded in 70_account.md ("一覧モジュールの行マークアップ")
+DS_LIST_MODULE_BODY = """
+<div class="site">
+  <a class="thumbnail-site" href="http://foo.wikidot.com">
+    <img class="thumbnail-site" src="http://foo.wikidot.com/local--files/favicon/foo.png" />
+  </a>
+  <div class="name"><a href="http://foo.wikidot.com">Foo Site</a></div>
+  <div class="url">http://foo.wikidot.com</div>
+  <a class="btn" href="/account/sites#/manage/123456">Manage</a>
+  <div class="data">
+    <span class="activity">12</span>
+    <span class="site-id">123456</span>
+    <span class="unix-name">foo</span>
+    <span class="tagline">A test site</span>
+    <span class="occupation">admin</span>
+  </div>
+</div>
+<div class="site">
+  <div class="name"><a href="http://bar.wikidot.com">Bar Site</a></div>
+  <div class="url">http://bar.wikidot.com</div>
+  <div class="data">
+    <span class="activity">0</span>
+    <span class="site-id">654321</span>
+    <span class="unix-name">bar</span>
+    <span class="tagline"></span>
+    <span class="occupation">member</span>
+    <span class="deleted"></span>
+  </div>
+</div>
+"""
 
-    def test_list_html_returns_body(self, mock_client):
+
+class TestDashboardSiteAcquireAll:
+    """DashboardSite.acquire_all / DashboardSites.list_sites のテスト"""
+
+    def test_parses_all_rows(self, mock_client):
         mock_response = MagicMock()
-        mock_response.json.return_value = {"body": "<div class='data'>...</div>"}
+        mock_response.json.return_value = {"body": DS_LIST_MODULE_BODY}
         mock_client.amc_client.request.return_value = [mock_response]
 
-        result = DashboardSites.list_html(mock_client)
+        result = DashboardSites.list_sites(mock_client)
 
         body = _last_body(mock_client)
         assert body["moduleName"] == "dashboard/sites/DSListModule"
-        assert result == "<div class='data'>...</div>"
+        assert len(result) == 2
+
+    def test_active_site_fields(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": DS_LIST_MODULE_BODY}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = DashboardSites.list_sites(mock_client)
+        site = result[0]
+
+        assert isinstance(site, DashboardSite)
+        assert site.site_id == 123456
+        assert site.title == "Foo Site"
+        assert site.url == "http://foo.wikidot.com"
+        assert site.unix_name == "foo"
+        assert site.tagline == "A test site"
+        assert site.role == "admin"
+        assert site.deleted is False
+
+    def test_deleted_site_fields(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": DS_LIST_MODULE_BODY}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = DashboardSites.list_sites(mock_client)
+        site = result[1]
+
+        assert site.site_id == 654321
+        assert site.role == "member"
+        assert site.deleted is True
+
+    def test_row_actions_delegate_to_dashboard_sites(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": DS_LIST_MODULE_BODY}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        site = DashboardSites.list_sites(mock_client)[0]
+        mock_client.amc_client.request.reset_mock()
+
+        site.resign_as_admin()
+
+        body = _last_body(mock_client)
+        assert body["event"] == "adminResign"
+        assert body["site_id"] == 123456

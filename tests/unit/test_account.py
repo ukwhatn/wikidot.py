@@ -230,50 +230,153 @@ class TestAccountProfile:
         assert body["some_field"] == "value"
 
 
+#: userinfo/UserChangesListModule row fixture, based on the 2026-07-29 markup
+#: measurement recorded in 70_account.md ("一覧モジュールの行マークアップ")
+USER_CHANGES_LIST_BODY = """
+<div class="changes-list-item">
+  <table><tbody><tr>
+    <td class="site"><a href="http://foo.wikidot.com">Foo Site</a></td>
+    <td class="title"><a href="/component:scp-173">SCP-173</a></td>
+    <td class="flags"><span class="spantip">S</span></td>
+    <td class="mod-date"><span class="odate time_1700000000">01 Jan 2024</span></td>
+    <td class="revision-no">Rev. 5</td>
+  </tr></tbody></table>
+</div>
+"""
+
+#: userinfo/UserRecentPostsListModule row fixture, based on the 2026-07-29
+#: markup measurement
+USER_RECENT_POSTS_LIST_BODY = """
+<div class="post">
+  <div class="long">
+    <div class="head">
+      <div class="title"><a href="http://foo.wikidot.com/forum/t-123#post-456">Re: Something</a></div>
+    </div>
+  </div>
+  <div class="info">
+    <span class="printuser">
+        <a href="http://www.wikidot.com/user:info/me" onclick="WIKIDOT.page.listeners.userInfo(99999); return false;">me</a>
+    </span>
+    <span class="odate time_1700000000">01 Jan 2024</span>
+  </div>
+  <div class="content">Post content here</div>
+</div>
+"""
+
+
+def _mock_responses(*bodies: dict):
+    """複数回のamc_client.request呼び出しに対して、順番にレスポンスを返すside_effectを作る"""
+    responses = []
+    for body in bodies:
+        mock_response = MagicMock()
+        mock_response.json.return_value = body
+        responses.append([mock_response])
+    return responses
+
+
 class TestAccountRecentActivity:
     """AccountRecentActivityクラスのテスト"""
 
-    def test_get_changes_html_uses_own_user_id(self, mock_client):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"body": "<div>changes</div>"}
-        mock_client.amc_client.request.return_value = [mock_response]
+    def test_get_changes_fetches_hidden_user_id_first(self, mock_client):
+        """userIdはuserinfo/UserChangesModuleの#changes-user-id hiddenから取る"""
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="changes-user-id" value="42">'},
+            {"body": USER_CHANGES_LIST_BODY},
+        )
 
         recent = AccountRecentActivity(mock_client)
-        html = recent.get_changes_html()
+        result = recent.get_changes()
 
-        body = _last_body(mock_client)
-        assert body["moduleName"] == "userinfo/UserChangesListModule"
-        assert body["userId"] == 99999
-        assert html == "<div>changes</div>"
+        first_call_body = mock_client.amc_client.request.call_args_list[0][0][0][0]
+        second_call_body = mock_client.amc_client.request.call_args_list[1][0][0][0]
+        assert first_call_body["moduleName"] == "userinfo/UserChangesModule"
+        assert second_call_body["moduleName"] == "userinfo/UserChangesListModule"
+        assert second_call_body["userId"] == 42
+        assert len(result) == 1
 
-    def test_get_changes_html_rejects_tags_option(self, mock_client):
+    def test_get_changes_parses_row_fields(self, mock_client):
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="changes-user-id" value="42">'},
+            {"body": USER_CHANGES_LIST_BODY},
+        )
+
+        recent = AccountRecentActivity(mock_client)
+        change = recent.get_changes()[0]
+
+        assert change.site_title == "Foo Site"
+        assert change.site_url == "http://foo.wikidot.com"
+        assert change.page_fullname == "component:scp-173"
+        assert change.page_title == "SCP-173"
+        assert change.revision_no == 5
+        assert change.flags == ["S"]
+
+    def test_get_changes_user_id_is_cached(self, mock_client):
+        """2回目以降の呼び出しでは#changes-user-idを再取得しない"""
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="changes-user-id" value="42">'},
+            {"body": USER_CHANGES_LIST_BODY},
+            {"body": USER_CHANGES_LIST_BODY},
+        )
+
+        recent = AccountRecentActivity(mock_client)
+        recent.get_changes()
+        recent.get_changes()
+
+        # shell moduleへのリクエストは1回だけ
+        shell_calls = [
+            call
+            for call in mock_client.amc_client.request.call_args_list
+            if call[0][0][0]["moduleName"] == "userinfo/UserChangesModule"
+        ]
+        assert len(shell_calls) == 1
+
+    def test_get_changes_rejects_tags_option(self, mock_client):
         """UserChangesListModuleのoptionsに"tags"は存在しない"""
         recent = AccountRecentActivity(mock_client)
         with pytest.raises(ValueError, match="tags"):
-            recent.get_changes_html(options={"tags": True})
+            recent.get_changes(options={"tags": True})
 
-    def test_get_changes_html_accepts_valid_options(self, mock_client):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"body": ""}
-        mock_client.amc_client.request.return_value = [mock_response]
-
-        recent = AccountRecentActivity(mock_client)
-        recent.get_changes_html(options={"source": True, "title": True})
-
-        body = _last_body(mock_client)
-        assert "options" in body
-
-    def test_get_posts_html_uses_own_user_id(self, mock_client):
-        mock_response = MagicMock()
-        mock_response.json.return_value = {"body": "<div>posts</div>"}
-        mock_client.amc_client.request.return_value = [mock_response]
+    def test_get_changes_accepts_valid_options(self, mock_client):
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="changes-user-id" value="42">'},
+            {"body": ""},
+        )
 
         recent = AccountRecentActivity(mock_client)
-        recent.get_posts_html()
+        recent.get_changes(options={"source": True, "title": True})
 
-        body = _last_body(mock_client)
-        assert body["moduleName"] == "userinfo/UserRecentPostsListModule"
-        assert body["userId"] == 99999
+        second_call_body = mock_client.amc_client.request.call_args_list[1][0][0][0]
+        assert "options" in second_call_body
+
+    def test_get_posts_fetches_hidden_user_id_first(self, mock_client):
+        """userIdはuserinfo/UserRecentPostsModuleの#recent-posts-user-id hiddenから取る"""
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="recent-posts-user-id" value="42">'},
+            {"body": USER_RECENT_POSTS_LIST_BODY},
+        )
+
+        recent = AccountRecentActivity(mock_client)
+        result = recent.get_posts()
+
+        first_call_body = mock_client.amc_client.request.call_args_list[0][0][0][0]
+        second_call_body = mock_client.amc_client.request.call_args_list[1][0][0][0]
+        assert first_call_body["moduleName"] == "userinfo/UserRecentPostsModule"
+        assert second_call_body["moduleName"] == "userinfo/UserRecentPostsListModule"
+        assert second_call_body["userId"] == 42
+        assert len(result) == 1
+
+    def test_get_posts_parses_row_fields(self, mock_client):
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="recent-posts-user-id" value="42">'},
+            {"body": USER_RECENT_POSTS_LIST_BODY},
+        )
+
+        recent = AccountRecentActivity(mock_client)
+        post = recent.get_posts()[0]
+
+        assert post.title == "Re: Something"
+        assert post.url == "http://foo.wikidot.com/forum/t-123#post-456"
+        assert post.content == "Post content here"
 
 
 class TestClientAccountAccessor:
