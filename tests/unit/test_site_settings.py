@@ -195,87 +195,242 @@ class TestNavigationTemplatesPageRatePerPageDiscussionAppearance:
         assert '"theme_id": ""' in save_body["categories"] or '"theme_id":""' in save_body["categories"]
 
 
-class TestGeneralDomainAccessPolicy:
-    def test_save_general_success_no_unixname(self):
+class TestGetGeneral:
+    def test_reads_all_fields(self, site_general_form):
         site = MagicMock()
         response = MagicMock()
-        response.json.return_value = {"status": "ok", "CURRENT_TIMESTAMP": 1785204323, "callbackIndex": None}
+        response.json.return_value = site_general_form
         site.amc_request.return_value = [response]
 
-        result = SiteSettingsAccessor(site).save_general(name="Test Site")
+        settings = SiteSettingsAccessor(site).get_general()
 
-        assert result is None
-        body = site.amc_request.call_args[0][0][0]
-        assert body["action"] == "ManageSiteAction"
-        assert body["event"] == "saveGeneral"
-        assert body["name"] == "Test Site"
+        assert settings.name == "My Site"
+        assert settings.subtitle == "A subtitle"
+        assert settings.language == "ja"
+        assert settings.description == "A description"
+        assert settings.default_page == "start"
+        assert settings.welcome_page == "welcome"
 
-    def test_save_general_returns_new_unixname(self):
+    def test_missing_field_is_none_not_guessed(self):
         site = MagicMock()
         response = MagicMock()
-        response.json.return_value = {"status": "ok", "unixName": "new-name"}
+        response.json.return_value = {"status": "ok", "body": "<div></div>"}
         site.amc_request.return_value = [response]
+
+        settings = SiteSettingsAccessor(site).get_general()
+
+        assert settings.name is None
+        assert settings.language is None
+
+
+class TestSaveGeneralReadModifyWrite:
+    def _mocked_site(self, get_payload: dict, save_payload: dict | None = None) -> MagicMock:
+        site = MagicMock()
+        get_response = MagicMock()
+        get_response.json.return_value = get_payload
+        save_response = MagicMock()
+        save_response.json.return_value = save_payload or {"status": "ok"}
+        site.amc_request.side_effect = [[get_response], [save_response]]
+        return site
+
+    def test_only_name_given_preserves_other_fields(self, site_general_form):
+        site = self._mocked_site(site_general_form)
+
+        SiteSettingsAccessor(site).save_general(name="New Title")
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["name"] == "New Title"
+        assert save_body["subtitle"] == "A subtitle"
+        assert save_body["language"] == "ja"
+        assert save_body["description"] == "A description"
+        assert save_body["default_page"] == "start"
+        assert save_body["welcome_page"] == "welcome"
+
+    def test_explicit_empty_string_clears_a_field(self, site_general_form):
+        site = self._mocked_site(site_general_form)
+
+        SiteSettingsAccessor(site).save_general(subtitle="")
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["subtitle"] == ""
+        assert save_body["name"] == "My Site"
+
+    def test_no_arguments_resends_all_current_values(self, site_general_form):
+        site = self._mocked_site(site_general_form)
+
+        SiteSettingsAccessor(site).save_general()
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["name"] == "My Site"
+        assert save_body["subtitle"] == "A subtitle"
+        assert save_body["language"] == "ja"
+        assert save_body["description"] == "A description"
+        assert save_body["default_page"] == "start"
+        assert save_body["welcome_page"] == "welcome"
+
+    def test_returns_new_unixname(self, site_general_form):
+        site = self._mocked_site(site_general_form, {"status": "ok", "unixName": "new-name"})
 
         result = SiteSettingsAccessor(site).save_general(name="Test Site")
 
         assert result == "new-name"
 
-    def test_save_general_empty_name_raises_form_errors(self):
+    def test_returns_none_without_unixname_change(self, site_general_form):
+        site = self._mocked_site(site_general_form)
+
+        result = SiteSettingsAccessor(site).save_general(name="Test Site")
+
+        assert result is None
+
+    def test_empty_name_raises_form_errors(self, site_general_form):
         site = MagicMock()
-        site.amc_request.side_effect = FormErrorsException(
-            "form_errors",
-            "form_errors",
-            {
-                "status": "form_errors",
-                "formErrors": {"name": "Please provide the site title", "defaultPage": "..."},
-                "message": "Form errors",
-            },
-        )
+        get_response = MagicMock()
+        get_response.json.return_value = site_general_form
+        site.amc_request.side_effect = [
+            [get_response],
+            FormErrorsException(
+                "form_errors",
+                "form_errors",
+                {
+                    "status": "form_errors",
+                    "formErrors": {"name": "Please provide the site title"},
+                    "message": "Form errors",
+                },
+            ),
+        ]
 
         with pytest.raises(FormErrorsException) as exc_info:
             SiteSettingsAccessor(site).save_general(name="")
 
         assert exc_info.value.errors["name"] == "Please provide the site title"
 
-    def test_save_domain_too_many_redirects_raises(self):
+
+class TestGetDomain:
+    def test_reads_fields_by_id(self, site_domain_module):
+        site = MagicMock()
+        response = MagicMock()
+        response.json.return_value = site_domain_module
+        site.amc_request.return_value = [response]
+
+        settings = SiteSettingsAccessor(site).get_domain()
+
+        assert settings.domain == "example.com"
+        assert settings.domain_default is True
+        assert settings.redirects == ["a.com", "b.com"]
+
+
+class TestSaveDomainReadModifyWrite:
+    def test_too_many_redirects_raises_without_any_request(self):
         site = MagicMock()
         with pytest.raises(ValueError, match="10"):
-            SiteSettingsAccessor(site).save_domain("example.com", redirects=[f"r{i}.com" for i in range(11)])
+            SiteSettingsAccessor(site).save_domain(redirects=[f"r{i}.com" for i in range(11)])
+        site.amc_request.assert_not_called()
 
-    def test_save_domain_joins_redirects_with_semicolon(self):
+    def test_joins_redirects_with_semicolon(self, site_domain_module):
+        site = MagicMock()
+        get_response = MagicMock()
+        get_response.json.return_value = site_domain_module
+        save_response = MagicMock()
+        save_response.json.return_value = {"status": "ok"}
+        site.amc_request.side_effect = [[get_response], [save_response]]
+
+        SiteSettingsAccessor(site).save_domain(redirects=["a.com", "b.com"])
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["redirects"] == "a.com;b.com"
+
+    def test_only_domain_given_preserves_redirects_and_default_flag(self, site_domain_module):
+        site = MagicMock()
+        get_response = MagicMock()
+        get_response.json.return_value = site_domain_module
+        save_response = MagicMock()
+        save_response.json.return_value = {"status": "ok"}
+        site.amc_request.side_effect = [[get_response], [save_response]]
+
+        SiteSettingsAccessor(site).save_domain(domain="new.example.com")
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["domain"] == "new.example.com"
+        assert save_body["redirects"] == "a.com;b.com"
+        assert save_body["domainDefault"] == "true"
+
+
+class TestGetAccessPolicy:
+    def test_reads_all_fields(self, site_access_policy_form):
         site = MagicMock()
         response = MagicMock()
-        response.json.return_value = {"status": "ok"}
+        response.json.return_value = site_access_policy_form
         site.amc_request.return_value = [response]
 
-        SiteSettingsAccessor(site).save_domain("example.com", redirects=["a.com", "b.com"])
+        settings = SiteSettingsAccessor(site).get_access_policy()
 
-        body = site.amc_request.call_args[0][0][0]
-        assert body["redirects"] == "a.com;b.com"
+        assert settings.privacy == "closed"
+        assert settings.by_apply is True
+        assert settings.by_domain == "example.com"
+        assert settings.by_password is False
+        assert settings.password == ""
+        assert settings.allow_hotlink is True
+        assert settings.landing_page == "start"
+        assert settings.hide_nav is False
 
-    def test_save_access_policy_viewers_from_ids(self):
+
+class TestSaveAccessPolicyReadModifyWrite:
+    def _mocked_site(self, get_payload: dict) -> MagicMock:
+        site = MagicMock()
+        get_response = MagicMock()
+        get_response.json.return_value = get_payload
+        save_response = MagicMock()
+        save_response.json.return_value = {"status": "ok"}
+        site.amc_request.side_effect = [[get_response], [save_response]]
+        return site
+
+    def test_no_privacy_given_keeps_current_value(self, site_access_policy_form):
+        site = self._mocked_site(site_access_policy_form)
+
+        SiteSettingsAccessor(site).save_access_policy()
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["privacy"] == "closed"
+        assert save_body["by_domain"] == "example.com"
+        assert save_body["landingPage"] == "start"
+        # by_apply / allowHotlink were checked in the fixture, so they must
+        # still be sent even though this call didn't touch them
+        assert save_body["by_apply"] == "on"
+        assert save_body["allowHotlink"] == "on"
+        assert "hideNav" not in save_body
+
+    def test_privacy_cannot_be_determined_raises(self):
         site = MagicMock()
         response = MagicMock()
-        response.json.return_value = {"status": "ok"}
+        response.json.return_value = {"status": "ok", "body": "<form id='sm-private-form'></form>"}
         site.amc_request.return_value = [response]
 
-        SiteSettingsAccessor(site).save_access_policy("private", viewers=[111, 222])
+        with pytest.raises(ValueError, match="privacy"):
+            SiteSettingsAccessor(site).save_access_policy()
 
-        body = site.amc_request.call_args[0][0][0]
-        assert body["viewers"] == "111,222"
-        assert body["privacy"] == "private"
+    def test_viewers_from_ids(self, site_access_policy_form):
+        site = self._mocked_site(site_access_policy_form)
 
-    def test_save_access_policy_omits_unchecked_checkboxes(self):
-        site = MagicMock()
-        response = MagicMock()
-        response.json.return_value = {"status": "ok"}
-        site.amc_request.return_value = [response]
+        SiteSettingsAccessor(site).save_access_policy(viewers=[111, 222])
 
-        SiteSettingsAccessor(site).save_access_policy("open")
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["viewers"] == "111,222"
 
-        body = site.amc_request.call_args[0][0][0]
-        assert "by_apply" not in body
-        assert "allowHotlink" not in body
+    def test_viewers_omitted_when_not_given(self, site_access_policy_form):
+        site = self._mocked_site(site_access_policy_form)
+
+        SiteSettingsAccessor(site).save_access_policy()
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert "viewers" not in save_body
+
+    def test_explicit_privacy_overrides_current_value(self, site_access_policy_form):
+        site = self._mocked_site(site_access_policy_form)
+
+        SiteSettingsAccessor(site).save_access_policy(privacy="private")
+
+        save_body = site.amc_request.call_args_list[1][0][0][0]
+        assert save_body["privacy"] == "private"
 
 
 class TestSingleShotSettings:

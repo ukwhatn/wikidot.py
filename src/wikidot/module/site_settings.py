@@ -9,23 +9,29 @@ Access through `Site.settings`. Methods are grouped following
 - Permissions / License / Navigation / Templates / PageRate /
   PerPageDiscussion / Appearance: thin wrappers over `update_categories`
   (Task 1-4)
-- General / Domain / Access policy: standalone form saves (Task 1-3)
+- General / Domain / Access policy: read-modify-write form saves
+  (Task 1-3)
 - Everything else (CustomFooter / Toolbars / GoogleAnalytics /
   Autonumerate / Pingbacks / API / OpenID / Backup / Icons / Newsletter):
   single-shot settings (Task 1-5)
 
-Only the *save* side is implemented for General/Domain/Access policy.
-Reading the current values back would require scraping the rendered
-`sm-general-form` / `sm-private-form` / `sm-domain` HTML, and the survey
-this plan is based on did not capture a real HTML sample for those forms
-(only the field name/type list in 35_form-fields.md) — see the P1
-completion report for this as a flagged, deliberate scope decision rather
-than a silent omission.
+General/Domain/Access policy have both a `get_*` and a `save_*` method.
+`save_*`'s parameters all default to None, meaning "keep the current
+value" (fetched via `get_*` first); pass "" explicitly to clear a text
+field. This matters because Wikidot's save events resubmit the whole
+form, not a diff — omitting a field silently blanks it (`saveGeneral`
+called with only `name` would otherwise wipe subtitle/description/
+default_page/welcome_page and reset language to "en").
 """
 
 from collections.abc import Callable, Iterable
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Literal
 
+from bs4 import BeautifulSoup
+from bs4.element import Tag
+
+from ..connector.ajax import require_body
 from ..util.amc_body import checkbox, flag, json_param, omit_falsy
 from .site_category import SiteCategoryCollection, SiteLicense
 from .site_permissions import PagePermissions, RatingSettings
@@ -33,7 +39,6 @@ from .site_permissions import PagePermissions, RatingSettings
 if TYPE_CHECKING:
     from .site import Site
     from .user import AbstractUser
-
 
 #: Module names that render each categories-backed settings area. Each of
 #: these embeds the site's full `categories` array (same 24-field schema;
@@ -49,6 +54,117 @@ _MODULE_TEMPLATES = "managesite/ManageSiteTemplatesModule"
 _MODULE_PAGE_RATE = "managesite/pagerate/ManageSitePageRateSettingsModule"
 _MODULE_PER_PAGE_DISCUSSION = "managesite/ManageSitePerPageDiscussionModule"
 _MODULE_APPEARANCE = "managesite/themes/ManageSiteAppearanceModule"
+
+
+def _form_field(soup: Tag, name: str) -> str | None:
+    """
+    Read a form field's current value by its `name` attribute
+
+    Handles the three form control shapes formToArray understands
+    (text-like input, textarea, select); returns None if the element is
+    missing or (for select) nothing is marked selected, rather than
+    guessing a value.
+    """
+    el = soup.select_one(f'[name="{name}"]')
+    if el is None:
+        return None
+    if el.name == "textarea":
+        return el.get_text()
+    if el.name == "select":
+        selected = el.select_one("option[selected]")
+        if selected is None:
+            return None
+        value = selected.get("value")
+        return str(value) if value is not None else selected.get_text()
+    value = el.get("value")
+    return str(value) if value is not None else None
+
+
+def _form_checkbox(soup: Tag, name: str) -> bool | None:
+    """Read a checkbox's current checked state by its `name` attribute"""
+    el = soup.select_one(f'input[name="{name}"]')
+    if el is None:
+        return None
+    return el.has_attr("checked")
+
+
+def _form_radio(soup: Tag, name: str) -> str | None:
+    """Read the checked option's value from a radio button group"""
+    el = soup.select_one(f'input[name="{name}"][checked]')
+    if el is None:
+        return None
+    value = el.get("value")
+    return str(value) if value is not None else None
+
+
+def _element_value(soup: Tag, element_id: str) -> str | None:
+    """
+    Read an element's current value by its `id`
+
+    For the handful of fields Wikidot's own JS reads by id instead of via
+    formToArray (see 35_form-fields.md "JS が id で直接読む項目"), such as
+    Domain's fields.
+    """
+    el = soup.select_one(f"#{element_id}")
+    if el is None:
+        return None
+    value = el.get("value")
+    return str(value) if value is not None else None
+
+
+def _element_checkbox(soup: Tag, element_id: str) -> bool | None:
+    """Read a checkbox's current checked state by its `id`"""
+    el = soup.select_one(f"#{element_id}")
+    if el is None:
+        return None
+    return el.has_attr("checked")
+
+
+@dataclass
+class GeneralSettings:
+    """
+    Current values of the site's General settings form (`sm-general-form`)
+
+    Any field is None when the corresponding form element could not be
+    found in the rendered HTML; this library does not guess a value in
+    that case.
+    """
+
+    name: str | None
+    subtitle: str | None
+    language: str | None
+    description: str | None
+    default_page: str | None
+    welcome_page: str | None
+
+
+@dataclass
+class DomainSettings:
+    """Current values of the site's Domain settings"""
+
+    domain: str | None
+    domain_default: bool | None
+    redirects: list[str] | None
+
+
+@dataclass
+class AccessPolicySettings:
+    """
+    Current values of the site's Access policy settings (`sm-private-form`)
+
+    `viewers` (extra allowed users for a private site) is intentionally
+    absent: it is not part of this form, see `save_access_policy`'s
+    docstring for why it cannot be read back.
+    """
+
+    privacy: Literal["open", "closed", "private"] | None
+    by_apply: bool | None
+    by_domain: str | None
+    by_password: bool | None
+    password: str | None
+    allow_hotlink: bool | None
+    landing_page: str | None
+    hide_nav: bool | None
 
 
 class SiteSettingsAccessor:
@@ -361,30 +477,61 @@ class SiteSettingsAccessor:
     # Task 1-3: General / Domain / Access policy
     # ------------------------------------------------------------------
 
+    def get_general(self) -> GeneralSettings:
+        """
+        Fetch the site's current General settings
+
+        Renders `managesite/ManageSiteGeneralModule` and reads the current
+        values out of `sm-general-form` by its documented field names
+        (35_form-fields.md).
+
+        Returns
+        -------
+        GeneralSettings
+        """
+        module_name = "managesite/ManageSiteGeneralModule"
+        response = self.site.amc_request([{"moduleName": module_name}])[0]
+        soup = BeautifulSoup(require_body(response, module_name), "lxml")
+        return GeneralSettings(
+            name=_form_field(soup, "name"),
+            subtitle=_form_field(soup, "subtitle"),
+            language=_form_field(soup, "language"),
+            description=_form_field(soup, "description"),
+            default_page=_form_field(soup, "default_page"),
+            welcome_page=_form_field(soup, "welcome_page"),
+        )
+
     def save_general(
         self,
-        name: str,
-        subtitle: str = "",
-        language: str = "en",
-        description: str = "",
-        default_page: str = "",
-        welcome_page: str = "",
+        name: str | None = None,
+        subtitle: str | None = None,
+        language: str | None = None,
+        description: str | None = None,
+        default_page: str | None = None,
+        welcome_page: str | None = None,
     ) -> str | None:
         """
         Save the site's title/subtitle/language/description/entry pages
 
+        `saveGeneral` resubmits the whole form rather than a diff, so this
+        fetches the current settings (`get_general`) first and only
+        overrides the fields the caller passed explicitly. None keeps the
+        current value; pass "" to clear a field.
+
         Parameters
         ----------
-        name : str
-            Site title. Required (an empty value raises FormErrorsException)
-        subtitle : str, default ""
-        language : str, default "en"
+        name : str | None, default None
+            Site title. None keeps the current title. An empty string (or
+            a current title this library could not read) raises
+            FormErrorsException, since the title is required
+        subtitle : str | None, default None
+        language : str | None, default None
             Site language code (e.g. "en", "ja")
-        description : str, default ""
+        description : str | None, default None
             Up to 300 characters
-        default_page : str, default ""
+        default_page : str | None, default None
             Fullname of the page to use as the site's start page
-        welcome_page : str, default ""
+        welcome_page : str | None, default None
             Fullname of the page shown to first-time visitors
 
         Returns
@@ -398,17 +545,18 @@ class SiteSettingsAccessor:
         FormErrorsException
             When validation fails (e.g. an empty title)
         """
+        current = self.get_general()
         response = self.site.amc_request(
             [
                 {
                     "action": "ManageSiteAction",
                     "event": "saveGeneral",
-                    "name": name,
-                    "subtitle": subtitle,
-                    "language": language,
-                    "description": description,
-                    "default_page": default_page,
-                    "welcome_page": welcome_page,
+                    "name": name if name is not None else (current.name or ""),
+                    "subtitle": subtitle if subtitle is not None else (current.subtitle or ""),
+                    "language": language if language is not None else (current.language or "en"),
+                    "description": description if description is not None else (current.description or ""),
+                    "default_page": default_page if default_page is not None else (current.default_page or ""),
+                    "welcome_page": welcome_page if welcome_page is not None else (current.welcome_page or ""),
                     "moduleName": "Empty",
                 }
             ]
@@ -416,21 +564,58 @@ class SiteSettingsAccessor:
         result = response.json().get("unixName")
         return result if isinstance(result, str) else None
 
-    def save_domain(self, domain: str, redirects: list[str] | None = None, domain_default: bool = False) -> str | None:
+    def get_domain(self) -> DomainSettings:
+        """
+        Fetch the site's current Domain settings
+
+        Renders `managesite/ManageSiteDomainModule`. Unlike General/Access
+        policy these fields are read by element id, not `name` (Wikidot's
+        own JS reads them the same way; see 35_form-fields.md "JS が id で
+        直接読む項目").
+
+        Returns
+        -------
+        DomainSettings
+        """
+        module_name = "managesite/ManageSiteDomainModule"
+        response = self.site.amc_request([{"moduleName": module_name}])[0]
+        soup = BeautifulSoup(require_body(response, module_name), "lxml")
+        redirects_box = soup.select_one("#sm-redirects-box")
+        redirects: list[str] | None = None
+        if redirects_box is not None:
+            redirects = [str(value) for el in redirects_box.select("input") if (value := el.get("value")) is not None]
+        return DomainSettings(
+            domain=_element_value(soup, "sm-domain-field"),
+            domain_default=_element_checkbox(soup, "sm-domain-default"),
+            redirects=redirects,
+        )
+
+    def save_domain(
+        self,
+        domain: str | None = None,
+        redirects: list[str] | None = None,
+        domain_default: bool | None = None,
+    ) -> str | None:
         """
         Save the site's custom domain and redirect domains
 
+        Fetches the current settings (`get_domain`) first; None keeps the
+        current value for each parameter.
+
         Parameters
         ----------
-        domain : str
-            Custom domain (fully qualified, e.g. "example.com")
+        domain : str | None, default None
+            Custom domain (fully qualified, e.g. "example.com"). None
+            keeps the current domain
         redirects : list[str] | None, default None
-            Additional domains that redirect to this site. At most 10
+            Additional domains that redirect to this site. None keeps the
+            current redirect list; pass [] to clear it. At most 10
             (Wikidot's own client also allows empty entries through, which
             show up as consecutive ";" in the joined string; this method
             does not filter them out to match observed behavior)
-        domain_default : bool, default False
-            Whether to reset to the default wikidot.com subdomain
+        domain_default : bool | None, default None
+            Whether to reset to the default wikidot.com subdomain. None
+            keeps the current state
 
         Returns
         -------
@@ -444,14 +629,18 @@ class SiteSettingsAccessor:
         """
         if redirects is not None and len(redirects) > 10:
             raise ValueError("redirects supports at most 10 entries")
-        body = omit_falsy(domainDefault=flag(domain_default))
+        current = self.get_domain()
+        resolved_domain = domain if domain is not None else (current.domain or "")
+        resolved_redirects = redirects if redirects is not None else (current.redirects or [])
+        resolved_domain_default = domain_default if domain_default is not None else bool(current.domain_default)
+        body = omit_falsy(domainDefault=flag(resolved_domain_default))
         response = self.site.amc_request(
             [
                 {
                     "action": "ManageSiteAction",
                     "event": "saveDomain",
-                    "domain": domain,
-                    "redirects": ";".join(redirects) if redirects else "",
+                    "domain": resolved_domain,
+                    "redirects": ";".join(resolved_redirects),
                     "moduleName": "Empty",
                     **body,
                 }
@@ -460,61 +649,131 @@ class SiteSettingsAccessor:
         result = response.json().get("newDomain")
         return result if isinstance(result, str) else None
 
+    def get_access_policy(self) -> AccessPolicySettings:
+        """
+        Fetch the site's current Access policy settings
+
+        Renders `managesite/ManageSiteAccessPolicyModule` and reads
+        `sm-private-form`. Does not include `viewers` — see
+        `save_access_policy` for why that field cannot be read back.
+
+        Returns
+        -------
+        AccessPolicySettings
+        """
+        module_name = "managesite/ManageSiteAccessPolicyModule"
+        response = self.site.amc_request([{"moduleName": module_name}])[0]
+        soup = BeautifulSoup(require_body(response, module_name), "lxml")
+        privacy_raw = _form_radio(soup, "privacy")
+        privacy: Literal["open", "closed", "private"] | None = (
+            privacy_raw if privacy_raw in ("open", "closed", "private") else None  # type: ignore[assignment]
+        )
+        return AccessPolicySettings(
+            privacy=privacy,
+            by_apply=_form_checkbox(soup, "by_apply"),
+            by_domain=_form_field(soup, "by_domain"),
+            by_password=_form_checkbox(soup, "by_password"),
+            password=_form_field(soup, "password"),
+            allow_hotlink=_form_checkbox(soup, "allowHotlink"),
+            landing_page=_form_field(soup, "landingPage"),
+            hide_nav=_form_checkbox(soup, "hideNav"),
+        )
+
     def save_access_policy(
         self,
-        privacy: Literal["open", "closed", "private"],
-        by_apply: bool = False,
-        by_domain: str = "",
-        by_password: bool = False,
-        password: str = "",
-        allow_hotlink: bool = False,
-        landing_page: str = "",
-        hide_nav: bool = False,
+        privacy: Literal["open", "closed", "private"] | None = None,
+        by_apply: bool | None = None,
+        by_domain: str | None = None,
+        by_password: bool | None = None,
+        password: str | None = None,
+        allow_hotlink: bool | None = None,
+        landing_page: str | None = None,
+        hide_nav: bool | None = None,
         viewers: "Iterable[AbstractUser] | Iterable[int] | None" = None,
     ) -> None:
         """
         Save the site's access policy (privacy level, apply/password/domain
         gating, extra viewers, hotlinking, landing page, nav visibility)
 
+        Fetches the current settings (`get_access_policy`) first; None
+        keeps the current value for each parameter (except `viewers`, see
+        below).
+
         Parameters
         ----------
-        privacy : Literal["open", "closed", "private"]
-        by_apply : bool, default False
-            Allow joining by application
-        by_domain : str, default ""
-            Email domain that may join without application
-        by_password : bool, default False
-            Allow joining with a password
-        password : str, default ""
-            Join password (used when by_password is True)
-        allow_hotlink : bool, default False
-        landing_page : str, default ""
+        privacy : Literal["open", "closed", "private"] | None, default None
+            None keeps the current value. Raises ValueError if it cannot
+            be determined (this library will not guess between open /
+            closed / private, since a wrong guess could expose a private
+            site)
+        by_apply : bool | None, default None
+            Allow joining by application. None keeps the current value
+        by_domain : str | None, default None
+            Email domain that may join without application. None keeps
+            the current value
+        by_password : bool | None, default None
+            Allow joining with a password. None keeps the current value
+        password : str | None, default None
+            Join password (used when by_password is True). None keeps the
+            current value. **Note**: it is unconfirmed whether Wikidot
+            actually echoes the real current password back in this form
+            (services commonly blank password fields for security) — if
+            you are changing another field on a password-gated site,
+            pass the password explicitly rather than relying on this
+        allow_hotlink : bool | None, default None
+        landing_page : str | None, default None
             Fullname of the page shown to non-members when privacy is
-            "private"
-        hide_nav : bool, default False
+            "private". None keeps the current value
+        hide_nav : bool | None, default None
         viewers : Iterable[AbstractUser | int] | None, default None
-            Extra users allowed to view a private site
+            Extra users allowed to view a private site. **Not** part of
+            `sm-private-form` — Wikidot assembles it client-side via an
+            autocomplete widget with no static representation of the
+            current selection, so it cannot be read back the way the
+            other fields can. None omits the `viewers` parameter from the
+            request entirely (rather than sending an empty string, which
+            would actively clear it), but this is *not* the same
+            guarantee as the other fields' "keeps the current value": if
+            the site has extra viewers configured, pass them explicitly
+            to preserve them
+
+        Raises
+        ------
+        ValueError
+            If `privacy` is None and the current value could not be
+            determined
         """
-        viewers_str = ""
+        current = self.get_access_policy()
+        resolved_privacy = privacy if privacy is not None else current.privacy
+        if resolved_privacy is None:
+            raise ValueError("privacy could not be determined from the site's current settings; pass it explicitly")
+        resolved_by_domain = by_domain if by_domain is not None else (current.by_domain or "")
+        resolved_password = password if password is not None else (current.password or "")
+        resolved_landing_page = landing_page if landing_page is not None else (current.landing_page or "")
+        resolved_by_apply = by_apply if by_apply is not None else bool(current.by_apply)
+        resolved_by_password = by_password if by_password is not None else bool(current.by_password)
+        resolved_allow_hotlink = allow_hotlink if allow_hotlink is not None else bool(current.allow_hotlink)
+        resolved_hide_nav = hide_nav if hide_nav is not None else bool(current.hide_nav)
+
+        body = omit_falsy(
+            by_apply=checkbox(resolved_by_apply),
+            by_password=checkbox(resolved_by_password),
+            allowHotlink=checkbox(resolved_allow_hotlink),
+            hideNav=checkbox(resolved_hide_nav),
+        )
         if viewers is not None:
             ids = [v if isinstance(v, int) else v.id for v in viewers]
-            viewers_str = ",".join(str(i) for i in ids)
-        body = omit_falsy(
-            by_apply=checkbox(by_apply),
-            by_password=checkbox(by_password),
-            allowHotlink=checkbox(allow_hotlink),
-            hideNav=checkbox(hide_nav),
-        )
+            body["viewers"] = ",".join(str(i) for i in ids)
+
         self.site.amc_request(
             [
                 {
                     "action": "ManageSiteAction",
                     "event": "savePrivateSettings",
-                    "privacy": privacy,
-                    "by_domain": by_domain,
-                    "password": password,
-                    "landingPage": landing_page,
-                    "viewers": viewers_str,
+                    "privacy": resolved_privacy,
+                    "by_domain": resolved_by_domain,
+                    "password": resolved_password,
+                    "landingPage": resolved_landing_page,
                     "moduleName": "Empty",
                     **body,
                 }

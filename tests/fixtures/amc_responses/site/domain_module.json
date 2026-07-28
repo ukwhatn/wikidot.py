@@ -1,0 +1,4 @@
+{
+  "status": "ok",
+  "body": "<div class=\"content\"><input type=\"text\" id=\"sm-domain-field\" value=\"example.com\"><input type=\"checkbox\" id=\"sm-domain-default\" checked=\"checked\"><div id=\"sm-redirects-box\"><input type=\"text\" value=\"a.com\"><input type=\"text\" value=\"b.com\"></div></div>"
+}

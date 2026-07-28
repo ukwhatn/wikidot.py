@@ -1,0 +1,4 @@
+{
+  "status": "ok",
+  "body": "<div class=\"content\"><form id=\"sm-general-form\"><input type=\"text\" name=\"name\" value=\"My Site\"><input type=\"text\" name=\"subtitle\" value=\"A subtitle\"><select name=\"language\"><option value=\"en\">English</option><option value=\"ja\" selected=\"selected\">Japanese</option></select><textarea name=\"description\">A description</textarea><input type=\"text\" name=\"default_page\" value=\"start\"><input type=\"text\" name=\"welcome_page\" value=\"welcome\"></form></div>"
+}
