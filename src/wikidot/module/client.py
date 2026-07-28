@@ -1,10 +1,13 @@
 from types import TracebackType
-from typing import Optional
+from typing import Any, Optional
 
 from ..common import wd_logger
 from ..common.exceptions import LoginRequiredException
 from ..connector.ajax import AjaxModuleConnectorClient, AjaxModuleConnectorConfig
+from . import private_message as pm
+from .account import ClientAccountAccessor
 from .auth import HTTPAuthentication
+from .dashboard_site import DashboardSites, NewSitePrivacy, NewSiteTemplate
 from .private_message import (
     PrivateMessage,
     PrivateMessageCollection,
@@ -163,6 +166,230 @@ class ClientPrivateMessageAccessor:
         """
         return PrivateMessage.from_id(self.client, message_id)
 
+    def mark_as_read(self, message_ids: list[int]) -> None:
+        """
+        Mark messages as read
+
+        Parameters
+        ----------
+        message_ids : list[int]
+            IDs of the messages to mark as read
+        """
+        PrivateMessageCollection.mark_as_read(self.client, message_ids)
+
+    def mark_as_unread(self, message_ids: list[int]) -> None:
+        """
+        Mark messages as unread
+
+        Parameters
+        ----------
+        message_ids : list[int]
+            IDs of the messages to mark as unread
+        """
+        PrivateMessageCollection.mark_as_unread(self.client, message_ids)
+
+    def remove(self, message_ids: list[int]) -> None:
+        """
+        Delete messages
+
+        Parameters
+        ----------
+        message_ids : list[int]
+            IDs of the messages to delete
+        """
+        PrivateMessageCollection.remove_messages(self.client, message_ids)
+
+    def save_draft(self, subject: str, body: str, recipient: Optional["User"] = None) -> None:
+        """
+        Save a private message draft
+
+        Parameters
+        ----------
+        subject : str
+            Draft subject
+        body : str
+            Draft body
+        recipient : User | None, default None
+            Intended recipient
+        """
+        PrivateMessage.save_draft(self.client, subject, body, recipient)
+
+    def check_can_send(self, user: AbstractUser) -> None:
+        """
+        Check whether the account is allowed to message a user
+
+        Parameters
+        ----------
+        user : AbstractUser
+            Prospective recipient
+
+        Raises
+        ------
+        ForbiddenException
+            If sending is not allowed
+        """
+        PrivateMessage.check_can_send(self.client, user)
+
+    def preview(self, subject: str, body: str, recipient: Optional["User"] = None) -> str:
+        """
+        Render a preview of a private message without sending it
+
+        Parameters
+        ----------
+        subject : str
+            Message subject
+        body : str
+            Message body
+        recipient : User | None, default None
+            Intended recipient
+
+        Returns
+        -------
+        str
+            Rendered HTML preview
+        """
+        return PrivateMessage.preview(self.client, subject, body, recipient)
+
+    def fetch_reply_form_html(self, reply_message_id: int) -> str:
+        """
+        Fetch the pre-filled "new message" form HTML for replying to a message
+
+        Parameters
+        ----------
+        reply_message_id : int
+            ID of the message being replied to
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return PrivateMessage.fetch_reply_form_html(self.client, reply_message_id)
+
+    def get_invitations_html(self, page: int = 1) -> str:
+        """
+        Fetch a page of the account's pending site invitations (raw HTML)
+
+        Parameters
+        ----------
+        page : int, default 1
+            Page number
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return pm.get_invitations_html(self.client, page)
+
+    def get_invitation_detail_html(self, item: int) -> str:
+        """
+        Fetch the detail HTML of a single site invitation
+
+        Parameters
+        ----------
+        item : int
+            Invitation ID
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return pm.get_invitation_detail_html(self.client, item)
+
+    def get_applications_html(self, page: int = 1) -> str:
+        """
+        Fetch a page of the account's pending site join applications (raw HTML)
+
+        Parameters
+        ----------
+        page : int, default 1
+            Page number
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return pm.get_applications_html(self.client, page)
+
+    def get_application_detail_html(self, item: int) -> str:
+        """
+        Fetch the detail HTML of a single site join application
+
+        Parameters
+        ----------
+        item : int
+            Application ID
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return pm.get_application_detail_html(self.client, item)
+
+    def get_contacts_html(self) -> str:
+        """
+        Fetch the account's contact list (raw HTML)
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return pm.get_contacts_html(self.client)
+
+    def get_contacts_list_html(self) -> str:
+        """
+        Fetch the contact picker used when composing a new message (raw HTML)
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return pm.get_contacts_list_html(self.client)
+
+    def add_contact(self, user: AbstractUser) -> None:
+        """
+        Add a user to the account's contact list
+
+        Parameters
+        ----------
+        user : AbstractUser
+            User to add
+        """
+        pm.add_contact(self.client, user)
+
+    def remove_contact(self, user: AbstractUser) -> None:
+        """
+        Remove a user from the account's contact list
+
+        Parameters
+        ----------
+        user : AbstractUser
+            User to remove
+        """
+        pm.remove_contact(self.client, user)
+
+    def add_contact_via_profile(self, user: AbstractUser) -> str:
+        """
+        Add a user to the account's contact list from their profile page
+
+        Parameters
+        ----------
+        user : AbstractUser
+            User to add
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return pm.add_contact_via_profile(self.client, user)
+
 
 class ClientSiteAccessor:
     """
@@ -199,6 +426,165 @@ class ClientSiteAccessor:
         """
         return Site.from_unix_name(self.client, unix_name)
 
+    def create(
+        self,
+        name: str,
+        unixname: str,
+        subtitle: str = "",
+        language: str = "en",
+        template: NewSiteTemplate = "standard-template",
+        privacy: NewSitePrivacy = "open",
+        tos: bool = True,
+    ) -> str:
+        """
+        Create a new site
+
+        Parameters
+        ----------
+        name : str
+            Site title
+        unixname : str
+            Site UNIX name (e.g. "foo" -> foo.wikidot.com)
+        subtitle : str, default ""
+            Site subtitle
+        language : str, default "en"
+            Site language code
+        template : NewSiteTemplate, default "standard-template"
+            Starting content template
+        privacy : NewSitePrivacy, default "open"
+            Site visibility
+        tos : bool, default True
+            Whether to accept the Terms of Service
+
+        Returns
+        -------
+        str
+            UNIX name of the created site
+
+        Raises
+        ------
+        FormErrorsException
+            If validation fails (e.g. unixname already taken)
+        """
+        return DashboardSites.create(
+            self.client,
+            name=name,
+            unixname=unixname,
+            subtitle=subtitle,
+            language=language,
+            template=template,
+            privacy=privacy,
+            tos=tos,
+        )
+
+    @property
+    def my_sites_html(self) -> str:
+        """
+        Fetch the raw HTML of the account's site dashboard (all roles + deleted)
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+        """
+        return DashboardSites.list_html(self.client)
+
+    def accept_invitation(self, invitation_id: int) -> None:
+        """
+        Accept a pending site invitation
+
+        Parameters
+        ----------
+        invitation_id : int
+            Invitation ID
+        """
+        DashboardSites.accept_invitation(self.client, invitation_id)
+
+    def throw_away_invitation(self, invitation_id: int) -> None:
+        """
+        Discard a pending site invitation without accepting it
+
+        Parameters
+        ----------
+        invitation_id : int
+            Invitation ID
+        """
+        DashboardSites.throw_away_invitation(self.client, invitation_id)
+
+    def remove_application(self, site_id: int) -> None:
+        """
+        Withdraw a pending membership application the account submitted to a site
+
+        Parameters
+        ----------
+        site_id : int
+            ID of the site the application was submitted to
+        """
+        DashboardSites.remove_application(self.client, site_id)
+
+    def restore_site(self, site_id: int, confirm_site_name: str) -> None:
+        """
+        Restore a deleted site the account administers
+
+        Parameters
+        ----------
+        site_id : int
+            ID of the deleted site
+        confirm_site_name : str
+            Site name, required as a typed confirmation
+        """
+        DashboardSites.restore_site(self.client, site_id, confirm_site_name)
+
+    def resign_as_admin(self, site_id: int) -> None:
+        """
+        Resign the account's admin role on a site
+
+        Parameters
+        ----------
+        site_id : int
+            Site ID
+        """
+        DashboardSites.resign_as_admin(self.client, site_id)
+
+    def resign_as_moderator(self, site_id: int) -> None:
+        """
+        Resign the account's moderator role on a site
+
+        Parameters
+        ----------
+        site_id : int
+            Site ID
+        """
+        DashboardSites.resign_as_moderator(self.client, site_id)
+
+    def sign_off_as_member(self, site_id: int) -> None:
+        """
+        Leave a site the account is a plain member of
+
+        Parameters
+        ----------
+        site_id : int
+            Site ID
+        """
+        DashboardSites.sign_off_as_member(self.client, site_id)
+
+    def set_site_storage_limit(self, site_id: int, raw_fields: dict[str, Any]) -> None:
+        """
+        Set a site's file storage limit
+
+        Unmeasured: the form fields of limit-site-<siteId> could not be
+        captured during the investigation (no Pro site available). Pass the
+        exact field names/values as sent by the real form.
+
+        Parameters
+        ----------
+        site_id : int
+            Site ID
+        raw_fields : dict[str, Any]
+            Raw form fields to send as-is
+        """
+        DashboardSites.set_storage_limit(self.client, site_id, raw_fields)
+
 
 class Client:
     """
@@ -212,6 +598,7 @@ class Client:
     user: "ClientUserAccessor"
     private_message: "ClientPrivateMessageAccessor"
     site: "ClientSiteAccessor"
+    account: "ClientAccountAccessor"
 
     # セッション関連属性
     amc_client: AjaxModuleConnectorClient
@@ -267,6 +654,7 @@ class Client:
         self.user = ClientUserAccessor(self)
         self.private_message = ClientPrivateMessageAccessor(self)
         self.site = ClientSiteAccessor(self)
+        self.account = ClientAccountAccessor(self)
 
         # ------------
         # メソッド終わり
