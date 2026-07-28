@@ -11,6 +11,7 @@ import pytest
 from wikidot.common.exceptions import LoginRequiredException
 from wikidot.module.client import (
     Client,
+    ClientAccountAccessor,
     ClientPrivateMessageAccessor,
     ClientSiteAccessor,
     ClientUserAccessor,
@@ -114,6 +115,7 @@ class TestClient:
             assert isinstance(client.user, ClientUserAccessor)
             assert isinstance(client.private_message, ClientPrivateMessageAccessor)
             assert isinstance(client.site, ClientSiteAccessor)
+            assert isinstance(client.account, ClientAccountAccessor)
 
 
 class TestClientUserAccessor:
@@ -239,3 +241,175 @@ class TestClientSiteAccessor:
 
                 mock_from_unix_name.assert_called_once_with(client, "scp-wiki")
                 assert result == mock_site
+
+    def test_create_site(self):
+        """サイト作成"""
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.create") as mock_create:
+                mock_create.return_value = "new-site"
+
+                result = client.site.create(name="New Site", unixname="new-site")
+
+                mock_create.assert_called_once_with(
+                    client,
+                    name="New Site",
+                    unixname="new-site",
+                    subtitle="",
+                    language="en",
+                    template="standard-template",
+                    privacy="open",
+                    tos=True,
+                )
+                assert result == "new-site"
+
+    def test_my_sites_html(self):
+        """サイト一覧の取得"""
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.list_html") as mock_list_html:
+                mock_list_html.return_value = "<div>sites</div>"
+
+                result = client.site.my_sites_html
+
+                mock_list_html.assert_called_once_with(client)
+                assert result == "<div>sites</div>"
+
+    def test_accept_invitation(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.accept_invitation") as mock_accept:
+                client.site.accept_invitation(42)
+                mock_accept.assert_called_once_with(client, 42)
+
+    def test_throw_away_invitation(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.throw_away_invitation") as mock_throw:
+                client.site.throw_away_invitation(42)
+                mock_throw.assert_called_once_with(client, 42)
+
+    def test_remove_application(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.remove_application") as mock_remove:
+                client.site.remove_application(7)
+                mock_remove.assert_called_once_with(client, 7)
+
+    def test_restore_site(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.restore_site") as mock_restore:
+                client.site.restore_site(10, "my-site")
+                mock_restore.assert_called_once_with(client, 10, "my-site")
+
+    def test_resign_as_admin(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.resign_as_admin") as mock_resign:
+                client.site.resign_as_admin(10)
+                mock_resign.assert_called_once_with(client, 10)
+
+    def test_resign_as_moderator(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.resign_as_moderator") as mock_resign:
+                client.site.resign_as_moderator(10)
+                mock_resign.assert_called_once_with(client, 10)
+
+    def test_sign_off_as_member(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.sign_off_as_member") as mock_sign_off:
+                client.site.sign_off_as_member(10)
+                mock_sign_off.assert_called_once_with(client, 10)
+
+    def test_set_site_storage_limit(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.DashboardSites.set_storage_limit") as mock_set_limit:
+                client.site.set_site_storage_limit(10, {"limit": "500"})
+                mock_set_limit.assert_called_once_with(client, 10, {"limit": "500"})
+
+
+class TestClientPrivateMessageAccessorExtensions:
+    """ClientPrivateMessageAccessorの拡張メソッド（P5）のテスト"""
+
+    def test_mark_as_read(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.PrivateMessageCollection.mark_as_read") as mock_mark:
+                client.private_message.mark_as_read([1, 2])
+                mock_mark.assert_called_once_with(client, [1, 2])
+
+    def test_mark_as_unread(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.PrivateMessageCollection.mark_as_unread") as mock_mark:
+                client.private_message.mark_as_unread([1, 2])
+                mock_mark.assert_called_once_with(client, [1, 2])
+
+    def test_remove(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.PrivateMessageCollection.remove_messages") as mock_remove:
+                client.private_message.remove([1, 2])
+                mock_remove.assert_called_once_with(client, [1, 2])
+
+    def test_save_draft(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.PrivateMessage.save_draft") as mock_save:
+                client.private_message.save_draft("subj", "body")
+                mock_save.assert_called_once_with(client, "subj", "body", None)
+
+    def test_check_can_send(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.PrivateMessage.check_can_send") as mock_check:
+                mock_user = MagicMock()
+                client.private_message.check_can_send(mock_user)
+                mock_check.assert_called_once_with(client, mock_user)
+
+    def test_preview(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.PrivateMessage.preview") as mock_preview:
+                mock_preview.return_value = "<p>html</p>"
+                result = client.private_message.preview("subj", "body")
+                mock_preview.assert_called_once_with(client, "subj", "body", None)
+                assert result == "<p>html</p>"
+
+    def test_fetch_reply_form_html(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.PrivateMessage.fetch_reply_form_html") as mock_fetch:
+                mock_fetch.return_value = "<form></form>"
+                result = client.private_message.fetch_reply_form_html(9)
+                mock_fetch.assert_called_once_with(client, 9)
+                assert result == "<form></form>"
+
+    def test_add_contact(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.pm.add_contact") as mock_add:
+                mock_user = MagicMock()
+                client.private_message.add_contact(mock_user)
+                mock_add.assert_called_once_with(client, mock_user)
+
+    def test_remove_contact(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.pm.remove_contact") as mock_remove:
+                mock_user = MagicMock()
+                client.private_message.remove_contact(mock_user)
+                mock_remove.assert_called_once_with(client, mock_user)
+
+    def test_get_invitations_html(self):
+        with patch("wikidot.module.client.AjaxModuleConnectorClient"):
+            client = Client()
+            with patch("wikidot.module.client.pm.get_invitations_html") as mock_get:
+                mock_get.return_value = "<div></div>"
+                result = client.private_message.get_invitations_html()
+                mock_get.assert_called_once_with(client, 1)
+                assert result == "<div></div>"
