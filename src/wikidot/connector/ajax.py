@@ -204,6 +204,39 @@ def _calculate_backoff(
     return min(backoff + jitter, max_backoff)
 
 
+def require_body(response: httpx.Response, module_name: str) -> str:
+    """
+    Get the "body" field from an AMC response, raising if it is missing
+
+    A nonexistent moduleName does not cause an error on Wikidot's side;
+    it responds with HTTP 200 and status "ok" but without a "body" field,
+    so a typo in the module name would otherwise pass through silently.
+    Callers that require rendered HTML should always go through this
+    helper instead of indexing response.json()["body"] directly.
+
+    Parameters
+    ----------
+    response : httpx.Response
+        AMC response expected to carry a "body" field
+    module_name : str
+        Module name that was requested, used only for the error message
+
+    Returns
+    -------
+    str
+        Value of the "body" field
+
+    Raises
+    ------
+    ResponseDataException
+        If the response has no "body" field
+    """
+    data = response.json()
+    if "body" not in data:
+        raise ResponseDataException(f'AMC response for module "{module_name}" is missing "body"')
+    return data["body"]
+
+
 def _encode_amc_body(body: dict[str, Any]) -> dict[str, Any]:
     """
     Rewrite list-valued keys to their bracket form for an AMC request body

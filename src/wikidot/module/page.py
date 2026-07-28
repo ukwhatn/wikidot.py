@@ -14,6 +14,7 @@ else:
     from typing_extensions import TypedDict, Unpack
 
 from ..common import exceptions
+from ..connector.ajax import require_body
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 from ..util.requestutil import RequestUtil
@@ -496,7 +497,7 @@ class PageCollection(list["Page"]):
                 raise exceptions.ForbiddenException("Failed to get pages, target site may be private") from e
             raise e
 
-        body = response.json()["body"]
+        body = require_body(response, "list/ListPagesModule")
 
         first_page_html_body = BeautifulSoup(body, "lxml")
 
@@ -519,7 +520,9 @@ class PageCollection(list["Page"]):
                 request_bodies.append(_query_dict)
 
             responses = site.amc_request(request_bodies)
-            html_bodies.extend([BeautifulSoup(response.json()["body"], "lxml") for response in responses])
+            html_bodies.extend(
+                [BeautifulSoup(require_body(response, "list/ListPagesModule"), "lxml") for response in responses]
+            )
 
         pages: list[Page] = []
         for html_body in html_bodies:
@@ -625,7 +628,7 @@ class PageCollection(list["Page"]):
         )
 
         for page, response in zip(pages, responses, strict=True):
-            body = response.json()["body"]
+            body = require_body(response, "viewsource/ViewSourceModule")
             # nbspをスペースに置換
             body = body.replace("&nbsp;", " ")
             html = BeautifulSoup(body, "lxml")
@@ -694,7 +697,7 @@ class PageCollection(list["Page"]):
         for page, response in zip(pages, responses, strict=True):
             if response is None:
                 continue
-            body = response.json()["body"]
+            body = require_body(response, "history/PageRevisionListModule")
             revs = []
             body_html = BeautifulSoup(body, "lxml")
             for rev_element in body_html.select("table.page-history > tr[id^=revision-row-]"):
@@ -780,7 +783,7 @@ class PageCollection(list["Page"]):
         for page, response in zip(pages, responses, strict=True):
             if response is None:
                 continue
-            body = response.json()["body"]
+            body = require_body(response, "pagerate/WhoRatedPageModule")
             html = BeautifulSoup(body, "lxml")
             user_elems = html.select("span.printuser")
             value_elems = html.select("span[style^='color']")
@@ -845,7 +848,7 @@ class PageCollection(list["Page"]):
         responses = site.amc_request([{"moduleName": "files/PageFilesModule", "page_id": page.id} for page in pages])
 
         for page, response in zip(pages, responses, strict=True):
-            body = response.json()["body"]
+            body = require_body(response, "files/PageFilesModule")
             html = BeautifulSoup(body, "lxml")
             files = PageFileCollection._parse_from_html(page, html)
             page._files = PageFileCollection(page=page, files=files)
@@ -1176,7 +1179,7 @@ class Page:
                 ]
             )[0]
 
-            body = response.json()["body"]
+            body = require_body(response, "forum/ForumCommentsListModule")
             match = re.search(r"WIKIDOT\.forumThreadId = (\d+);", body)
             if match is not None:
                 from .forum_thread import ForumThread
@@ -1257,7 +1260,7 @@ class Page:
             )
 
             # レスポンス解析
-            body = response[0].json()["body"]
+            body = require_body(response[0], "edit/EditMetaModule")
 
             # <meta name="xxx" content="yyy"/> を正規表現で取得
             metas = {}

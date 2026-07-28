@@ -4,10 +4,16 @@
 AjaxRequestHeaderとAjaxModuleConnectorConfigのテストはtest_amc_client.pyに統合済み。
 """
 
+from unittest.mock import MagicMock
+
+import pytest
+
+from wikidot.common.exceptions import ResponseDataException
 from wikidot.connector.ajax import (
     _calculate_backoff,
     _encode_amc_body,
     _mask_sensitive_data,
+    require_body,
 )
 
 
@@ -122,3 +128,27 @@ class TestEncodeAmcBody:
         """戻り値はhttpxのdata=がサポートするMapping（dict）のまま"""
         result = _encode_amc_body({"others": [1, 2]})
         assert isinstance(result, dict)
+
+
+class TestRequireBody:
+    """require_body関数のテスト"""
+
+    def test_returns_body_when_present(self):
+        """bodyフィールドがあれば値を返す"""
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "body": "<div>test</div>"}
+        assert require_body(response, "TestModule") == "<div>test</div>"
+
+    def test_raises_when_body_missing(self):
+        """存在しないmoduleNameの応答（bodyフィールド欠落）ではResponseDataException"""
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "jsInclude": [], "cssInclude": []}
+        with pytest.raises(ResponseDataException):
+            require_body(response, "managesite/NoSuchModule")
+
+    def test_error_message_includes_module_name(self):
+        """例外メッセージにモジュール名が含まれる（デバッグしやすさのため）"""
+        response = MagicMock()
+        response.json.return_value = {"status": "ok"}
+        with pytest.raises(ResponseDataException, match="managesite/NoSuchModule"):
+            require_body(response, "managesite/NoSuchModule")

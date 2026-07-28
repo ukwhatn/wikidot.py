@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Optional
 from bs4 import BeautifulSoup, NavigableString
 
 from ..common.exceptions import NoElementException
+from ..connector.ajax import require_body
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -291,7 +292,7 @@ class ForumThreadCollection(list["ForumThread"]):
             ]
         )[0]
 
-        first_body = first_response.json()["body"]
+        first_body = require_body(first_response, "forum/ForumViewCategoryModule")
         first_html = BeautifulSoup(first_body, "lxml")
 
         threads.extend(ForumThreadCollection._parse_list_in_category(category.site, first_html))
@@ -319,7 +320,7 @@ class ForumThreadCollection(list["ForumThread"]):
         for response in responses:
             if response is None:
                 continue
-            body = response.json()["body"]
+            body = require_body(response, "forum/ForumViewCategoryModule")
             html = BeautifulSoup(body, "lxml")
             threads.extend(ForumThreadCollection._parse_list_in_category(category.site, html, category))
 
@@ -361,7 +362,7 @@ class ForumThreadCollection(list["ForumThread"]):
         threads = []
 
         for response, thread_id in zip(responses, thread_ids, strict=True):
-            body = response.json()["body"]
+            body = require_body(response, "forum/ForumViewThreadModule")
             html = BeautifulSoup(body, "lxml")
 
             thread = ForumThreadCollection._parse_thread_page(site, html, category)

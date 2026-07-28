@@ -11,6 +11,8 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
+from ..connector.ajax import require_body
+
 if TYPE_CHECKING:
     from .page import Page
 
@@ -208,7 +210,7 @@ class PageFileCollection(list["PageFile"]):
             ]
         )[0]
 
-        html = BeautifulSoup(response.json()["body"], "lxml")
+        html = BeautifulSoup(require_body(response, "files/PageFilesModule"), "lxml")
         files = PageFileCollection._parse_from_html(page, html)
 
         return PageFileCollection(page=page, files=files)

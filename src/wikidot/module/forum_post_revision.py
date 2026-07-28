@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Optional
 
 from bs4 import BeautifulSoup
 
+from ..connector.ajax import require_body
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -194,7 +195,7 @@ class ForumPostRevisionCollection(list["ForumPostRevision"]):
             ]
         )[0]
 
-        body = response.json()["body"]
+        body = require_body(response, "forum/sub/ForumPostRevisionsModule")
         html = BeautifulSoup(body, "lxml")
 
         revisions = ForumPostRevisionCollection._parse(post, html)
@@ -242,7 +243,7 @@ class ForumPostRevisionCollection(list["ForumPostRevision"]):
 
         # Step 2: Parse revision lists
         for post, response in zip(posts, responses, strict=True):
-            body = response.json()["body"]
+            body = require_body(response, "forum/sub/ForumPostRevisionsModule")
             html = BeautifulSoup(body, "lxml")
             revisions = ForumPostRevisionCollection._parse(post, html)
             result[post.id] = ForumPostRevisionCollection(post=post, revisions=revisions)

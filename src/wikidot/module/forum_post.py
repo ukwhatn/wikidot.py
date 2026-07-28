@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Optional
 from bs4 import BeautifulSoup, Tag
 
 from ..common.exceptions import NoElementException
+from ..connector.ajax import require_body
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -226,7 +227,7 @@ class ForumPostCollection(list["ForumPost"]):
             ]
         )[0]
 
-        first_body = first_response.json()["body"]
+        first_body = require_body(first_response, "forum/ForumViewThreadPostsModule")
         first_html = BeautifulSoup(first_body, "lxml")
 
         posts.extend(ForumPostCollection._parse(thread, first_html))
@@ -257,7 +258,7 @@ class ForumPostCollection(list["ForumPost"]):
         )
 
         for response in responses:
-            body = response.json()["body"]
+            body = require_body(response, "forum/ForumViewThreadPostsModule")
             html = BeautifulSoup(body, "lxml")
             posts.extend(ForumPostCollection._parse(thread, html))
 
@@ -312,7 +313,7 @@ class ForumPostCollection(list["ForumPost"]):
         for thread, response in zip(threads, first_page_responses, strict=True):
             if response is None:
                 continue
-            body = response.json()["body"]
+            body = require_body(response, "forum/ForumViewThreadPostsModule")
             html = BeautifulSoup(body, "lxml")
 
             posts = ForumPostCollection._parse(thread, html)
@@ -351,7 +352,7 @@ class ForumPostCollection(list["ForumPost"]):
             for (thread, _page), response in zip(additional_requests, additional_responses, strict=True):
                 if response is None:
                     continue
-                body = response.json()["body"]
+                body = require_body(response, "forum/ForumViewThreadPostsModule")
                 html = BeautifulSoup(body, "lxml")
                 posts = ForumPostCollection._parse(thread, html)
                 result[thread.id].extend(posts)
@@ -402,7 +403,7 @@ class ForumPostCollection(list["ForumPost"]):
         )
 
         for post, response in zip(target_posts, responses, strict=True):
-            html = BeautifulSoup(response.json()["body"], "lxml")
+            html = BeautifulSoup(require_body(response, "forum/sub/ForumEditPostFormModule"), "lxml")
             source_elem = html.select_one("textarea[name='source']")
             if source_elem is None:
                 raise NoElementException(f"Source textarea is not found for post: {post.id}")
@@ -597,7 +598,7 @@ class ForumPost:
             ]
         )[0]
 
-        html = BeautifulSoup(form_response.json()["body"], "lxml")
+        html = BeautifulSoup(require_body(form_response, "forum/sub/ForumEditPostFormModule"), "lxml")
         revision_elem = html.select_one("input[name='currentRevisionId']")
         if revision_elem is None:
             raise NoElementException("Current revision ID input is not found.")

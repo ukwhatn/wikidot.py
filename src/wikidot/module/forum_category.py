@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, Optional
 from bs4 import BeautifulSoup
 
 from ..common.exceptions import NoElementException
+from ..connector.ajax import require_body
 from .forum_thread import ForumThread, ForumThreadCollection
 
 if TYPE_CHECKING:
@@ -109,7 +110,7 @@ class ForumCategoryCollection(list["ForumCategory"]):
 
         response = site.amc_request([{"moduleName": "forum/ForumStartModule", "hidden": "true"}])[0]
 
-        body = response.json()["body"]
+        body = require_body(response, "forum/ForumStartModule")
         html = BeautifulSoup(body, "lxml")
 
         for row in html.select("table tr.head~tr"):

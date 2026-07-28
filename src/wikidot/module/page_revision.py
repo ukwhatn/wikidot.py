@@ -14,6 +14,7 @@ import httpx
 from bs4 import BeautifulSoup
 
 from ..common.exceptions import NoElementException
+from ..connector.ajax import require_body
 from .page_source import PageSource
 
 if TYPE_CHECKING:
@@ -149,7 +150,7 @@ class PageRevisionCollection(list["PageRevision"]):
         """
 
         def process_source_response(revision: "PageRevision", response: httpx.Response, page: "Page") -> None:
-            body = response.json()["body"]
+            body = require_body(response, "history/PageSourceModule")
             # Replace nbsp with space
             body = body.replace("&nbsp;", " ")
             body_html = BeautifulSoup(body, "lxml")
@@ -204,7 +205,7 @@ class PageRevisionCollection(list["PageRevision"]):
         """
 
         def process_html_response(revision: "PageRevision", response: httpx.Response, page: "Page") -> None:
-            body = response.json()["body"]
+            body = require_body(response, "history/PageVersionModule")
             # onclick="document.getElementById('page-version-info').style.display='none'">(.*?)</a>\n\t</div>\n\n\n\n
             # 以降をソースとして取得
             source = body.split(

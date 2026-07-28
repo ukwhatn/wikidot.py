@@ -15,6 +15,7 @@ else:
 from ..common import exceptions
 from ..common.decorators import login_required
 from ..common.logger import logger
+from ..connector.ajax import require_body
 from ..util.http import sync_get_with_retry
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
@@ -721,7 +722,7 @@ class Site:
                 ]
             )[0]
 
-            html = BeautifulSoup(response.json()["body"], "lxml")
+            html = BeautifulSoup(require_body(response, "changes/SiteChangesListModule"), "lxml")
             items = html.select("div.changes-list-item")
 
             if not items:
