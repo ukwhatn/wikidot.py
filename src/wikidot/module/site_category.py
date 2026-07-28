@@ -27,31 +27,43 @@ class SiteLicense(Enum):
     """
     Known `license_id` values for a category
 
-    Values and English names come from 35_form-fields.md's "license_id の値
-    （実測）" table. That table grouped ids 5/6/7 and 15/16/17 under a single
-    generic label each ("CC Attribution Non-commercial 系") rather than
-    naming the individual ShareAlike/NoDerivs variants, so those six
-    members below are also generic placeholders distinguished only by id;
-    treat their exact license text as unconfirmed until verified against a
-    real site (see the P1 completion report for this flag).
+    Values and the exact option text come from a live read-only fetch of
+    `managesite/ManageSiteLicenseModule` (`select#sm-license-lic`), recorded
+    in 35_form-fields.md's "license_id の値（実測）" table. All 15 values are
+    confirmed, including the previously-grouped NonCommercial variants
+    (5/6/7 and 15/16/17).
     """
 
     OTHER = 1
-    """Other. Requires `license_other` to be set."""
+    """"Other" (custom license). Requires `license_other` to be set."""
     CC_ATTRIBUTION_SHAREALIKE_2_5 = 2
+    """"Creative Commons Attribution Share Alike 2.5" """
     CC_ATTRIBUTION_2_5 = 3
+    """"Creative Commons Attribution 2.5" """
     CC_ATTRIBUTION_NO_DERIVATIVES_2_5 = 4
-    CC_ATTRIBUTION_NONCOMMERCIAL_2_5_VARIANT_A = 5
-    CC_ATTRIBUTION_NONCOMMERCIAL_2_5_VARIANT_B = 6
-    CC_ATTRIBUTION_NONCOMMERCIAL_2_5_VARIANT_C = 7
+    """"Creative Commons Attribution No Derivatives 2.5" """
+    CC_ATTRIBUTION_NONCOMMERCIAL_2_5 = 5
+    """"Creative Commons Attribution Non-commercial 2.5" """
+    CC_ATTRIBUTION_NONCOMMERCIAL_SHAREALIKE_2_5 = 6
+    """"Creative Commons Attribution Non-commercial Share Alike 2.5" """
+    CC_ATTRIBUTION_NONCOMMERCIAL_NO_DERIVATIVES_2_5 = 7
+    """"Creative Commons Attribution Non-commercial No Derivatives 2.5" """
     GFDL_1_2 = 8
+    """"GNU Free Documentation License 1.2" """
     STANDARD_COPYRIGHT = 11
+    """"Standard copyright (not recommended)" """
     CC_ATTRIBUTION_SHAREALIKE_3_0 = 12
+    """"Creative Commons Attribution-ShareAlike 3.0 License (recommended)" """
     CC_ATTRIBUTION_3_0 = 13
+    """"Creative Commons Attribution 3.0 License" """
     CC_ATTRIBUTION_NO_DERIVATIVES_3_0 = 14
-    CC_ATTRIBUTION_NONCOMMERCIAL_3_0_VARIANT_A = 15
-    CC_ATTRIBUTION_NONCOMMERCIAL_3_0_VARIANT_B = 16
-    CC_ATTRIBUTION_NONCOMMERCIAL_3_0_VARIANT_C = 17
+    """"Creative Commons Attribution-NoDerivs 3.0 License" """
+    CC_ATTRIBUTION_NONCOMMERCIAL_3_0 = 15
+    """"Creative Commons Attribution-NonCommercial 3.0 License" """
+    CC_ATTRIBUTION_NONCOMMERCIAL_SHAREALIKE_3_0 = 16
+    """"Creative Commons Attribution-NonCommercial-ShareAlike 3.0 License" """
+    CC_ATTRIBUTION_NONCOMMERCIAL_NO_DERIVATIVES_3_0 = 17
+    """"Creative Commons Attribution-NonCommercial-NoDerivs 3.0 License" """
 
 
 @dataclass

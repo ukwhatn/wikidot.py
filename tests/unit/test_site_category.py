@@ -125,3 +125,13 @@ class TestSiteLicense:
 
     def test_all_15_values_present(self):
         assert len(SiteLicense) == 15
+
+    def test_noncommercial_variants_are_uniquely_named_by_id(self):
+        # Regression check for the VARIANT_A/B/C placeholders replaced after
+        # lead confirmed the real option text via a live read-only fetch
+        assert SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_2_5.value == 5
+        assert SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_SHAREALIKE_2_5.value == 6
+        assert SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_NO_DERIVATIVES_2_5.value == 7
+        assert SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_3_0.value == 15
+        assert SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_SHAREALIKE_3_0.value == 16
+        assert SiteLicense.CC_ATTRIBUTION_NONCOMMERCIAL_NO_DERIVATIVES_3_0.value == 17
