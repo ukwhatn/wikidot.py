@@ -217,3 +217,122 @@ class TestPageRevision:
         """htmlセッター"""
         sample_revision.html = "<p>New HTML</p>"
         assert sample_revision._html == "<p>New HTML</p>"
+
+
+class TestPageRevisionCollectionGetDiff:
+    """PageRevisionCollection.get_diffのテスト"""
+
+    def test_get_diff_returns_body(self, mock_page):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<div>diff</div>"}
+        mock_page.site.amc_request.return_value = [mock_response]
+
+        result = PageRevisionCollection.get_diff(mock_page, from_revision_id=1, to_revision_id=2)
+
+        assert result == "<div>diff</div>"
+        body = mock_page.site.amc_request.call_args[0][0][0]
+        assert body["moduleName"] == "history/PageDiffModule"
+        assert body["from_revision_id"] == 1
+        assert body["to_revision_id"] == 2
+        assert body["show_type"] == "inline"
+
+
+class TestPageRevisionCollectionAcquire:
+    """PageRevisionCollection.acquire（履歴の絞り込み）のテスト"""
+
+    def test_acquire_defaults_to_all(self, mock_page):
+        import json as json_module
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<table class='page-history'></table>"}
+        mock_page.site.amc_request.return_value = [mock_response]
+
+        result = PageRevisionCollection.acquire(mock_page)
+
+        assert len(result) == 0
+        body = mock_page.site.amc_request.call_args[0][0][0]
+        assert json_module.loads(body["options"]) == {"all": True}
+        assert body["perpage"] == 20
+        assert body["page"] == 1
+
+    def test_acquire_with_options_filter(self, mock_page):
+        import json as json_module
+
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<table class='page-history'></table>"}
+        mock_page.site.amc_request.return_value = [mock_response]
+
+        PageRevisionCollection.acquire(mock_page, options={"tags": True, "move": True}, perpage=50, page_no=2)
+
+        body = mock_page.site.amc_request.call_args[0][0][0]
+        assert json_module.loads(body["options"]) == {"tags": True, "move": True}
+        assert body["perpage"] == 50
+        assert body["page"] == 2
+
+    def test_acquire_parses_revisions(self, mock_page, mock_user):
+        printuser_html = (
+            '<span class="printuser avatarhover">'
+            '<a href="http://www.wikidot.com/user:info/test-user" '
+            'onclick="WIKIDOT.page.listeners.userInfo(12345); return false;">test-user</a>'
+            "</span>"
+        )
+        html = (
+            '<table class="page-history">'
+            '<tr id="revision-row-100">'
+            "<td>3.</td><td></td><td></td><td></td>"
+            f"<td>{printuser_html}</td>"
+            '<td><span class="odate time_1700000000">14 Nov 2023</span></td>'
+            "<td>edit comment</td>"
+            "</tr>"
+            "</table>"
+        )
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": html}
+        mock_page.site.amc_request.return_value = [mock_response]
+
+        result = PageRevisionCollection.acquire(mock_page)
+
+        assert len(result) == 1
+        assert result[0].id == 100
+        assert result[0].rev_no == 3
+        assert result[0].comment == "edit comment"
+
+
+class TestPageRevisionRevert:
+    """PageRevision.revertのテスト"""
+
+    def test_revert_success(self, mock_page, sample_revision):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page.site.amc_request.return_value = [mock_response]
+
+        result = sample_revision.revert()
+
+        assert result == {"status": "ok"}
+        body = mock_page.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "WikiPageAction"
+        assert body["event"] == "revert"
+        assert body["pageId"] == mock_page.id
+        assert body["revisionId"] == sample_revision.id
+        assert "force" not in body
+
+    def test_revert_force(self, mock_page, sample_revision):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page.site.amc_request.return_value = [mock_response]
+
+        sample_revision.revert(force=True)
+
+        body = mock_page.site.amc_request.call_args[0][0][0]
+        assert body["force"] == "yes"
+
+    def test_revert_locked_response_not_swallowed(self, mock_page, sample_revision):
+        """locks応答を握りつぶさず、呼び出し側にそのまま返す"""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "locks": True, "body": "<div>locked</div>"}
+        mock_page.site.amc_request.return_value = [mock_response]
+
+        result = sample_revision.revert()
+
+        assert result["locks"] is True
+        assert result["body"] == "<div>locked</div>"

@@ -561,3 +561,79 @@ class TestAjaxModuleConnectorClientFormErrors:
 
         with pytest.raises(WikidotStatusCodeException):
             client.request([{"moduleName": "Test"}])
+
+
+class TestAjaxModuleConnectorClientUploadFile:
+    """AjaxModuleConnectorClient.upload_file のテスト
+
+    Task 3-5b: /default--flow/files__UploadTarget は実機未検証（wire形式は
+    Wikidotのクライアント側JSの読解による）。ここではモックしたHTTPレスポンス
+    に対してリクエスト構築とレスポンスパースが正しく行われることのみ検証する。
+    """
+
+    def test_upload_file_success(self, httpx_mock: HTTPXMock) -> None:
+        httpx_mock.add_response(
+            url="https://test-site.wikidot.com/default--flow/files__UploadTarget",
+            text='<div id="status">ok</div><div id="message">File uploaded.</div><div id="filename">a.txt</div>',
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+        result = client.upload_file(
+            page_id=1,
+            filename="a.txt",
+            content=b"hello",
+            site_name="test-site",
+            site_ssl_supported=True,
+        )
+
+        assert result == {"status": "ok", "message": "File uploaded.", "filename": "a.txt"}
+
+    def test_upload_file_sends_multipart_fields(self, httpx_mock: HTTPXMock) -> None:
+        httpx_mock.add_response(
+            url="https://test-site.wikidot.com/default--flow/files__UploadTarget",
+            text='<div id="status">ok</div>',
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+        client.upload_file(
+            page_id=42,
+            filename="a.txt",
+            content=b"hello",
+            site_name="test-site",
+            site_ssl_supported=True,
+            multikey="mk-1",
+        )
+
+        request = httpx_mock.get_requests()[0]
+        body_text = request.content.decode()
+        assert 'name="action"' in body_text
+        assert "FileAction" in body_text
+        assert 'name="event"' in body_text
+        assert "uploadFile" in body_text
+        assert 'name="page_id"' in body_text
+        assert "42" in body_text
+        assert 'name="source"' in body_text
+        assert "multiflash" in body_text
+        assert 'name="multikey"' in body_text
+        assert "mk-1" in body_text
+        assert 'name="userfile"; filename="a.txt"' in body_text
+
+    def test_upload_file_missing_optional_fields(self, httpx_mock: HTTPXMock) -> None:
+        """statusのみのレスポンスでもエラーにならない"""
+        httpx_mock.add_response(
+            url="https://test-site.wikidot.com/default--flow/files__UploadTarget",
+            text='<div id="status">fail</div>',
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+        result = client.upload_file(
+            page_id=1,
+            filename="a.txt",
+            content=b"hello",
+            site_name="test-site",
+            site_ssl_supported=True,
+        )
+
+        assert result == {"status": "fail"}
+        assert "message" not in result
+        assert "filename" not in result
