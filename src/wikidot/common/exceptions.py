@@ -205,7 +205,7 @@ class FormErrorsException(WikidotStatusCodeException):
             if isinstance(value, dict):
                 return value
         message = response.get("message")
-        if isinstance(message, str):
+        if isinstance(message, str) and message:
             return {"_message": message}
         return {}
 
