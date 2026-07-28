@@ -9,13 +9,14 @@ import pytest
 
 from wikidot.common.exceptions import ResponseDataException
 from wikidot.module.forum_admin import (
-    ForumCategoryPermissionOverride,
+    ForumCategoryPermissions,
+    ForumCategoryPermissionsCollection,
     ForumLayout,
     ForumLayoutCategory,
     ForumLayoutGroup,
     activate_forum,
-    save_forum_permissions,
     set_forum_default_nesting,
+    update_forum_permissions,
 )
 from wikidot.module.site_permissions import ForumPermissions
 
@@ -247,41 +248,151 @@ class TestForumLayoutSave:
         assert layout._deleted_groups == []
 
 
-class TestForumCategoryPermissionOverride:
-    def test_to_dict_with_explicit_permissions(self) -> None:
+def _raw_permissions_category(**overrides: Any) -> dict[str, Any]:
+    """13-field category object as returned by ManageSiteForumPermissionsModule (実測 2026-07-29)"""
+    base: dict[str, Any] = {
+        "category_id": 7001,
+        "group_id": 1,
+        "name": "Cat A1",
+        "description": "desc",
+        "number_posts": 42,
+        "number_threads": 5,
+        "last_post_id": 99999,
+        "permissions_default": True,
+        "permissions": None,
+        "max_nest_level": None,
+        "sort_index": 0,
+        "site_id": 3632981,
+        "per_page_discussion": None,
+    }
+    base.update(overrides)
+    return base
+
+
+class TestForumCategoryPermissionsRoundTrip:
+    def test_from_dict_to_dict_preserves_all_13_fields(self) -> None:
+        raw = _raw_permissions_category(permissions="t:m;p:arm;e:m", permissions_default=False)
+        category = ForumCategoryPermissions.from_dict(raw)
+
+        assert category.category_id == 7001
+        assert category.group_id == 1
+        assert category.number_posts == 42
+        assert category.number_threads == 5
+        assert category.last_post_id == 99999
+        assert category.permissions_default is False
+        assert category.permissions is not None
+        assert category.sort_index == 0
+        assert category.site_id == 3632981
+
+        result = category.to_dict()
+        # 元の13フィールドが全て往復すること（{category_id, permissions}だけの部分オブジェクトにならない）
+        for key in raw:
+            if key == "permissions":
+                continue
+            assert result[key] == raw[key]
+        assert result["permissions"] == "t:m;p:arm;e:m"
+
+    def test_preserves_unknown_fields_via_raw(self) -> None:
+        raw = _raw_permissions_category(some_future_field="x")
+        category = ForumCategoryPermissions.from_dict(raw)
+        assert category.to_dict()["some_future_field"] == "x"
+
+    def test_set_permissions_updates_default_flag(self) -> None:
+        category = ForumCategoryPermissions.from_dict(_raw_permissions_category())
         perms = ForumPermissions.decode("t:m;p:arm;e:m")
-        override = ForumCategoryPermissionOverride(category_id=7001, permissions=perms)
 
-        result = override.to_dict()
+        category.set_permissions(perms)
+        assert category.permissions == perms
+        assert category.permissions_default is False
 
-        assert result["category_id"] == 7001
-        assert result["permissions"] == perms.encode()
-
-    def test_to_dict_with_none_means_inherit_default(self) -> None:
-        override = ForumCategoryPermissionOverride(category_id=7001, permissions=None)
-
-        assert override.to_dict() == {"category_id": 7001, "permissions": None}
+        category.set_permissions(None)
+        assert category.permissions is None
+        assert category.permissions_default is True
 
 
-class TestSaveForumPermissions:
-    def test_sends_default_and_category_overrides(self) -> None:
+class TestForumCategoryPermissionsCollectionFetch:
+    def test_fetch_parses_categories_from_permissions_module(self) -> None:
         site = _make_site()
-        default_permissions = ForumPermissions.decode("t:m;p:arm;e:m")
-        overrides = [ForumCategoryPermissionOverride(category_id=7001, permissions=None)]
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "categories": [_raw_permissions_category()]}
+        site.amc_request.return_value = [mock_response]
 
-        save_forum_permissions(site, default_permissions, overrides)
+        collection = ForumCategoryPermissionsCollection.fetch(site)
 
-        body = site.amc_request.call_args[0][0][0]
-        assert body["action"] == "ManageSiteForumAction"
-        assert body["event"] == "saveForumPermissions"
-        assert body["default_permissions"] == default_permissions.encode()
-        assert body["categories"] == '[{"category_id": 7001, "permissions": null}]'
+        assert len(collection) == 1
+        assert collection[7001].category_id == 7001
+        fetch_body = site.amc_request.call_args[0][0][0]
+        assert fetch_body == {"moduleName": "managesite/ManageSiteForumPermissionsModule"}
 
-    def test_none_category_permissions_sends_empty_array(self) -> None:
+    def test_fetch_raises_when_categories_missing(self) -> None:
         site = _make_site()
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        site.amc_request.return_value = [mock_response]
+
+        with pytest.raises(ResponseDataException):
+            ForumCategoryPermissionsCollection.fetch(site)
+
+    def test_getitem_missing_raises_key_error(self) -> None:
+        collection = ForumCategoryPermissionsCollection(
+            site=_make_site(), categories=[ForumCategoryPermissions.from_dict(_raw_permissions_category())]
+        )
+        with pytest.raises(KeyError):
+            collection[999999]
+
+
+class TestForumCategoryPermissionsCollectionSave:
+    def test_save_sends_full_category_objects_not_partial(self) -> None:
+        site = _make_site()
+        collection = ForumCategoryPermissionsCollection(
+            site=site, categories=[ForumCategoryPermissions.from_dict(_raw_permissions_category())]
+        )
+
+        collection.save()
+
+        save_body = site.amc_request.call_args[0][0][0]
+        assert save_body["action"] == "ManageSiteForumAction"
+        assert save_body["event"] == "saveForumPermissions"
+        import json
+
+        sent_categories = json.loads(save_body["categories"])
+        assert len(sent_categories[0]) == 13  # 2フィールドの部分オブジェクトに戻っていないこと
+        assert "number_posts" in sent_categories[0]
+        assert "sort_index" in sent_categories[0]
+
+    def test_default_permissions_omitted_when_not_provided(self) -> None:
+        site = _make_site()
+        collection = ForumCategoryPermissionsCollection(site=site, categories=[])
+
+        collection.save()
+
+        save_body = site.amc_request.call_args[0][0][0]
+        assert "default_permissions" not in save_body
+
+    def test_default_permissions_sent_when_explicitly_provided(self) -> None:
+        site = _make_site()
+        collection = ForumCategoryPermissionsCollection(site=site, categories=[])
         default_permissions = ForumPermissions.decode("t:m;p:arm;e:m")
 
-        save_forum_permissions(site, default_permissions, None)
+        collection.save(default_permissions)
 
-        body = site.amc_request.call_args[0][0][0]
-        assert body["categories"] == "[]"
+        save_body = site.amc_request.call_args[0][0][0]
+        assert save_body["default_permissions"] == default_permissions.encode()
+
+
+class TestUpdateForumPermissions:
+    def test_fetch_then_mutate_then_save(self) -> None:
+        site = _make_site()
+        fetch_response = MagicMock()
+        fetch_response.json.return_value = {"status": "ok", "categories": [_raw_permissions_category()]}
+        site.amc_request.return_value = [fetch_response]
+        new_perms = ForumPermissions.decode("t:m;p:arm;e:m")
+
+        update_forum_permissions(site, lambda cats: cats[7001].set_permissions(new_perms))
+
+        assert site.amc_request.call_count == 2
+        fetch_call, save_call = site.amc_request.call_args_list
+        assert fetch_call[0][0] == [{"moduleName": "managesite/ManageSiteForumPermissionsModule"}]
+        save_body = save_call[0][0][0]
+        assert save_body["event"] == "saveForumPermissions"
+        assert new_perms.encode() in save_body["categories"]

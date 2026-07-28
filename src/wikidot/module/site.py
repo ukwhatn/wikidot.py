@@ -21,11 +21,11 @@ from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 from ..util.quick_module import QMCUser, QuickModule
 from .forum_admin import (
-    ForumCategoryPermissionOverride,
+    ForumCategoryPermissionsCollection,
     ForumLayout,
     activate_forum,
-    save_forum_permissions,
     set_forum_default_nesting,
+    update_forum_permissions,
 )
 from .forum_category import ForumCategoryCollection
 from .forum_thread import ForumThread, ForumThreadCollection
@@ -36,6 +36,8 @@ from .site_member_admin import MemberAccessor
 from .site_settings import SiteSettingsAccessor
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .client import Client
     from .site_permissions import ForumPermissions
     from .user import AbstractUser, User
@@ -229,24 +231,40 @@ class SiteForumAccessor:
         """
         return ForumLayout.fetch(self.site)
 
-    def save_permissions(
+    def update_permissions(
         self,
-        default_permissions: "ForumPermissions",
-        category_permissions: list["ForumCategoryPermissionOverride"] | None = None,
+        mutator: "Callable[[ForumCategoryPermissionsCollection], None]",
+        default_permissions: "ForumPermissions | None" = None,
     ) -> None:
         """
-        Save forum-wide default permissions and any per-category overrides
+        Fetch the current forum category permissions, mutate them, and
+        save them back
 
-        See `forum_admin.save_forum_permissions` for the full caveat about
-        this sending the complete override set (no partial-update support
-        confirmed).
+        See `forum_admin.update_forum_permissions` for why this must be a
+        fetch-mutate-save cycle rather than accepting a hand-built
+        override list (`ManageSiteForumAction/saveForumPermissions` sends
+        the module's entire fetched `categories` array).
 
         Parameters
         ----------
-        default_permissions : ForumPermissions
-        category_permissions : list[ForumCategoryPermissionOverride] | None, default None
+        mutator : Callable[[ForumCategoryPermissionsCollection], None]
+            Called with the freshly fetched collection; mutate categories
+            in place (e.g. `collection[category_id].set_permissions(...)`)
+        default_permissions : ForumPermissions | None, default None
+            Site-wide default forum permissions to also set. Only sent
+            when explicitly provided — see
+            `ForumCategoryPermissionsCollection.save`'s docstring for why
+            this can't be fetched and preserved automatically
+
+        Examples
+        --------
+        >>> site.forum.update_permissions(
+        ...     lambda cats: cats[7001].set_permissions(
+        ...         ForumPermissions.decode("t:m;p:arm;e:m")
+        ...     ),
+        ... )
         """
-        save_forum_permissions(self.site, default_permissions, category_permissions)
+        update_forum_permissions(self.site, mutator, default_permissions)
 
     def create_page_discussion_thread(self, page_id: int) -> Optional["ForumThread"]:
         """

@@ -13,6 +13,7 @@ Duplicating its read-modify-write cycle here would give two independent
 implementations of the same operation.
 """
 
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
@@ -24,6 +25,7 @@ if TYPE_CHECKING:
     from .site import Site
 
 _MODULE_GET_FORUM_LAYOUT = "managesite/ManageSiteGetForumLayoutModule"
+_MODULE_FORUM_PERMISSIONS = "managesite/ManageSiteForumPermissionsModule"
 
 
 def activate_forum(site: "Site") -> None:
@@ -380,86 +382,250 @@ class ForumLayout:
         self._deleted_category_ids = []
 
 
-@dataclass(frozen=True)
-class ForumCategoryPermissionOverride:
+@dataclass(eq=False)
+class ForumCategoryPermissions:
     """
-    A single element of `saveForumPermissions`'s `categories` array:
-    one forum category's permission override
+    A single forum category object from `managesite/ManageSiteForumPermissionsModule`'s
+    `categories` array (13 fields; confirmed by a live read-only fetch,
+    2026-07-29 — see 40_admin-managesite.md "実測（2026-07-29）")
+
+    This is a *different* shape from `ForumLayoutCategory`
+    (`managesite/ManageSiteGetForumLayoutModule`'s `categories`): the two
+    modules describe the same underlying forum categories but return
+    different field sets (this module has `number_posts` /
+    `permissions_default` / `sort_index` / `site_id` /
+    `per_page_discussion`; the layout module has `posts` instead of
+    `number_posts` and lacks the other four). Always fetch from the
+    module matching the event being saved, exactly like the page
+    `categories` (30_plan.md D3) — do not mix fields from the two shapes.
 
     Attributes
     ----------
     category_id : int
+    group_id : int | None
+        Forum group this category belongs to
+    name : str
+    description : str
+    number_posts : int
+    number_threads : int
+    last_post_id : int | None
+    permissions_default : bool
+        Whether this category inherits the site-wide default permissions
     permissions : ForumPermissions | None
         None means "inherit the site-wide default permissions"
         (40_admin-managesite.md: "フォーラムカテゴリの permissions が null
-        の場合は「サイト既定を使う」")
+        の場合は「サイト既定を使う」"); also see `permissions_default`
+    max_nest_level : int | None
+        0-10, or None to inherit the forum's site-wide default
+    sort_index : int | None
+    site_id : int | None
+    per_page_discussion : bool | None
+    _raw : dict[str, Any]
+        Original response object, kept so `to_dict()` round-trips fields
+        this library does not (yet) know about instead of dropping them
+        (same rationale as `SiteCategory._raw`, D3)
+
+    Notes
+    -----
+    Compares by identity (`eq=False`) for the same reason as
+    `ForumLayoutGroup`/`ForumLayoutCategory`.
     """
 
     category_id: int
+    group_id: int | None
+    name: str
+    description: str
+    number_posts: int
+    number_threads: int
+    last_post_id: int | None
+    permissions_default: bool
     permissions: ForumPermissions | None
+    max_nest_level: int | None
+    sort_index: int | None
+    site_id: int | None
+    per_page_discussion: bool | None
+    _raw: dict[str, Any] = field(default_factory=dict, repr=False)
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> "ForumCategoryPermissions":
+        """Parse a single `categories` array element"""
+        permissions_str = data.get("permissions")
+        return cls(
+            category_id=data["category_id"],
+            group_id=data.get("group_id"),
+            name=data.get("name", ""),
+            description=data.get("description", ""),
+            number_posts=data.get("number_posts", 0),
+            number_threads=data.get("number_threads", 0),
+            last_post_id=data.get("last_post_id"),
+            permissions_default=bool(data.get("permissions_default", True)),
+            permissions=ForumPermissions.decode(permissions_str) if permissions_str else None,
+            max_nest_level=data.get("max_nest_level"),
+            sort_index=data.get("sort_index"),
+            site_id=data.get("site_id"),
+            per_page_discussion=data.get("per_page_discussion"),
+            _raw=data,
+        )
 
     def to_dict(self) -> dict[str, Any]:
-        """
-        Encode as the `{category_id, permissions}` shape `saveForumPermissions` expects
+        """Rebuild a `categories` array element for sending back to Wikidot"""
+        result = dict(self._raw)
+        result.update(
+            category_id=self.category_id,
+            group_id=self.group_id,
+            name=self.name,
+            description=self.description,
+            number_posts=self.number_posts,
+            number_threads=self.number_threads,
+            last_post_id=self.last_post_id,
+            permissions_default=self.permissions_default,
+            permissions=self.permissions.encode() if self.permissions is not None else None,
+            max_nest_level=self.max_nest_level,
+            sort_index=self.sort_index,
+            site_id=self.site_id,
+            per_page_discussion=self.per_page_discussion,
+        )
+        return result
 
-        This field shape (`category_id` + `permissions`) was not directly
-        observed for this specific event — no corresponding "get forum
-        permissions" module response was captured during the survey,
-        unlike `ManageSiteGetForumLayoutModule` for the layout side (see
-        40_admin-managesite.md). It is inferred from the same two field
-        names Wikidot uses consistently elsewhere for a forum category
-        object (`ForumLayoutCategory.category_id`, `SiteCategory.permissions`),
-        not invented from scratch. Treat `save_forum_permissions` as
-        unverified against a live site until confirmed
+    def set_permissions(self, permissions: ForumPermissions | None) -> None:
         """
-        return {
-            "category_id": self.category_id,
-            "permissions": self.permissions.encode() if self.permissions is not None else None,
+        Set this category's forum permissions
+
+        Parameters
+        ----------
+        permissions : ForumPermissions | None
+            New permissions, or None to inherit the site-wide default
+            (also sets `permissions_default` accordingly)
+        """
+        self.permissions = permissions
+        self.permissions_default = permissions is None
+
+
+@dataclass
+class ForumCategoryPermissionsCollection:
+    """
+    The full `categories` array from `managesite/ManageSiteForumPermissionsModule`
+
+    Never cached (30_plan.md D3): fetch again before each edit so a stale
+    snapshot doesn't clobber another admin's concurrent change when saved.
+    """
+
+    site: "Site"
+    categories: list[ForumCategoryPermissions]
+
+    def __getitem__(self, category_id: int) -> ForumCategoryPermissions:
+        """
+        Look up a category by ID
+
+        Parameters
+        ----------
+        category_id : int
+
+        Returns
+        -------
+        ForumCategoryPermissions
+
+        Raises
+        ------
+        KeyError
+            If no category with that ID exists
+        """
+        for category in self.categories:
+            if category.category_id == category_id:
+                return category
+        raise KeyError(f"Forum category not found: {category_id}")
+
+    def __iter__(self) -> Iterator[ForumCategoryPermissions]:
+        """Iterate over categories"""
+        return iter(self.categories)
+
+    def __len__(self) -> int:
+        """Number of categories"""
+        return len(self.categories)
+
+    @classmethod
+    def fetch(cls, site: "Site") -> "ForumCategoryPermissionsCollection":
+        """
+        Fetch the current forum category permissions
+
+        Parameters
+        ----------
+        site : Site
+
+        Returns
+        -------
+        ForumCategoryPermissionsCollection
+
+        Raises
+        ------
+        ResponseDataException
+            If the response has no `categories` field
+        """
+        response = site.amc_request([{"moduleName": _MODULE_FORUM_PERMISSIONS}])[0]
+        data = response.json()
+        raw_categories = data.get("categories")
+        if raw_categories is None:
+            raise ResponseDataException(f"Response has no 'categories' field: {_MODULE_FORUM_PERMISSIONS}")
+        return cls(site=site, categories=[ForumCategoryPermissions.from_dict(item) for item in raw_categories])
+
+    def save(self, default_permissions: ForumPermissions | None = None) -> None:
+        """
+        Send the full `categories` array back to Wikidot
+        (`ManageSiteForumAction/saveForumPermissions`)
+
+        Parameters
+        ----------
+        default_permissions : ForumPermissions | None, default None
+            Site-wide default forum permissions to also set. Wikidot's own
+            client reads this from a variable populated at page-render
+            time, not from any confirmed AMC response field (see
+            40_admin-managesite.md "実測（2026-07-29）"), so this library
+            cannot fetch-and-preserve the current value the way it does
+            for `categories` — the key is only sent when the caller
+            explicitly provides a value here, leaving the site default
+            untouched otherwise
+        """
+        body: dict[str, Any] = {
+            "action": "ManageSiteForumAction",
+            "event": "saveForumPermissions",
+            "moduleName": "Empty",
+            "categories": json_param([category.to_dict() for category in self.categories]),
         }
+        if default_permissions is not None:
+            body["default_permissions"] = default_permissions.encode()
+        self.site.amc_request([body])
 
 
-def save_forum_permissions(
+def update_forum_permissions(
     site: "Site",
-    default_permissions: ForumPermissions,
-    category_permissions: list[ForumCategoryPermissionOverride] | None = None,
+    mutator: Callable[[ForumCategoryPermissionsCollection], None],
+    default_permissions: ForumPermissions | None = None,
 ) -> None:
     """
-    Save forum-wide default permissions and any per-category overrides
+    Fetch the current forum category permissions, mutate them, and save
+    them back
 
+    The read-modify-write primitive for forum category permissions,
+    mirroring `SiteSettingsAccessor.update_categories` (30_plan.md D3) —
     `ManageSiteForumAction/saveForumPermissions` sends the *entire*
-    `categories` array like every other categories-backed save in this
-    library (30_plan.md D3) — there is no read endpoint confirmed for
-    this specific event (see `ForumCategoryPermissionOverride.to_dict`),
-    so unlike `Site.settings`'s categories helpers this cannot offer a
-    fetch-mutate-save cycle. Callers must pass the complete desired set of
-    overrides; categories left out of `category_permissions` are not
-    guaranteed to keep their current override (server behavior for
-    omitted categories is unconfirmed).
+    `categories` array (confirmed from `js/managesite_ManageSiteForumPermissionsModule.js`'s
+    `save`: `b.categories = JSON.stringify(WIKIDOT.modules.ManagerSiteModule.vars.categories)`,
+    the module's own fetched array with one category's `permissions`
+    field patched in place), so sending a hand-built partial array would
+    silently drop the other 12 fields on Wikidot's side (the exact D3
+    hazard `SiteCategory._raw` exists to prevent).
 
     Parameters
     ----------
     site : Site
-    default_permissions : ForumPermissions
-        Site-wide default forum permissions
-    category_permissions : list[ForumCategoryPermissionOverride] | None, default None
-        Per forum-category overrides. Treated as empty (no overrides) if
-        None
-
-    Notes
-    -----
-    Does not call `login_check()` before sending, matching the convention
-    already established by `site_settings.py`'s Manage Site save methods
-    (none of them gate locally either — a `no_permission` response
-    surfaces as `ForbiddenException` from the transport layer instead)
+    mutator : Callable[[ForumCategoryPermissionsCollection], None]
+        Called with the freshly fetched collection; mutate categories in
+        place (e.g. via `ForumCategoryPermissions.set_permissions`)
+    default_permissions : ForumPermissions | None, default None
+        Passed through to `ForumCategoryPermissionsCollection.save`; see
+        its docstring for why this can't be fetched and round-tripped
+        like `categories` can
     """
-    site.amc_request(
-        [
-            {
-                "action": "ManageSiteForumAction",
-                "event": "saveForumPermissions",
-                "moduleName": "Empty",
-                "default_permissions": default_permissions.encode(),
-                "categories": json_param([o.to_dict() for o in (category_permissions or [])]),
-            }
-        ]
-    )
+    collection = ForumCategoryPermissionsCollection.fetch(site)
+    mutator(collection)
+    collection.save(default_permissions)
