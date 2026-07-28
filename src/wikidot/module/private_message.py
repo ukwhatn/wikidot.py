@@ -735,9 +735,12 @@ class PrivateMessage:
 #
 # These represent the account's own outgoing/incoming relationships to
 # sites and other users, rendered by dashboard/messages/DM*Module. Row
-# markup for these list modules was not captured during the investigation
-# (unlike the inbox/sent tr.message structure above), so listing functions
-# return the raw rendered HTML rather than a parsed collection.
+# markup for DMApplicationsModule/DMContactsModule was measured 2026-07-29
+# and is parsed into SiteJoinApplication/Contact below (DMApplicationsModule
+# rows follow the same tr.message[data-href] pattern as inbox/sent). Row
+# markup for DMInvitationsModule was not captured (no invitations existed on
+# the investigation account), so its listing function still returns raw
+# rendered HTML.
 # ----------------------------------------------------------------------
 
 
@@ -807,18 +810,24 @@ class SiteJoinApplication:
     admin's view of incoming applications to their own site.
 
     Row markup was measured 2026-07-29 (see `70_account.md` "一覧モジュールの
-    行マークアップ"): each row is a `tr` with `span.from` / `span.subject` /
-    `span.preview` / `span.date > span.odate`. The measurement did not find a
-    site-id/application-id-bearing attribute on the row, so this object
-    cannot drive `DMViewApplicationModule` or
-    `DashboardSitesAction/removeApplication` directly; use
-    `ClientSiteAccessor.remove_application(site_id)` with a site_id obtained
-    elsewhere if you need to withdraw an application.
+    行マークアップ" / "行の属性"): each row is `tr.message` with
+    `data-href="#/applications/<item_id>"` (the same pattern as the inbox/sent
+    `tr.message[data-href]`), plus `span.from` / `span.subject` /
+    `span.preview` / `span.date > span.odate`. The row does not carry a
+    site_id, so this object cannot drive
+    `DashboardSitesAction/removeApplication` (which takes a site_id, not this
+    item_id) directly; use `ClientSiteAccessor.remove_application(site_id)`
+    with a site_id obtained elsewhere if you need to withdraw an application.
+    Extracting a site_id from `DMViewApplicationModule`'s response was not
+    attempted since that response's structure is unmeasured.
 
     Attributes
     ----------
     client : Client
         Client instance
+    item_id : int
+        Application ID (tail of `tr.message`'s data-href), usable as the
+        `item` parameter of `DMViewApplicationModule`
     from_site : str
         Text of span.from (the site the application was submitted to)
     subject : str
@@ -830,6 +839,7 @@ class SiteJoinApplication:
     """
 
     client: "Client"
+    item_id: int
     from_site: str
     subject: str
     preview: str
@@ -844,7 +854,23 @@ class SiteJoinApplication:
         str
             String representation of the application
         """
-        return f"SiteJoinApplication(from_site={self.from_site}, subject={self.subject})"
+        return f"SiteJoinApplication(item_id={self.item_id}, from_site={self.from_site}, subject={self.subject})"
+
+    def fetch_detail_html(self) -> str:
+        """
+        Fetch the detail HTML of this application (DMViewApplicationModule)
+
+        Returns
+        -------
+        str
+            Raw rendered HTML body
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        return get_application_detail_html(self.client, self.item_id)
 
     @staticmethod
     def _parse_row(client: "Client", row: Tag) -> "SiteJoinApplication | None":
@@ -856,15 +882,20 @@ class SiteJoinApplication:
         client : Client
             Client instance
         row : bs4.Tag
-            `tr` element to parse
+            `tr.message` element to parse
 
         Returns
         -------
         SiteJoinApplication | None
             Parsed row, or None if a required element is missing
         """
+        data_href = row.get("data-href")
         from_elem = row.select_one("span.from")
-        if from_elem is None:
+        if data_href is None or from_elem is None:
+            return None
+
+        item_id_text = str(data_href).split("/")[-1]
+        if not item_id_text.isdigit():
             return None
 
         subject_elem = row.select_one("span.subject")
@@ -873,6 +904,7 @@ class SiteJoinApplication:
 
         return SiteJoinApplication(
             client=client,
+            item_id=int(item_id_text),
             from_site=from_elem.get_text().strip(),
             subject=subject_elem.get_text().strip() if subject_elem else "",
             preview=preview_elem.get_text().strip() if preview_elem else "",
@@ -910,7 +942,7 @@ def get_applications(client: "Client") -> list["SiteJoinApplication"]:
     max_page: int = int(pager[-2].get_text()) if len(pager) > 2 else 1
 
     applications: list[SiteJoinApplication] = []
-    for row in first_html.select("tr"):
+    for row in first_html.select("tr.message"):
         application = SiteJoinApplication._parse_row(client, row)
         if application is not None:
             applications.append(application)
@@ -919,7 +951,7 @@ def get_applications(client: "Client") -> list["SiteJoinApplication"]:
         bodies = [{"page": page, "moduleName": module_name} for page in range(2, max_page + 1)]
         for response in client.amc_client.request(bodies):
             html = BeautifulSoup(require_body(response, module_name), "lxml")
-            for row in html.select("tr"):
+            for row in html.select("tr.message"):
                 application = SiteJoinApplication._parse_row(client, row)
                 if application is not None:
                     applications.append(application)

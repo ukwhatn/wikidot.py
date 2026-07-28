@@ -364,7 +364,7 @@ class TestInvitationsApplicationsContacts:
         mock_response.json.return_value = {
             "body": """
             <table>
-            <tr>
+            <tr class="message" data-href="#/applications/463303">
                 <td>
                     <span class="from">Foo Site</span>
                     <span class="subject">Membership application</span>
@@ -384,6 +384,7 @@ class TestInvitationsApplicationsContacts:
         assert len(result) == 1
         application = result[0]
         assert isinstance(application, SiteJoinApplication)
+        assert application.item_id == 463303
         assert application.from_site == "Foo Site"
         assert application.subject == "Membership application"
         assert application.preview == "Please let me join!"
@@ -391,12 +392,45 @@ class TestInvitationsApplicationsContacts:
 
     def test_get_applications_skips_rows_without_from(self, mock_client):
         mock_response = MagicMock()
-        mock_response.json.return_value = {"body": "<table><tr><td>no from span here</td></tr></table>"}
+        mock_response.json.return_value = {
+            "body": '<table><tr class="message" data-href="#/applications/1"><td>no from span here</td></tr></table>'
+        }
         mock_client.amc_client.request.return_value = [mock_response]
 
         result = get_applications(mock_client)
 
         assert result == []
+
+    def test_get_applications_skips_rows_without_data_href(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "body": '<table><tr class="message"><td><span class="from">Foo</span></td></tr></table>'
+        }
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = get_applications(mock_client)
+
+        assert result == []
+
+    def test_site_join_application_fetch_detail_html(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<div>detail</div>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+        application = SiteJoinApplication(
+            client=mock_client,
+            item_id=463303,
+            from_site="Foo Site",
+            subject="Membership application",
+            preview="Please let me join!",
+            submitted_at=datetime.fromtimestamp(1700000000),
+        )
+
+        result = application.fetch_detail_html()
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMViewApplicationModule"
+        assert call_args["item"] == 463303
+        assert result == "<div>detail</div>"
 
     def test_get_application_detail_html(self, mock_client):
         mock_response = MagicMock()
