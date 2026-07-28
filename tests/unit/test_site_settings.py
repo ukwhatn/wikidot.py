@@ -22,7 +22,7 @@ def _make_site(categories_response: dict | None = None) -> MagicMock:
 
 
 class TestUpdateCategories:
-    """update_categoriesが毎回fetch->mutate->saveの順で呼ばれること"""
+    """update_categoriesが指定モジュールから毎回fetch->mutate->saveの順で呼ばれること"""
 
     def test_fetch_then_save_two_requests(self, site_categories_single):
         site = _make_site(site_categories_single)
@@ -33,7 +33,9 @@ class TestUpdateCategories:
         def mutator(cats: SiteCategoryCollection) -> None:
             called.append(cats["_default"].category_id)
 
-        accessor.update_categories("ManageSiteAction", "savePermissions", mutator)
+        accessor.update_categories(
+            "managesite/ManageSitePermissionsModule", "ManageSiteAction", "savePermissions", mutator
+        )
 
         assert called == [30228632]
         assert site.amc_request.call_count == 2
@@ -43,13 +45,29 @@ class TestUpdateCategories:
         assert save_body["action"] == "ManageSiteAction"
         assert save_body["event"] == "savePermissions"
 
+    def test_fetches_from_the_module_name_passed_in(self, site_categories_single):
+        # 各領域が自分のモジュールから fetch すること（Permissionsモジュール固定に戻さない）
+        site = _make_site(site_categories_single)
+        accessor = SiteSettingsAccessor(site)
+
+        accessor.update_categories(
+            "managesite/ManageSiteLicenseModule", "ManageSiteAction", "saveLicense", lambda cats: None
+        )
+
+        fetch_call = site.amc_request.call_args_list[0][0][0]
+        assert fetch_call == [{"moduleName": "managesite/ManageSiteLicenseModule"}]
+
     def test_no_caching_refetches_every_call(self, site_categories_single):
         # 2回呼べば2回ともfetchされること（キャッシュされていないこと）
         site = _make_site(site_categories_single)
         accessor = SiteSettingsAccessor(site)
 
-        accessor.update_categories("ManageSiteAction", "savePermissions", lambda cats: None)
-        accessor.update_categories("ManageSiteAction", "saveLicense", lambda cats: None)
+        accessor.update_categories(
+            "managesite/ManageSitePermissionsModule", "ManageSiteAction", "savePermissions", lambda cats: None
+        )
+        accessor.update_categories(
+            "managesite/ManageSiteLicenseModule", "ManageSiteAction", "saveLicense", lambda cats: None
+        )
 
         assert site.amc_request.call_count == 4  # fetch+save が2セット
 
@@ -62,6 +80,8 @@ class TestPermissions:
 
         accessor.set_page_permissions("_default", new_perms)
 
+        fetch_body = site.amc_request.call_args_list[0][0][0]
+        assert fetch_body == [{"moduleName": "managesite/ManageSitePermissionsModule"}]
         save_body = site.amc_request.call_args_list[1][0][0][0]
         assert save_body["event"] == "savePermissions"
         assert "v:arm" in save_body["categories"]
@@ -87,12 +107,14 @@ class TestPermissions:
 
 
 class TestLicense:
-    def test_set_license(self, site_categories_single):
+    def test_set_license_fetches_from_license_module(self, site_categories_single):
         site = _make_site(site_categories_single)
         accessor = SiteSettingsAccessor(site)
 
         accessor.set_license("_default", SiteLicense.CC_ATTRIBUTION_3_0)
 
+        fetch_body = site.amc_request.call_args_list[0][0][0]
+        assert fetch_body == [{"moduleName": "managesite/ManageSiteLicenseModule"}]
         save_body = site.amc_request.call_args_list[1][0][0][0]
         assert save_body["event"] == "saveLicense"
         assert '"license_id": 13' in save_body["categories"] or '"license_id":13' in save_body["categories"]
@@ -114,29 +136,37 @@ class TestLicense:
 
 
 class TestNavigationTemplatesPageRatePerPageDiscussionAppearance:
-    def test_set_navigation(self, site_categories_single):
+    def test_set_navigation_fetches_from_navigation_module(self, site_categories_single):
         site = _make_site(site_categories_single)
         SiteSettingsAccessor(site).set_navigation("_default", "nav:top", "nav:side2")
+        fetch_body = site.amc_request.call_args_list[0][0][0]
+        assert fetch_body == [{"moduleName": "managesite/ManageSiteNavigationModule"}]
         save_body = site.amc_request.call_args_list[1][0][0][0]
         assert save_body["event"] == "saveNavigation"
 
-    def test_set_template(self, site_categories_single):
+    def test_set_template_fetches_from_templates_module(self, site_categories_single):
         site = _make_site(site_categories_single)
         SiteSettingsAccessor(site).set_template("_default", 42)
+        fetch_body = site.amc_request.call_args_list[0][0][0]
+        assert fetch_body == [{"moduleName": "managesite/ManageSiteTemplatesModule"}]
         save_body = site.amc_request.call_args_list[1][0][0][0]
         assert save_body["event"] == "saveTemplates"
         assert '"template_id": 42' in save_body["categories"] or '"template_id":42' in save_body["categories"]
 
-    def test_set_page_rate_settings(self, site_categories_single):
+    def test_set_page_rate_settings_fetches_from_pagerate_module(self, site_categories_single):
         site = _make_site(site_categories_single)
         rating = RatingSettings.decode("emaS")
         SiteSettingsAccessor(site).set_page_rate_settings("_default", rating)
+        fetch_body = site.amc_request.call_args_list[0][0][0]
+        assert fetch_body == [{"moduleName": "managesite/pagerate/ManageSitePageRateSettingsModule"}]
         save_body = site.amc_request.call_args_list[1][0][0][0]
         assert save_body["event"] == "savePageRateSettings"
 
-    def test_set_per_page_discussion_explicit(self, site_categories_single):
+    def test_set_per_page_discussion_explicit_fetches_from_perpagediscussion_module(self, site_categories_single):
         site = _make_site(site_categories_single)
         SiteSettingsAccessor(site).set_per_page_discussion("_default", False)
+        fetch_body = site.amc_request.call_args_list[0][0][0]
+        assert fetch_body == [{"moduleName": "managesite/ManageSitePerPageDiscussionModule"}]
         save_body = site.amc_request.call_args_list[1][0][0][0]
         assert save_body["action"] == "ManageSiteForumAction"
         assert save_body["event"] == "savePerPageDiscussion"
@@ -149,9 +179,11 @@ class TestNavigationTemplatesPageRatePerPageDiscussionAppearance:
             '"per_page_discussion_default":true' in save_body["categories"]
         )
 
-    def test_set_appearance_theme(self, site_categories_single):
+    def test_set_appearance_theme_fetches_from_appearance_module(self, site_categories_single):
         site = _make_site(site_categories_single)
         SiteSettingsAccessor(site).set_appearance_theme("_default", 7)
+        fetch_body = site.amc_request.call_args_list[0][0][0]
+        assert fetch_body == [{"moduleName": "managesite/themes/ManageSiteAppearanceModule"}]
         save_body = site.amc_request.call_args_list[1][0][0][0]
         assert save_body["action"] == "ManageSiteThemeAction"
         assert save_body["event"] == "saveAppearance"

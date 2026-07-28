@@ -35,18 +35,28 @@ if TYPE_CHECKING:
     from .user import AbstractUser
 
 
+#: Module names that render each categories-backed settings area. Each of
+#: these embeds the site's full `categories` array (same 24-field schema;
+#: see 40_admin-managesite.md), so update_categories fetches from the
+#: module matching the area being changed rather than a single fixed one
+#: — a module that only echoes back a subset of fields would otherwise
+#: cause the categories round trip (SiteCategory._raw, see D3) to lose
+#: the fields it didn't include on the next save of a *different* area.
+_MODULE_PERMISSIONS = "managesite/ManageSitePermissionsModule"
+_MODULE_LICENSE = "managesite/ManageSiteLicenseModule"
+_MODULE_NAVIGATION = "managesite/ManageSiteNavigationModule"
+_MODULE_TEMPLATES = "managesite/ManageSiteTemplatesModule"
+_MODULE_PAGE_RATE = "managesite/pagerate/ManageSitePageRateSettingsModule"
+_MODULE_PER_PAGE_DISCUSSION = "managesite/ManageSitePerPageDiscussionModule"
+_MODULE_APPEARANCE = "managesite/themes/ManageSiteAppearanceModule"
+
+
 class SiteSettingsAccessor:
     """
     Accessor for Manage Site (`_admin`) settings
 
     Access through `Site.settings`.
     """
-
-    #: Any categories-rendering module works as the fetch source for
-    #: update_categories (they all embed the same full-schema array); this
-    #: one is used because it's the module the categories schema in
-    #: 40_admin-managesite.md was captured from.
-    _CATEGORIES_FETCH_MODULE = "managesite/ManageSitePermissionsModule"
 
     def __init__(self, site: "Site"):
         """
@@ -65,6 +75,7 @@ class SiteSettingsAccessor:
 
     def update_categories(
         self,
+        module_name: str,
         action: str,
         event: str,
         mutator: Callable[[SiteCategoryCollection], None],
@@ -82,6 +93,14 @@ class SiteSettingsAccessor:
 
         Parameters
         ----------
+        module_name : str
+            Manage Site module to fetch the `categories` array from before
+            mutating (e.g. "managesite/ManageSitePermissionsModule").
+            Matches the module that would render the area being changed —
+            it is unconfirmed whether every categories-rendering module
+            echoes back the same full 24-field schema, so this fetches
+            from the module for the area actually being saved rather than
+            a single fixed one
         action : str
             AMC action for the save request (e.g. "ManageSiteAction")
         event : str
@@ -93,13 +112,14 @@ class SiteSettingsAccessor:
         Examples
         --------
         >>> site.settings.update_categories(
+        ...     "managesite/ManageSitePermissionsModule",
         ...     "ManageSiteAction", "savePermissions",
         ...     lambda cats: cats["_default"].set_permissions(
         ...         view={"anonymous", "registered", "member"}
         ...     ),
         ... )
         """
-        collection = SiteCategoryCollection.fetch(self.site, self._CATEGORIES_FETCH_MODULE)
+        collection = SiteCategoryCollection.fetch(self.site, module_name)
         mutator(collection)
         collection.save(action, event)
 
@@ -125,7 +145,7 @@ class SiteSettingsAccessor:
             category.permissions = permissions
             category.permissions_default = False
 
-        self.update_categories("ManageSiteAction", "savePermissions", mutator)
+        self.update_categories(_MODULE_PERMISSIONS, "ManageSiteAction", "savePermissions", mutator)
 
     def use_default_page_permissions(self, category_name: str) -> None:
         """
@@ -142,7 +162,7 @@ class SiteSettingsAccessor:
             category.permissions = None
             category.permissions_default = True
 
-        self.update_categories("ManageSiteAction", "savePermissions", mutator)
+        self.update_categories(_MODULE_PERMISSIONS, "ManageSiteAction", "savePermissions", mutator)
 
     def set_license(self, category_name: str, license: SiteLicense, other: str = "") -> None:
         """
@@ -172,7 +192,7 @@ class SiteSettingsAccessor:
             category.license_other = other
             category.license_default = False
 
-        self.update_categories("ManageSiteAction", "saveLicense", mutator)
+        self.update_categories(_MODULE_LICENSE, "ManageSiteAction", "saveLicense", mutator)
 
     def use_default_license(self, category_name: str) -> None:
         """
@@ -187,7 +207,7 @@ class SiteSettingsAccessor:
         def mutator(cats: SiteCategoryCollection) -> None:
             cats[category_name].license_default = True
 
-        self.update_categories("ManageSiteAction", "saveLicense", mutator)
+        self.update_categories(_MODULE_LICENSE, "ManageSiteAction", "saveLicense", mutator)
 
     def set_navigation(self, category_name: str, top_bar_page_name: str, side_bar_page_name: str) -> None:
         """
@@ -209,7 +229,7 @@ class SiteSettingsAccessor:
             category.side_bar_page_name = side_bar_page_name
             category.nav_default = False
 
-        self.update_categories("ManageSiteAction", "saveNavigation", mutator)
+        self.update_categories(_MODULE_NAVIGATION, "ManageSiteAction", "saveNavigation", mutator)
 
     def use_default_navigation(self, category_name: str) -> None:
         """
@@ -224,7 +244,7 @@ class SiteSettingsAccessor:
         def mutator(cats: SiteCategoryCollection) -> None:
             cats[category_name].nav_default = True
 
-        self.update_categories("ManageSiteAction", "saveNavigation", mutator)
+        self.update_categories(_MODULE_NAVIGATION, "ManageSiteAction", "saveNavigation", mutator)
 
     def set_template(self, category_name: str, template_id: int | None) -> None:
         """
@@ -241,7 +261,7 @@ class SiteSettingsAccessor:
         def mutator(cats: SiteCategoryCollection) -> None:
             cats[category_name].template_id = template_id
 
-        self.update_categories("ManageSiteAction", "saveTemplates", mutator)
+        self.update_categories(_MODULE_TEMPLATES, "ManageSiteAction", "saveTemplates", mutator)
 
     def set_page_rate_settings(self, category_name: str, rating: RatingSettings) -> None:
         """
@@ -258,7 +278,7 @@ class SiteSettingsAccessor:
         def mutator(cats: SiteCategoryCollection) -> None:
             cats[category_name].rating = rating
 
-        self.update_categories("ManageSiteAction", "savePageRateSettings", mutator)
+        self.update_categories(_MODULE_PAGE_RATE, "ManageSiteAction", "savePageRateSettings", mutator)
 
     def set_per_page_discussion(self, category_name: str, enabled: bool | None) -> None:
         """
@@ -277,7 +297,7 @@ class SiteSettingsAccessor:
             category.per_page_discussion = enabled
             category.per_page_discussion_default = enabled is None
 
-        self.update_categories("ManageSiteForumAction", "savePerPageDiscussion", mutator)
+        self.update_categories(_MODULE_PER_PAGE_DISCUSSION, "ManageSiteForumAction", "savePerPageDiscussion", mutator)
 
     def set_appearance_theme(self, category_name: str, theme_id: int) -> None:
         """
@@ -297,7 +317,7 @@ class SiteSettingsAccessor:
             category.theme_external_url = ""
             category.theme_default = False
 
-        self.update_categories("ManageSiteThemeAction", "saveAppearance", mutator)
+        self.update_categories(_MODULE_APPEARANCE, "ManageSiteThemeAction", "saveAppearance", mutator)
 
     def set_appearance_external_theme(self, category_name: str, theme_external_url: str) -> None:
         """
@@ -320,7 +340,7 @@ class SiteSettingsAccessor:
             category.theme_external_url = theme_external_url
             category.theme_default = False
 
-        self.update_categories("ManageSiteThemeAction", "saveAppearance", mutator)
+        self.update_categories(_MODULE_APPEARANCE, "ManageSiteThemeAction", "saveAppearance", mutator)
 
     def use_default_appearance(self, category_name: str) -> None:
         """
@@ -335,7 +355,7 @@ class SiteSettingsAccessor:
         def mutator(cats: SiteCategoryCollection) -> None:
             cats[category_name].theme_default = True
 
-        self.update_categories("ManageSiteThemeAction", "saveAppearance", mutator)
+        self.update_categories(_MODULE_APPEARANCE, "ManageSiteThemeAction", "saveAppearance", mutator)
 
     # ------------------------------------------------------------------
     # Task 1-3: General / Domain / Access policy
