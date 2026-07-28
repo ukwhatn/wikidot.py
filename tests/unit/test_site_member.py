@@ -95,6 +95,41 @@ class TestSiteMemberParse:
             assert len(members) == 1
             assert members[0].joined_at is None
 
+    def test_parse_skips_header_only_row(self):
+        """thのみの見出し行(tdなし)はIndexErrorを起こさずスキップされる
+
+        管理パネル(managesite/members/*)の一覧が持つ先頭のth見出し行を想定
+        (2026-07-29実測)"""
+        html = BeautifulSoup(
+            """
+            <table>
+                <tr><th>Name</th><th>Member since</th><th></th></tr>
+                <tr>
+                    <td><span class="printuser">
+                        <a onclick="WIKIDOT.page.listeners.userInfo(12345)" href="#">Test User</a>
+                    </span></td>
+                    <td><span class="odate time_123456789">2024-01-01</span></td>
+                    <td><div class="btn-group">options</div></td>
+                </tr>
+            </table>
+            """,
+            "lxml",
+        )
+        site = MagicMock()
+        mock_user = MagicMock()
+
+        with (
+            patch("wikidot.module.site_member.user_parser") as mock_user_parser,
+            patch("wikidot.module.site_member.odate_parser") as mock_odate_parser,
+        ):
+            mock_user_parser.return_value = mock_user
+            mock_odate_parser.return_value = datetime(2024, 1, 1, tzinfo=timezone.utc)
+
+            members = SiteMember._parse(site, html)
+
+            assert len(members) == 1
+            assert members[0].joined_at == datetime(2024, 1, 1, tzinfo=timezone.utc)
+
     def test_parse_skips_rows_without_printuser(self):
         """printuserがない行はスキップ"""
         html = BeautifulSoup(

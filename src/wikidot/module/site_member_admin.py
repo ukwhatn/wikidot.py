@@ -95,16 +95,25 @@ class MemberAccessor:
 
         Notes
         -----
-        **Row markup is not directly measured** for this project's research
-        (the test site's admin panel HTML was not captured; only the
-        client-side JS handlers were). This reuses the same `table tr` /
-        `span.printuser` / `div.pager` parsing already validated for the
-        public-facing `membership/MembersListModule` (`SiteMember._parse`),
-        since Wikidot's server templates consistently render member rows
-        through the shared `WIKIDOT.render.printuser` partial across
-        contexts (also true of the admin block lists, see site_block.py).
-        Verify against a live admin panel before depending on this for
-        anything beyond user identity (e.g. exact join-date semantics).
+        Row markup for `ManageSiteMembersListModule` was confirmed live
+        2026-07-29 (see 40_admin-managesite.md): 1st `td` is
+        `span.printuser`, 2nd is `span.odate` (join date), 3rd is a
+        Bootstrap options dropdown; a leading `th`-only header row is
+        skipped by `SiteMember._parse`. `ManageSiteModeratorsModule` /
+        `ManageSiteAdminsModule` were **not** confirmed (the test site had
+        no moderators/admins to render), but are assumed to share this
+        shape since Wikidot's server templates consistently render member
+        rows through the shared `WIKIDOT.render.printuser` partial.
+
+        **Pagination is unconfirmed.** The test site's 6 members did not
+        render a `div.pager` at all, so whether the admin panel uses the
+        same `div.pager` markup as the public `membership/MembersListModule`
+        (vs. Bootstrap-style pagination) could not be verified -- Wikidot's
+        own client (`loadMemberList`) just re-requests with `page` and does
+        not itself track a total page count. The `page` parameter is
+        confirmed correct either way; single-page results (the common case)
+        are unaffected. Re-verify against a site with enough members to
+        paginate before relying on multi-page results.
         """
         members: list[SiteMember] = []
 
@@ -180,9 +189,11 @@ class MemberAccessor:
         user : AbstractUser | int
             Member to remove (or their user ID)
         ban : bool, default False
-            Also ban the user from rejoining. Sent as `ban="yes"` when True;
-            omitted entirely when False (Wikidot's own client only sets
-            `ban` at all on the "remove and ban" flow)
+            **`ban=True` removes the member and blocks them in one call**
+            (Wikidot's own client calls this combined flow "remove and
+            ban" -- it is not merely a removal reason). Sent as `ban="yes"`
+            when True; omitted entirely when False. If you only want to
+            remove membership without blocking, leave this False
         """
         body = omit_falsy(ban="yes" if ban else False)
         self.site.amc_request(
@@ -281,13 +292,12 @@ class MemberAccessor:
         """
         Search for users to invite (`users/UserSearchModule`)
 
-        **未実測 (レスポンス形状)**: 40_admin-managesite.md records this
-        module returns `body`, `count`, `userIds`, `userNames` but the
-        research did not capture a live response, so the exact JSON shape
-        of `userIds`/`userNames` (parallel arrays vs. another encoding) is
-        assumed rather than confirmed. Implemented as parallel JSON arrays,
-        matching how every other list-shaped AMC field in this codebase is
-        encoded.
+        Confirmed live 2026-07-29 (see 40_admin-managesite.md): `userIds`
+        is a JSON array of IDs, but `userNames` is **not** a parallel
+        array -- it's an object keyed by the user ID *as a string*
+        (`{"3396310": "ukwhatn", ...}`). There is also no `count` key
+        (the initial research's notes were wrong on both points); use
+        `len(result)` if a count is needed.
 
         Parameters
         ----------
@@ -302,8 +312,8 @@ class MemberAccessor:
         response = self.site.amc_request([{"moduleName": module_name, "query": query}])[0]
         data = response.json()
         ids = data.get("userIds") or []
-        names = data.get("userNames") or []
-        return [UserSearchResult(id=i, name=n) for i, n in zip(ids, names, strict=False)]
+        names_by_id = data.get("userNames") or {}
+        return [UserSearchResult(id=i, name=names_by_id.get(str(i), "")) for i in ids]
 
     def send_email_invitations(self, addresses: list[tuple[str, str, bool]], message: str = "") -> None:
         """

@@ -144,15 +144,33 @@ class TestRemoveAndChangeMaster:
 class TestInvitations:
     """Task 2-4: 招待"""
 
-    def test_search_users_zips_ids_and_names(self):
+    def test_search_users_looks_up_names_by_id_string(self):
+        """userNames is an object keyed by user ID as a string, not a parallel array
+        (confirmed live 2026-07-29; see 40_admin-managesite.md)"""
         site = MagicMock()
         response = MagicMock()
-        response.json.return_value = {"userIds": [1, 2], "userNames": ["a", "b"]}
+        response.json.return_value = {
+            "userIds": [3396310, 9625925],
+            "userNames": {"3396310": "ukwhatn", "9625925": "ukwhatn Bot - test"},
+        }
         site.amc_request.return_value = [response]
 
         results = MemberAccessor(site).search_users("a")
 
-        assert results == [UserSearchResult(id=1, name="a"), UserSearchResult(id=2, name="b")]
+        assert results == [
+            UserSearchResult(id=3396310, name="ukwhatn"),
+            UserSearchResult(id=9625925, name="ukwhatn Bot - test"),
+        ]
+
+    def test_search_users_missing_name_falls_back_to_empty_string(self):
+        site = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"userIds": [1], "userNames": {}}
+        site.amc_request.return_value = [response]
+
+        results = MemberAccessor(site).search_users("a")
+
+        assert results == [UserSearchResult(id=1, name="")]
 
     def test_send_email_invitations_encodes_addresses_as_json_array_of_arrays(self):
         site = MagicMock()
