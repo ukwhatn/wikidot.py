@@ -13,7 +13,7 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import TypedDict, Unpack
 
-from ..common import exceptions
+from ..common import exceptions, wd_logger
 from ..connector.ajax import require_body
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
@@ -870,6 +870,57 @@ class PageCollection(list["Page"]):
         return self
 
 
+def _release_page_edit_lock(
+    site: "Site",
+    fullname: str,
+    page_id: int | None,
+    lock_id: Any,
+    lock_secret: Any,
+) -> None:
+    """
+    Release a page edit lock acquired via edit/PageEditModule
+
+    Wikidot holds the lock for up to 15 minutes once edit/PageEditModule is
+    requested. Any code path that acquires the lock but does not reach a
+    successful savePage must call this, or the page stays uneditable for
+    other users until the lock expires.
+
+    Parameters
+    ----------
+    site : Site
+        Site the page belongs to
+    fullname : str
+        Fullname of the page
+    page_id : int | None
+        Page ID, if known (omitted from the request when None, matching
+        the client-side behavior of only sending page_id when available)
+    lock_id : Any
+        Lock ID returned by edit/PageEditModule
+    lock_secret : Any
+        Lock secret returned by edit/PageEditModule
+
+    Notes
+    -----
+    Failure to release is logged, not raised, so it never masks the
+    original exception that triggered the release attempt.
+    """
+    release_body: dict[str, Any] = {
+        "action": "WikiPageAction",
+        "event": "removePageEditLock",
+        "moduleName": "Empty",
+        "lock_id": lock_id,
+        "lock_secret": lock_secret,
+        "wiki_page": fullname,
+    }
+    if page_id is not None:
+        release_body["page_id"] = page_id
+
+    try:
+        site.amc_request([release_body])
+    except Exception:
+        wd_logger.exception(f"Failed to release page edit lock for {fullname} (lock_id={lock_id})")
+
+
 @dataclass
 class Page:
     """
@@ -1410,6 +1461,7 @@ class Page:
         page_lock_response_data = page_lock_response.json()
 
         if page_lock_response_data.get("locked") or page_lock_response_data.get("other_locks"):
+            # ロック取得自体に失敗しているので解放不要
             raise exceptions.TargetErrorException(
                 f"Page {fullname} is locked or other locks exist",
             )
@@ -1417,44 +1469,55 @@ class Page:
         # ページが存在するか（page_revision_idがあるか）確認
         is_exist = "page_revision_id" in page_lock_response_data
 
-        if raise_on_exists and is_exist:
-            raise exceptions.TargetExistsException(f"Page {fullname} already exists")
-
-        if is_exist and page_id is None:
-            raise ValueError("page_id must be specified when editing existing page")
-
         # lock_idとlock_secret、page_revision_id（あれば）を取得
+        # ここから先は編集ロックを保持している状態なので、保存が成立しなかった経路は
+        # 必ずremovePageEditLockで解放する（放置すると最大15分そのページが編集不可になる）
         lock_id = page_lock_response_data["lock_id"]
         lock_secret = page_lock_response_data["lock_secret"]
         page_revision_id = page_lock_response_data.get("page_revision_id")
 
-        # ページの作成または編集
-        edit_request_body = {
-            "action": "WikiPageAction",
-            "event": "savePage",
-            "moduleName": "Empty",
-            "mode": "page",
-            "lock_id": lock_id,
-            "lock_secret": lock_secret,
-            "revision_id": page_revision_id if page_revision_id is not None else "",
-            "wiki_page": fullname,
-            "page_id": page_id if page_id is not None else "",
-            "title": title,
-            "source": source,
-            "comments": comment,
-        }
-        response = site.amc_request([edit_request_body])[0]
+        save_succeeded = False
+        try:
+            if raise_on_exists and is_exist:
+                raise exceptions.TargetExistsException(f"Page {fullname} already exists")
 
-        if response.json()["status"] != "ok":
-            raise exceptions.WikidotStatusCodeException(
-                f"Failed to create or edit page: {fullname}", response.json()["status"]
-            )
+            if is_exist and page_id is None:
+                raise ValueError("page_id must be specified when editing existing page")
 
-        res = PageCollection.search_pages(site, SearchPagesQuery(fullname=fullname))
-        if len(res) == 0:
-            raise exceptions.NotFoundException(f"Page creation failed: {fullname}")
+            # ページの作成または編集
+            edit_request_body = {
+                "action": "WikiPageAction",
+                "event": "savePage",
+                "moduleName": "Empty",
+                "mode": "page",
+                "lock_id": lock_id,
+                "lock_secret": lock_secret,
+                "revision_id": page_revision_id if page_revision_id is not None else "",
+                "wiki_page": fullname,
+                "page_id": page_id if page_id is not None else "",
+                "title": title,
+                "source": source,
+                "comments": comment,
+            }
+            response = site.amc_request([edit_request_body])[0]
 
-        return res[0]
+            if response.json()["status"] != "ok":
+                raise exceptions.WikidotStatusCodeException(
+                    f"Failed to create or edit page: {fullname}", response.json()["status"]
+                )
+
+            # savePageが成功した時点でWikidot側がロックを解放するため、以降の
+            # NotFoundException（検索側の不整合）では解放を試みない
+            save_succeeded = True
+
+            res = PageCollection.search_pages(site, SearchPagesQuery(fullname=fullname))
+            if len(res) == 0:
+                raise exceptions.NotFoundException(f"Page creation failed: {fullname}")
+
+            return res[0]
+        finally:
+            if not save_succeeded:
+                _release_page_edit_lock(site, fullname, page_id, lock_id, lock_secret)
 
     def edit(
         self,

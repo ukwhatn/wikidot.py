@@ -594,6 +594,141 @@ class TestPageCreateOrEdit:
         with pytest.raises(exceptions.LoginRequiredException):
             Page.create_or_edit(mock_site_no_http, "new-page")
 
+    def test_create_new_page_does_not_release_lock(
+        self,
+        mock_site_no_http: Site,
+        page_pageedit_success: dict[str, Any],
+        page_savepage_success: dict[str, Any],
+        page_listpages_single: dict[str, Any],
+    ) -> None:
+        """保存成功時はremovePageEditLockを送らない（Wikidot側がsavePageで解放するため）"""
+        mock_site_no_http.client.is_logged_in = True
+        mock_site_no_http.client.login_check = MagicMock()
+
+        mock_lock_response = MagicMock()
+        mock_lock_response.json.return_value = page_pageedit_success
+
+        mock_save_response = MagicMock()
+        mock_save_response.json.return_value = page_savepage_success
+
+        mock_search_response = MagicMock()
+        mock_search_response.json.return_value = page_listpages_single
+
+        # side_effectを3要素ちょうどにすることで、余計なamc_request呼び出し
+        # （=誤ったremovePageEditLock送信）があればStopIterationで検出できる
+        mock_site_no_http.amc_request = MagicMock(
+            side_effect=[
+                [mock_lock_response],
+                [mock_save_response],
+                [mock_search_response],
+            ]
+        )
+
+        Page.create_or_edit(mock_site_no_http, "new-page", title="New Page Title", source="Page content")
+
+        assert mock_site_no_http.amc_request.call_count == 3
+
+    def test_edit_without_page_id_releases_lock(self, mock_site_no_http: Site) -> None:
+        """page_id未指定でValueErrorになった場合、取得済みの編集ロックを解放する"""
+        mock_site_no_http.client.is_logged_in = True
+        mock_site_no_http.client.login_check = MagicMock()
+
+        lock_response = MagicMock()
+        lock_response.json.return_value = {
+            "status": "ok",
+            "lock_id": "lock-abc",
+            "lock_secret": "secret-xyz",
+            "page_revision_id": 100,  # 既存ページ
+        }
+        release_response = MagicMock()
+        release_response.json.return_value = {"status": "ok"}
+
+        mock_site_no_http.amc_request = MagicMock(side_effect=[[lock_response], [release_response]])
+
+        with pytest.raises(ValueError, match="page_id must be specified"):
+            Page.create_or_edit(mock_site_no_http, "existing-page")
+
+        assert mock_site_no_http.amc_request.call_count == 2
+        release_body = mock_site_no_http.amc_request.call_args_list[1][0][0][0]
+        assert release_body["action"] == "WikiPageAction"
+        assert release_body["event"] == "removePageEditLock"
+        assert release_body["lock_id"] == "lock-abc"
+        assert release_body["lock_secret"] == "secret-xyz"
+        assert release_body["wiki_page"] == "existing-page"
+        # page_id未指定（新規扱い）の場合、リリースリクエストにも含めない
+        # （WIKIREQUEST.info.pageIdがある時だけpage_idを足すJS実装に合わせる）
+        assert "page_id" not in release_body
+
+    def test_edit_raise_on_exists_releases_lock(self, mock_site_no_http: Site) -> None:
+        """raise_on_exists=Trueで既存ページの場合、取得済みの編集ロックを解放する"""
+        mock_site_no_http.client.is_logged_in = True
+        mock_site_no_http.client.login_check = MagicMock()
+
+        lock_response = MagicMock()
+        lock_response.json.return_value = {
+            "status": "ok",
+            "lock_id": "lock-abc",
+            "lock_secret": "secret-xyz",
+            "page_revision_id": 100,
+        }
+        release_response = MagicMock()
+        release_response.json.return_value = {"status": "ok"}
+
+        mock_site_no_http.amc_request = MagicMock(side_effect=[[lock_response], [release_response]])
+
+        with pytest.raises(exceptions.TargetExistsException):
+            Page.create_or_edit(mock_site_no_http, "existing-page", page_id=1, raise_on_exists=True)
+
+        assert mock_site_no_http.amc_request.call_count == 2
+        release_body = mock_site_no_http.amc_request.call_args_list[1][0][0][0]
+        assert release_body["event"] == "removePageEditLock"
+
+    def test_savepage_failure_releases_lock(self, mock_site_no_http: Site) -> None:
+        """savePage自体が失敗（status != ok）した場合、取得済みの編集ロックを解放する"""
+        mock_site_no_http.client.is_logged_in = True
+        mock_site_no_http.client.login_check = MagicMock()
+
+        lock_response = MagicMock()
+        lock_response.json.return_value = {
+            "status": "ok",
+            "lock_id": "lock-abc",
+            "lock_secret": "secret-xyz",
+        }
+        save_response = MagicMock()
+        save_response.json.return_value = {"status": "no_permission"}
+        release_response = MagicMock()
+        release_response.json.return_value = {"status": "ok"}
+
+        mock_site_no_http.amc_request = MagicMock(side_effect=[[lock_response], [save_response], [release_response]])
+
+        with pytest.raises(exceptions.WikidotStatusCodeException):
+            Page.create_or_edit(mock_site_no_http, "new-page")
+
+        assert mock_site_no_http.amc_request.call_count == 3
+        release_body = mock_site_no_http.amc_request.call_args_list[2][0][0][0]
+        assert release_body["event"] == "removePageEditLock"
+        assert release_body["lock_id"] == "lock-abc"
+
+    def test_release_lock_failure_does_not_mask_original_exception(self, mock_site_no_http: Site) -> None:
+        """ロック解放自体が失敗しても、元の例外（この場合ValueError）を隠さない"""
+        mock_site_no_http.client.is_logged_in = True
+        mock_site_no_http.client.login_check = MagicMock()
+
+        lock_response = MagicMock()
+        lock_response.json.return_value = {
+            "status": "ok",
+            "lock_id": "lock-abc",
+            "lock_secret": "secret-xyz",
+            "page_revision_id": 100,
+        }
+
+        mock_site_no_http.amc_request = MagicMock(
+            side_effect=[[lock_response], exceptions.ForbiddenException("no permission to release lock")]
+        )
+
+        with pytest.raises(ValueError, match="page_id must be specified"):
+            Page.create_or_edit(mock_site_no_http, "existing-page")
+
 
 class TestPageEdit:
     """Page.editのテスト"""
