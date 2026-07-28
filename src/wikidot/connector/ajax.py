@@ -363,6 +363,29 @@ class AjaxModuleConnectorClient:
                         )
                         response.raise_for_status()
                 except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                    # An unrecognized action/event responds with HTTP 500 and an empty
+                    # body (PHP-level fatal error), which is indistinguishable from a
+                    # transient server error except for these three conditions together.
+                    # Retrying it would only waste attempt_limit rounds of backoff, so
+                    # fail immediately instead. Requests without "action" (module
+                    # rendering only) keep the normal retry behavior below, since a
+                    # spike-induced 500 there is otherwise indistinguishable
+                    if (
+                        isinstance(e, httpx.HTTPStatusError)
+                        and response is not None
+                        and response.status_code == 500
+                        and len(response.content) == 0
+                        and "action" in _body
+                    ):
+                        wd_logger.error(
+                            f"AMC request failed: HTTP 500 with empty body "
+                            f"(possibly unsupported action/event) -> {_mask_sensitive_data(_body)}"
+                        )
+                        raise AMCHttpStatusCodeException(
+                            "AMC request failed: HTTP 500 with empty body (未対応の action/event の可能性があります)",
+                            500,
+                        ) from e
+
                     # Retry on all request errors (HTTP errors, timeouts, network errors, etc.)
                     # Wikidot server has a relatively high error rate, so retry is essential
                     retry_count += 1

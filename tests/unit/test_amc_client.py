@@ -436,6 +436,41 @@ class TestAjaxModuleConnectorClientRequest:
         called_backoff = mock_sleep.call_args[0][0]
         assert 1.0 <= called_backoff <= 1.1
 
+    def test_unknown_action_event_fails_immediately(self, httpx_mock: HTTPXMock) -> None:
+        """actionを伴うHTTP 500 + 空ボディはリトライせず即座に失敗する（未対応event検出）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            status_code=500,
+        )
+
+        config = AjaxModuleConnectorConfig(attempt_limit=5, retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with pytest.raises(AMCHttpStatusCodeException):
+            client.request([{"moduleName": "Empty", "action": "ManageSiteAction", "event": "noSuchEvent"}])
+
+        # リトライせず1回のみリクエストされていること
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_action_500_with_body_still_retries(self, httpx_mock: HTTPXMock) -> None:
+        """actionを伴っていてもボディが空でなければ通常どおりリトライする"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            status_code=500,
+            text="Internal Server Error",
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        client.request([{"moduleName": "Empty", "action": "ManageSiteAction", "event": "saveGeneral"}])
+
+        assert len(httpx_mock.get_requests()) == 2
+
 
 class TestAjaxModuleConnectorClientFormErrors:
     """form_errors / form_error ステータスのハンドリングのテスト"""
