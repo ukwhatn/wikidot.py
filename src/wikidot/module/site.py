@@ -20,6 +20,13 @@ from ..util.http import sync_get_with_retry
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 from ..util.quick_module import QMCUser, QuickModule
+from .forum_admin import (
+    ForumCategoryPermissionOverride,
+    ForumLayout,
+    activate_forum,
+    save_forum_permissions,
+    set_forum_default_nesting,
+)
 from .forum_category import ForumCategoryCollection
 from .forum_thread import ForumThread, ForumThreadCollection
 from .page import Page, PageCollection, SearchPagesQuery, SearchPagesQueryParams
@@ -30,6 +37,7 @@ from .site_settings import SiteSettingsAccessor
 
 if TYPE_CHECKING:
     from .client import Client
+    from .site_permissions import ForumPermissions
     from .user import AbstractUser, User
 
 
@@ -195,6 +203,66 @@ class SiteForumAccessor:
             Collection of forum categories
         """
         return ForumCategoryCollection.acquire_all(self.site)
+
+    def activate(self) -> None:
+        """Enable the forum for this site (`ManageSiteForumAction/activateForum`)"""
+        activate_forum(self.site)
+
+    def set_default_nesting(self, max_nest_level: int) -> None:
+        """
+        Set the forum's site-wide default reply nesting depth
+
+        Parameters
+        ----------
+        max_nest_level : int
+            0-10 (0 = flat)
+        """
+        set_forum_default_nesting(self.site, max_nest_level)
+
+    def get_layout(self) -> "ForumLayout":
+        """
+        Fetch the current forum group/category layout for editing
+
+        Returns
+        -------
+        ForumLayout
+        """
+        return ForumLayout.fetch(self.site)
+
+    def save_permissions(
+        self,
+        default_permissions: "ForumPermissions",
+        category_permissions: list["ForumCategoryPermissionOverride"] | None = None,
+    ) -> None:
+        """
+        Save forum-wide default permissions and any per-category overrides
+
+        See `forum_admin.save_forum_permissions` for the full caveat about
+        this sending the complete override set (no partial-update support
+        confirmed).
+
+        Parameters
+        ----------
+        default_permissions : ForumPermissions
+        category_permissions : list[ForumCategoryPermissionOverride] | None, default None
+        """
+        save_forum_permissions(self.site, default_permissions, category_permissions)
+
+    def create_page_discussion_thread(self, page_id: int) -> Optional["ForumThread"]:
+        """
+        Create a page's discussion (comment) thread if it does not already have one
+
+        Parameters
+        ----------
+        page_id : int
+            Numeric page ID (not the page's unix name)
+
+        Returns
+        -------
+        ForumThread | None
+            See `ForumThread.create_for_page` for why this can be None
+        """
+        return ForumThread.create_for_page(self.site, page_id)
 
 
 @dataclass
