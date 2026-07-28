@@ -6,6 +6,7 @@ from wikidot.common.exceptions import (
     AjaxModuleConnectorException,
     AMCHttpStatusCodeException,
     ForbiddenException,
+    FormErrorsException,
     LoginRequiredException,
     NoElementException,
     NotFoundException,
@@ -104,6 +105,65 @@ class TestWikidotStatusCodeException:
         """継承関係のテスト"""
         exc = WikidotStatusCodeException("test", "error")
         assert isinstance(exc, AjaxModuleConnectorException)
+
+    def test_response_defaults_to_none(self):
+        """responseを渡さない場合はNone（既存呼び出しとの後方互換）"""
+        exc = WikidotStatusCodeException("test", "error")
+        assert exc.response is None
+
+    def test_response_is_stored(self):
+        """responseを渡すと属性に保持される"""
+        payload = {"status": "error", "message": "boom"}
+        exc = WikidotStatusCodeException("test", "error", payload)
+        assert exc.response == payload
+
+
+class TestFormErrorsException:
+    """FormErrorsExceptionのテスト"""
+
+    def test_inheritance(self):
+        """WikidotStatusCodeExceptionのサブクラスである（既存exceptハンドラで捕捉可能）"""
+        exc = FormErrorsException("test", "form_errors", {})
+        assert isinstance(exc, WikidotStatusCodeException)
+        assert isinstance(exc, AjaxModuleConnectorException)
+
+    def test_errors_from_form_errors_key(self):
+        """formErrorsキー（多数派: Forum系, Clone, saveGeneral等）"""
+        response = {
+            "status": "form_errors",
+            "formErrors": {"name": "Please provide the site title"},
+            "message": "Form errors",
+        }
+        exc = FormErrorsException("test", "form_errors", response)
+        assert exc.errors == {"name": "Please provide the site title"}
+
+    def test_errors_from_errors_key(self):
+        """errorsキー（WikiPageAction/savePage専用）"""
+        response = {"status": "form_errors", "errors": {"title": "Title is required"}}
+        exc = FormErrorsException("test", "form_errors", response)
+        assert exc.errors == {"title": "Title is required"}
+
+    def test_errors_from_message_only(self):
+        """messageのみ（文字列。saveTags・form_error単数形系）はセンチネルキーで返す"""
+        response = {"status": "form_error", "message": "Invalid tag name"}
+        exc = FormErrorsException("test", "form_error", response)
+        assert exc.errors == {"_message": "Invalid tag name"}
+
+    def test_errors_empty_when_no_response(self):
+        """responseが無い場合は空dict"""
+        exc = FormErrorsException("test", "form_errors")
+        assert exc.errors == {}
+
+    def test_errors_empty_when_no_known_key(self):
+        """formErrors/errors/messageのいずれも無い場合は空dict"""
+        exc = FormErrorsException("test", "form_errors", {"status": "form_errors"})
+        assert exc.errors == {}
+
+    def test_errors_prefers_form_errors_over_message(self):
+        """formErrorsとmessageが両方あればformErrorsを優先する"""
+        response = {"formErrors": {"a": "b"}, "message": "Form errors"}
+        exc = FormErrorsException("test", "form_errors", response)
+        assert exc.errors == {"a": "b"}
 
 
 class TestResponseDataException:

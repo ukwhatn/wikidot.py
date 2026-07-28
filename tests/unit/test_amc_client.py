@@ -6,6 +6,7 @@ from pytest_httpx import HTTPXMock
 from wikidot.common.exceptions import (
     AMCHttpStatusCodeException,
     ForbiddenException,
+    FormErrorsException,
     NotFoundException,
     ResponseDataException,
     WikidotStatusCodeException,
@@ -373,3 +374,65 @@ class TestAjaxModuleConnectorClientRequest:
         responses = client.request([{"moduleName": "Test"}])
 
         assert len(responses) == 1
+
+
+class TestAjaxModuleConnectorClientFormErrors:
+    """form_errors / form_error ステータスのハンドリングのテスト"""
+
+    def test_form_errors_key_variant(self, httpx_mock: HTTPXMock) -> None:
+        """formErrorsキー（多数派: Forum系, Clone, saveGeneral等）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={
+                "status": "form_errors",
+                "formErrors": {"name": "Please provide the site title"},
+                "message": "Form errors",
+            },
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(FormErrorsException) as exc_info:
+            client.request([{"moduleName": "Empty", "action": "ManageSiteAction", "event": "saveGeneral"}])
+
+        assert exc_info.value.errors == {"name": "Please provide the site title"}
+
+    def test_errors_key_variant(self, httpx_mock: HTTPXMock) -> None:
+        """errorsキー（WikiPageAction/savePage専用）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "form_errors", "errors": {"title": "Title is required"}},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(FormErrorsException) as exc_info:
+            client.request([{"moduleName": "Empty", "action": "WikiPageAction", "event": "savePage"}])
+
+        assert exc_info.value.errors == {"title": "Title is required"}
+
+    def test_message_only_variant(self, httpx_mock: HTTPXMock) -> None:
+        """messageのみ（文字列。saveTags・form_error単数形系）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "form_error", "message": "Invalid tag name"},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(FormErrorsException) as exc_info:
+            client.request([{"moduleName": "Empty", "action": "WikiPageAction", "event": "saveTags"}])
+
+        assert exc_info.value.errors == {"_message": "Invalid tag name"}
+
+    def test_is_also_a_wikidot_status_code_exception(self, httpx_mock: HTTPXMock) -> None:
+        """既存のexcept WikidotStatusCodeExceptionでも捕捉できる（継承関係）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "form_errors", "formErrors": {"name": "required"}},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(WikidotStatusCodeException):
+            client.request([{"moduleName": "Test"}])

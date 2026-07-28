@@ -18,12 +18,17 @@ from ..common import wd_logger
 from ..common.exceptions import (
     AMCHttpStatusCodeException,
     ForbiddenException,
+    FormErrorsException,
     NotFoundException,
     ResponseDataException,
     WikidotStatusCodeException,
 )
 from ..util.async_helper import run_coroutine
 from ..util.http import sync_get_with_retry
+
+#: status values that carry form validation errors as part of the normal
+#: control flow (not a transport-level error). See FormErrorsException.
+_FORM_ERROR_STATUSES = frozenset({"form_errors", "form_error"})
 
 
 class AjaxRequestHeader:
@@ -432,7 +437,9 @@ class AjaxModuleConnectorClient:
                         retry_count += 1
                         if retry_count >= self.config.attempt_limit:
                             wd_logger.error(f'AMC is respond status: "try_again" -> {_mask_sensitive_data(_body)}')
-                            raise WikidotStatusCodeException('AMC is respond status: "try_again"', "try_again")
+                            raise WikidotStatusCodeException(
+                                'AMC is respond status: "try_again"', "try_again", _response_body
+                            )
 
                         # Retry with exponential backoff interval
                         backoff = _calculate_backoff(
@@ -455,6 +462,20 @@ class AjaxModuleConnectorClient:
                             target_str = f"action: {_body['action']}/{_body['event'] if 'event' in _body else ''}"
                         raise ForbiddenException(f"Your account has no permission to perform this action: {target_str}")
 
+                    # form_errors / form_error is part of the normal control flow for many
+                    # save operations (form validation failure), not a transport error.
+                    # Raise the dedicated subclass so callers can read the per-field
+                    # messages via e.errors instead of only getting a generic message
+                    elif _response_body["status"] in _FORM_ERROR_STATUSES:
+                        wd_logger.info(
+                            f'AMC is respond status: "{_response_body["status"]}" -> {_mask_sensitive_data(_body)}'
+                        )
+                        raise FormErrorsException(
+                            f'AMC is respond error status: "{_response_body["status"]}"',
+                            _response_body["status"],
+                            _response_body,
+                        )
+
                     # Treat as error if status is not ok for other cases
                     elif _response_body["status"] != "ok":
                         wd_logger.error(
@@ -464,6 +485,7 @@ class AjaxModuleConnectorClient:
                         raise WikidotStatusCodeException(
                             f'AMC is respond error status: "{_response_body["status"]}"',
                             _response_body["status"],
+                            _response_body,
                         )
 
                 # Return response

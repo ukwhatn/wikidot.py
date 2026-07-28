@@ -1,3 +1,5 @@
+from typing import Any
+
 # ---
 # Base class
 # ---
@@ -139,16 +141,73 @@ class WikidotStatusCodeException(AjaxModuleConnectorException):
         Exception message
     status_code : str
         Error status code returned by Wikidot
+    response : dict[str, Any] | None, default None
+        Raw AMC response body, when available. Kept optional so existing
+        call sites that only pass message/status_code keep working
 
     Attributes
     ----------
     status_code : str
         Error status code returned by Wikidot
+    response : dict[str, Any] | None
+        Raw AMC response body, when available
     """
 
-    def __init__(self, message: str, status_code: str) -> None:
+    def __init__(self, message: str, status_code: str, response: dict[str, Any] | None = None) -> None:
         super().__init__(message)
         self.status_code = status_code
+        self.response = response
+
+
+class FormErrorsException(WikidotStatusCodeException):
+    """
+    Exception raised when the response status is "form_errors" / "form_error"
+
+    Wikidot returns this as part of the normal control flow for many save
+    operations (validation failure), not as a transport-level error. The
+    payload key holding the per-field messages differs by module
+    (`formErrors` for most modules, `errors` for `WikiPageAction/savePage`,
+    a plain string under `message` for modules such as `saveTags` or the
+    singular `form_error` status). The `errors` property absorbs this
+    difference and always exposes `dict[str, str]`.
+
+    Parameters
+    ----------
+    message : str
+        Exception message
+    status_code : str
+        Error status code returned by Wikidot ("form_errors" or "form_error")
+    response : dict[str, Any] | None, default None
+        Raw AMC response body
+    """
+
+    def __init__(self, message: str, status_code: str, response: dict[str, Any] | None = None) -> None:
+        super().__init__(message, status_code, response)
+
+    @property
+    def errors(self) -> dict[str, str]:
+        """
+        Get field name to error message mapping
+
+        Absorbs the `formErrors` / `errors` / `message` key variance across
+        modules. When only a plain `message` string is available (no field
+        name), it is exposed under the sentinel key `"_message"`.
+
+        Returns
+        -------
+        dict[str, str]
+            Field name to error message mapping. Empty if the response has
+            none of the known keys
+        """
+        response = self.response or {}
+        for key in ("formErrors", "errors"):
+            value = response.get(key)
+            if isinstance(value, dict):
+                return value
+        message = response.get("message")
+        if isinstance(message, str):
+            return {"_message": message}
+        return {}
 
 
 class ResponseDataException(AjaxModuleConnectorException):
