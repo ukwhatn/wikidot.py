@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from typing import Any, Literal, overload
 
 import httpx
+from bs4 import BeautifulSoup
 
 from ..common import wd_logger
 from ..common.exceptions import (
@@ -267,6 +268,36 @@ def _encode_amc_body(body: dict[str, Any]) -> dict[str, Any]:
         return body
 
     return {(f"{key}[]" if isinstance(value, list) else key): value for key, value in body.items()}
+
+
+def _parse_upload_target_response(html: str) -> dict[str, str]:
+    """
+    Parse the HTML fragment returned by /default--flow/files__UploadTarget
+
+    UNVERIFIED AGAINST A LIVE WIKIDOT INSTANCE. This endpoint does not
+    respond with the usual AMC JSON envelope; per 10_transport.md (wire
+    format research based on reading Wikidot's client-side JS, not an
+    observed live upload) it returns an HTML fragment of the shape
+    `<div id="status">ok</div><div id="message">..</div><div id="filename">..</div>`.
+
+    Parameters
+    ----------
+    html : str
+        Raw response body
+
+    Returns
+    -------
+    dict[str, str]
+        Values keyed by "status" / "message" / "filename", for whichever
+        of those elements were present in the response
+    """
+    soup = BeautifulSoup(html, "lxml")
+    result: dict[str, str] = {}
+    for key in ("status", "message", "filename"):
+        elem = soup.select_one(f"#{key}")
+        if elem is not None:
+            result[key] = elem.get_text().strip()
+    return result
 
 
 class AjaxModuleConnectorClient:
@@ -599,3 +630,84 @@ class AjaxModuleConnectorClient:
             r if isinstance(r, httpx.Response) else r if isinstance(r, Exception) else Exception(str(r))
             for r in results
         )
+
+    def upload_file(
+        self,
+        page_id: int,
+        filename: str,
+        content: bytes,
+        *,
+        site_name: str | None = None,
+        site_ssl_supported: bool | None = None,
+        multikey: str | None = None,
+    ) -> dict[str, str]:
+        """
+        Upload a file to a page via the multipart upload endpoint
+
+        UNVERIFIED AGAINST A LIVE WIKIDOT INSTANCE. This is a separate
+        wire path from `request()`: it posts multipart/form-data to
+        `/default--flow/files__UploadTarget` (not ajax-module-connector.php)
+        and gets back an HTML fragment, not the usual AMC JSON envelope, so
+        it cannot go through `request()`'s JSON parsing. The endpoint,
+        parameters (`action=FileAction`, `event=uploadFile`, `page_id`,
+        `source=multiflash`, `multikey?`, file under the `userfile` field),
+        and response shape were all determined by reading Wikidot's
+        client-side JS, not by observing a real upload -- see 30_plan.md D8
+        and 32_tasks.md Task 3-5b in the sibling wikidot.py repo's memory
+        directory. Confirm against a real site before relying on this for
+        anything important.
+
+        Parameters
+        ----------
+        page_id : int
+            ID of the page to attach the file to
+        filename : str
+            File name as it will appear on the page
+        content : bytes
+            File content
+        site_name : str | None, default None
+            Target site name. Uses the site name specified at
+            initialization if None
+        site_ssl_supported : bool | None, default None
+            Site's SSL support status. Uses the result confirmed at
+            initialization if None
+        multikey : str | None, default None
+            Multi-file upload session key. Required by
+            FileAction/multiUploadComplete when uploading more than one
+            file in the same batch
+
+        Returns
+        -------
+        dict[str, str]
+            Parsed response fields among "status" / "message" / "filename"
+            (see _parse_upload_target_response)
+        """
+        site_name = site_name if site_name is not None else self.site_name
+        site_ssl_supported = site_ssl_supported if site_ssl_supported is not None else self.ssl_supported
+
+        url = f"http{'s' if site_ssl_supported else ''}://{site_name}.wikidot.com/default--flow/files__UploadTarget"
+
+        data: dict[str, Any] = {
+            "action": "FileAction",
+            "event": "uploadFile",
+            "page_id": page_id,
+            "source": "multiflash",
+            "wikidot_token7": 123456,
+        }
+        if multikey is not None:
+            data["multikey"] = multikey
+
+        async def _upload() -> httpx.Response:
+            async with httpx.AsyncClient() as client:
+                response = await client.post(
+                    url,
+                    headers=self.header.get_header(),
+                    data=data,
+                    files={"userfile": (filename, content)},
+                    timeout=self.config.request_timeout,
+                )
+                response.raise_for_status()
+                return response
+
+        response = run_coroutine(_upload())
+        return _parse_upload_target_response(response.text)
