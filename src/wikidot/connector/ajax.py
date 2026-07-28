@@ -447,7 +447,8 @@ class AjaxModuleConnectorClient:
                             f"(possibly unsupported action/event) -> {_mask_sensitive_data(_body)}"
                         )
                         raise AMCHttpStatusCodeException(
-                            "AMC request failed: HTTP 500 with empty body (未対応の action/event の可能性があります)",
+                            "AMC request failed: HTTP 500 with empty body "
+                            "(the action/event may not be supported by Wikidot)",
                             500,
                         ) from e
 
