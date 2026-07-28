@@ -286,3 +286,43 @@ class ForumCategory:
         thread_id: int = response["threadId"]
 
         return ForumThread.get_from_id(self.site, thread_id, self)
+
+    def preview_thread(self, title: str, description: str, source: str) -> str:
+        """
+        Render a preview of a new thread without creating it
+
+        Mirrors the fields `create_thread` submits (`new-thread-form`), so
+        a preview and a subsequent `create_thread` call with the same
+        arguments render consistently.
+
+        Parameters
+        ----------
+        title : str
+            Thread title
+        description : str
+            Thread description
+        source : str
+            Thread body (Wikidot syntax)
+
+        Returns
+        -------
+        str
+            Rendered preview HTML
+
+        Raises
+        ------
+        NoElementException
+            If the response has no rendered body
+        """
+        response = self.site.amc_request(
+            [
+                {
+                    "moduleName": "forum/ForumPreviewPostModule",
+                    "category_id": self.id,
+                    "title": title,
+                    "description": description,
+                    "source": source,
+                }
+            ]
+        )[0]
+        return require_body(response, "forum/ForumPreviewPostModule")

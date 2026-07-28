@@ -160,3 +160,26 @@ class TestForumCategoryCreateThread:
 
         assert thread.id == 3001
         assert thread.category == mock_forum_category_no_http
+
+
+class TestForumCategoryPreviewThread:
+    """ForumCategory.preview_threadのテスト"""
+
+    def test_preview_sends_new_thread_form_fields(
+        self, mock_forum_category_no_http: ForumCategory, amc_ok_response: dict[str, Any]
+    ) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<div>preview</div>"}
+        mock_forum_category_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        body = mock_forum_category_no_http.preview_thread(
+            title="Preview Title", description="Preview description", source="Preview source"
+        )
+
+        assert body == "<div>preview</div>"
+        request_body = mock_forum_category_no_http.site.amc_request.call_args[0][0][0]
+        assert request_body["moduleName"] == "forum/ForumPreviewPostModule"
+        assert request_body["category_id"] == mock_forum_category_no_http.id
+        assert request_body["title"] == "Preview Title"
+        assert request_body["description"] == "Preview description"
+        assert request_body["source"] == "Preview source"
