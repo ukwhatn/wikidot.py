@@ -1,5 +1,7 @@
 """AMCクライアントのユニットテスト"""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from pytest_httpx import HTTPXMock
 
@@ -374,6 +376,65 @@ class TestAjaxModuleConnectorClientRequest:
         responses = client.request([{"moduleName": "Test"}])
 
         assert len(responses) == 1
+
+    def test_try_again_respects_time_to_wait(self, httpx_mock: HTTPXMock) -> None:
+        """try_againにtime_to_wait（秒）があればその秒数だけ待つ"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "try_again", "time_to_wait": 3},
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with patch("wikidot.connector.ajax.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            client.request([{"moduleName": "Test"}])
+
+        mock_sleep.assert_called_once_with(3.0)
+
+    def test_try_again_time_to_wait_capped_by_max_backoff(self, httpx_mock: HTTPXMock) -> None:
+        """time_to_waitがmax_backoffを超える場合は上限で切る（サーバ値を無制限に信用しない）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "try_again", "time_to_wait": 999},
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0, max_backoff=5.0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with patch("wikidot.connector.ajax.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            client.request([{"moduleName": "Test"}])
+
+        mock_sleep.assert_called_once_with(5.0)
+
+    def test_try_again_without_time_to_wait_uses_backoff(self, httpx_mock: HTTPXMock) -> None:
+        """time_to_waitが無い場合は従来の指数バックオフのまま（挙動が変わらないこと）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "try_again"},
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=1.0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with patch("wikidot.connector.ajax.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            client.request([{"moduleName": "Test"}])
+
+        # backoff_factor^(1-1) * 1.0 = 1.0 + jitter(0~10%)
+        called_backoff = mock_sleep.call_args[0][0]
+        assert 1.0 <= called_backoff <= 1.1
 
 
 class TestAjaxModuleConnectorClientFormErrors:

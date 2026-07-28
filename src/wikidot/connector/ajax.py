@@ -441,13 +441,19 @@ class AjaxModuleConnectorClient:
                                 'AMC is respond status: "try_again"', "try_again", _response_body
                             )
 
-                        # Retry with exponential backoff interval
-                        backoff = _calculate_backoff(
-                            retry_count,
-                            self.config.retry_interval,
-                            self.config.backoff_factor,
-                            self.config.max_backoff,
-                        )
+                        # Honor the server-specified time_to_wait (seconds) when present,
+                        # capped by max_backoff so a server-supplied value can't stall a
+                        # request indefinitely. Otherwise fall back to exponential backoff
+                        time_to_wait = _response_body.get("time_to_wait")
+                        if isinstance(time_to_wait, (int, float)) and not isinstance(time_to_wait, bool):
+                            backoff = min(float(time_to_wait), self.config.max_backoff)
+                        else:
+                            backoff = _calculate_backoff(
+                                retry_count,
+                                self.config.retry_interval,
+                                self.config.backoff_factor,
+                                self.config.max_backoff,
+                            )
                         wd_logger.info(
                             f'AMC is respond status: "try_again" (retry: {retry_count}, backoff: {backoff:.2f}s)'
                         )
