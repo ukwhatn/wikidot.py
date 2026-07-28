@@ -310,3 +310,32 @@ class TestForumPostEdit:
 
         assert mock_forum_post_no_http.title == "New Title"
         assert mock_forum_post_no_http._source == "Updated source"
+
+
+class TestForumPostDelete:
+    """ForumPost.deleteのテスト"""
+
+    def test_requires_confirm(self, mock_forum_post_no_http: ForumPost) -> None:
+        """confirm=Trueを渡さないとValueError"""
+        with pytest.raises(ValueError, match="confirm"):
+            mock_forum_post_no_http.delete(confirm=False)
+
+    def test_not_logged_in(self, mock_forum_post_no_http: ForumPost) -> None:
+        mock_forum_post_no_http.thread.site.client.login_check = MagicMock(
+            side_effect=exceptions.LoginRequiredException("Login required")
+        )
+        with pytest.raises(exceptions.LoginRequiredException):
+            mock_forum_post_no_http.delete(confirm=True)
+
+    def test_delete_success(self, mock_forum_post_no_http: ForumPost, amc_ok_response: dict[str, Any]) -> None:
+        mock_forum_post_no_http.thread.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        mock_forum_post_no_http.thread.site.amc_request = MagicMock(return_value=[mock_response])
+
+        mock_forum_post_no_http.delete(confirm=True)
+
+        body = mock_forum_post_no_http.thread.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "ForumAction"
+        assert body["event"] == "deletePost"
+        assert body["postId"] == mock_forum_post_no_http.id

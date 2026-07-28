@@ -625,3 +625,34 @@ class ForumPost:
         self._source = source
 
         return self
+
+    def delete(self, *, confirm: bool) -> None:
+        """
+        Delete the post. Destructive and irreversible
+
+        Parameters
+        ----------
+        confirm : bool
+            Must be explicitly True to proceed (safety gate for a
+            destructive operation)
+
+        Raises
+        ------
+        ValueError
+            If confirm is not True
+        LoginRequiredException
+            If not logged in
+        """
+        if not confirm:
+            raise ValueError("delete is destructive; pass confirm=True to proceed")
+        self.thread.site.client.login_check()
+        self.thread.site.amc_request(
+            [
+                {
+                    "action": "ForumAction",
+                    "event": "deletePost",
+                    "moduleName": "Empty",
+                    "postId": self.id,
+                }
+            ]
+        )
