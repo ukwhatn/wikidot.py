@@ -13,12 +13,14 @@ if sys.version_info >= (3, 12):
 else:
     from typing_extensions import TypedDict, Unpack
 
-from ..common import exceptions, wd_logger
+from ..common import exceptions
 from ..connector.ajax import require_body
+from ..util.amc_body import flag, omit_falsy
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 from ..util.requestutil import RequestUtil
-from .page_revision import PageRevision, PageRevisionCollection
+from .page_edit_session import EditMode, PageEditSession
+from .page_revision import PageRevision, PageRevisionCollection, parse_revision_list_html
 from .page_source import PageSource
 from .page_votes import PageVote, PageVoteCollection
 
@@ -698,40 +700,8 @@ class PageCollection(list["Page"]):
             if response is None:
                 continue
             body = require_body(response, "history/PageRevisionListModule")
-            revs = []
             body_html = BeautifulSoup(body, "lxml")
-            for rev_element in body_html.select("table.page-history > tr[id^=revision-row-]"):
-                rev_id = int(str(rev_element["id"]).removeprefix("revision-row-"))
-
-                tds = rev_element.select("td")
-                rev_no = int(tds[0].text.strip().removesuffix("."))
-                created_by_elem = tds[4].select_one("span.printuser")
-                if created_by_elem is None:
-                    raise exceptions.NoElementException(
-                        f"Cannot find created by element for page: {page.fullname}, revision: {rev_id}"
-                    )
-                created_by = user_parser(page.site.client, created_by_elem)
-
-                created_at_elem = tds[5].select_one("span.odate")
-                if created_at_elem is None:
-                    raise exceptions.NoElementException(
-                        f"Cannot find created at element for page: {page.fullname}, revision: {rev_id}"
-                    )
-                created_at = odate_parser(created_at_elem)
-
-                comment = tds[6].text.strip()
-
-                revs.append(
-                    PageRevision(
-                        page=page,
-                        id=rev_id,
-                        rev_no=rev_no,
-                        created_by=created_by,
-                        created_at=created_at,
-                        comment=comment,
-                    )
-                )
-            page.revisions = PageRevisionCollection(page, revs)
+            page.revisions = PageRevisionCollection(page, parse_revision_list_html(page, body_html))
 
         return pages
 
@@ -868,57 +838,6 @@ class PageCollection(list["Page"]):
         """
         PageCollection._acquire_page_files(self.site, self)
         return self
-
-
-def _release_page_edit_lock(
-    site: "Site",
-    fullname: str,
-    page_id: int | None,
-    lock_id: Any,
-    lock_secret: Any,
-) -> None:
-    """
-    Release a page edit lock acquired via edit/PageEditModule
-
-    Wikidot holds the lock for up to 15 minutes once edit/PageEditModule is
-    requested. Any code path that acquires the lock but does not reach a
-    successful savePage must call this, or the page stays uneditable for
-    other users until the lock expires.
-
-    Parameters
-    ----------
-    site : Site
-        Site the page belongs to
-    fullname : str
-        Fullname of the page
-    page_id : int | None
-        Page ID, if known (omitted from the request when None, matching
-        the client-side behavior of only sending page_id when available)
-    lock_id : Any
-        Lock ID returned by edit/PageEditModule
-    lock_secret : Any
-        Lock secret returned by edit/PageEditModule
-
-    Notes
-    -----
-    Failure to release is logged, not raised, so it never masks the
-    original exception that triggered the release attempt.
-    """
-    release_body: dict[str, Any] = {
-        "action": "WikiPageAction",
-        "event": "removePageEditLock",
-        "moduleName": "Empty",
-        "lock_id": lock_id,
-        "lock_secret": lock_secret,
-        "wiki_page": fullname,
-    }
-    if page_id is not None:
-        release_body["page_id"] = page_id
-
-    try:
-        site.amc_request([release_body])
-    except Exception:
-        wd_logger.exception(f"Failed to release page edit lock for {fullname} (lock_id={lock_id})")
 
 
 @dataclass
@@ -1109,6 +1028,28 @@ class Page:
             Source code object to set
         """
         self._source = value
+
+    def get_template_source(self) -> str:
+        """
+        Get this page's source for use as a page-creation template (edit/TemplateSourceModule)
+
+        Distinct from the `source` property: this is the wire endpoint
+        Wikidot uses when populating a new page's editor from a template
+        page (`parentPage`/template selection), not general source
+        retrieval.
+
+        Returns
+        -------
+        str
+            Template source body
+
+        Raises
+        ------
+        ResponseDataException
+            When the response has no "body" field
+        """
+        response = self.site.amc_request([{"moduleName": "edit/TemplateSourceModule", "page_id": self.id}])[0]
+        return require_body(response, "edit/TemplateSourceModule")
 
     @property
     def revisions(self) -> PageRevisionCollection:
@@ -1390,6 +1331,182 @@ class Page:
 
         self._metas = value
 
+    def set_meta(self, name: str, content: str, all_pages: bool = False) -> "Page":
+        """
+        Set a single meta tag (WikiPageAction/saveMetaTag)
+
+        Unlike the `metas` property setter (which diffs the whole
+        dictionary against the current state), this sets one tag directly
+        and supports `allPages`, which applies the tag across every page
+        using the same template.
+
+        Parameters
+        ----------
+        name : str
+            Meta tag name
+        content : str
+            Meta tag content
+        all_pages : bool, default False
+            Whether to apply this to all pages sharing the template
+
+        Returns
+        -------
+        Page
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            When not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "metaName": name,
+                    "metaContent": content,
+                    "action": "WikiPageAction",
+                    "event": "saveMetaTag",
+                    "pageId": self.id,
+                    "moduleName": "edit/EditMetaModule",
+                    **omit_falsy(allPages=flag(all_pages)),
+                }
+            ]
+        )
+        if self._metas is not None:
+            self._metas[name] = content
+        return self
+
+    def delete_meta(self, name: str, all_pages: bool = False) -> "Page":
+        """
+        Delete a single meta tag (WikiPageAction/deleteMetaTag)
+
+        Parameters
+        ----------
+        name : str
+            Meta tag name
+        all_pages : bool, default False
+            Whether to apply this to all pages sharing the template
+
+        Returns
+        -------
+        Page
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            When not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "metaName": name,
+                    "action": "WikiPageAction",
+                    "event": "deleteMetaTag",
+                    "pageId": self.id,
+                    "moduleName": "edit/EditMetaModule",
+                    **omit_falsy(allPages=flag(all_pages)),
+                }
+            ]
+        )
+        if self._metas is not None:
+            self._metas.pop(name, None)
+        return self
+
+    def get_block_form(self) -> str:
+        """
+        Get the rendered page-block form (pageblock/PageBlockModule)
+
+        Returns
+        -------
+        str
+            Rendered HTML body
+        """
+        response = self.site.amc_request([{"moduleName": "pageblock/PageBlockModule", "page_id": self.id}])[0]
+        return require_body(response, "pageblock/PageBlockModule")
+
+    def set_block(self, block: bool = True) -> "Page":
+        """
+        Set or clear this page's edit-block flag (WikiPageAction/saveBlock)
+
+        A blocked page cannot be edited by non-moderator users.
+
+        Parameters
+        ----------
+        block : bool, default True
+            Whether to block editing
+
+        Returns
+        -------
+        Page
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            When not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "WikiPageAction",
+                    "event": "saveBlock",
+                    "moduleName": "Empty",
+                    "pageId": self.id,
+                    **omit_falsy(block=flag(block)),
+                }
+            ]
+        )
+        return self
+
+    def get_backlinks(self) -> str:
+        """
+        Get pages linking to this page (backlinks/BacklinksModule)
+
+        Returns the raw HTML rather than a parsed list; the exact markup
+        was not captured during wire-format research (same caveat as
+        get_rename_backlinks(), which uses a different, rename-specific
+        module).
+
+        Returns
+        -------
+        str
+            Rendered HTML body
+        """
+        response = self.site.amc_request([{"moduleName": "backlinks/BacklinksModule", "page_id": self.id}])[0]
+        return require_body(response, "backlinks/BacklinksModule")
+
+    def watch(self) -> None:
+        """
+        Watch this page for changes (WatchAction/watchPage)
+
+        Raises
+        ------
+        LoginRequiredException
+            When not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [{"action": "WatchAction", "event": "watchPage", "moduleName": "Empty", "pageId": self.id}]
+        )
+
+    def get_watchers(self) -> str:
+        """
+        Get the list of users watching this page (watch/WhoWatchesModule)
+
+        Returns
+        -------
+        str
+            Rendered HTML body
+        """
+        response = self.site.amc_request(
+            [{"moduleName": "watch/WhoWatchesModule", "page_id": self.id, "verbose": True}]
+        )[0]
+        return require_body(response, "watch/WhoWatchesModule")
+
     @staticmethod
     def create_or_edit(
         site: "Site",
@@ -1448,76 +1565,25 @@ class Page:
         """
         site.client.login_check()
 
-        # ページロックを取得しにいく
-        page_lock_request_body = {
-            "mode": "page",
-            "wiki_page": fullname,
-            "moduleName": "edit/PageEditModule",
-        }
-        if force_edit:
-            page_lock_request_body["force_lock"] = "yes"
-
-        page_lock_response = site.amc_request([page_lock_request_body])[0]
-        page_lock_response_data = page_lock_response.json()
-
-        if page_lock_response_data.get("locked") or page_lock_response_data.get("other_locks"):
-            # ロック取得自体に失敗しているので解放不要
-            raise exceptions.TargetErrorException(
-                f"Page {fullname} is locked or other locks exist",
-            )
-
-        # ページが存在するか（page_revision_idがあるか）確認
-        is_exist = "page_revision_id" in page_lock_response_data
-
-        # lock_idとlock_secret、page_revision_id（あれば）を取得
-        # ここから先は編集ロックを保持している状態なので、保存が成立しなかった経路は
-        # 必ずremovePageEditLockで解放する（放置すると最大15分そのページが編集不可になる）
-        lock_id = page_lock_response_data["lock_id"]
-        lock_secret = page_lock_response_data["lock_secret"]
-        page_revision_id = page_lock_response_data.get("page_revision_id")
-
-        save_succeeded = False
-        try:
-            if raise_on_exists and is_exist:
+        # PageEditSessionがロック取得(edit/PageEditModule)から保存(savePage)、
+        # 未保存時の解放(removePageEditLock)までのライフサイクルを保証する(D5)。
+        # 外部シグネチャは維持しつつ、内部実装だけをセッション経由に置き換える。
+        with PageEditSession(site=site, fullname=fullname, page_id=page_id, force_lock=force_edit) as session:
+            if raise_on_exists and session.is_existing_page:
                 raise exceptions.TargetExistsException(f"Page {fullname} already exists")
 
-            if is_exist and page_id is None:
+            if session.is_existing_page and page_id is None:
                 raise ValueError("page_id must be specified when editing existing page")
 
-            # ページの作成または編集
-            edit_request_body = {
-                "action": "WikiPageAction",
-                "event": "savePage",
-                "moduleName": "Empty",
-                "mode": "page",
-                "lock_id": lock_id,
-                "lock_secret": lock_secret,
-                "revision_id": page_revision_id if page_revision_id is not None else "",
-                "wiki_page": fullname,
-                "page_id": page_id if page_id is not None else "",
-                "title": title,
-                "source": source,
-                "comments": comment,
-            }
-            response = site.amc_request([edit_request_body])[0]
-
-            if response.json()["status"] != "ok":
-                raise exceptions.WikidotStatusCodeException(
-                    f"Failed to create or edit page: {fullname}", response.json()["status"]
-                )
-
-            # savePageが成功した時点でWikidot側がロックを解放するため、以降の
-            # NotFoundException（検索側の不整合）では解放を試みない
-            save_succeeded = True
+            # save()が例外を投げなければ保存成功。session.__exit__は_savedを見て
+            # 解放要否を判断するため、ここでのフラグ管理は不要
+            session.save(title=title, source=source, comment=comment)
 
             res = PageCollection.search_pages(site, SearchPagesQuery(fullname=fullname))
             if len(res) == 0:
                 raise exceptions.NotFoundException(f"Page creation failed: {fullname}")
 
             return res[0]
-        finally:
-            if not save_succeeded:
-                _release_page_edit_lock(site, fullname, page_id, lock_id, lock_secret)
 
     def edit(
         self,
@@ -1566,6 +1632,50 @@ class Page:
             force_edit,
         )
 
+    def open_editor(
+        self,
+        mode: "EditMode" = "page",
+        section: int | None = None,
+        force_lock: bool = False,
+    ) -> PageEditSession:
+        """
+        Open a manual edit session for this page
+
+        Unlike `edit()`, which performs a single create-or-edit round trip,
+        this returns an unopened `PageEditSession` for callers that need
+        access to intermediate operations while the lock is held (preview,
+        diff, synchronize, section/append mode, and_continue, ...). Use it
+        as a context manager so the lock is always released unless save()
+        succeeds:
+
+        >>> with page.open_editor() as ed:
+        ...     preview = ed.preview(source="new content")
+        ...     ed.save(source="new content", comment="edit")
+
+        Parameters
+        ----------
+        mode : Literal["page", "section", "append"], default "page"
+            Edit mode
+        section : int | None, default None
+            Section number to edit. Required when mode is "section"
+        force_lock : bool, default False
+            Whether to forcibly take over a lock held by another user
+
+        Returns
+        -------
+        PageEditSession
+            Unopened edit session (call open() or enter via `with` to
+            acquire the lock)
+        """
+        return PageEditSession(
+            site=self.site,
+            fullname=self.fullname,
+            page_id=self._id,
+            mode=mode,
+            section=section,
+            force_lock=force_lock,
+        )
+
     def commit_tags(self) -> "Page":
         """
         Save tag information for the page
@@ -1597,6 +1707,70 @@ class Page:
             ]
         )
         return self
+
+    def get_tags_form(self) -> str:
+        """
+        Get the rendered tags editing form (pagetags/PageTagsModule)
+
+        Returns
+        -------
+        str
+            Rendered HTML body
+        """
+        response = self.site.amc_request([{"moduleName": "pagetags/PageTagsModule", "pageId": self.id}])[0]
+        return require_body(response, "pagetags/PageTagsModule")
+
+    def update_tags_by_button(self, tags: str) -> "Page":
+        """
+        Update tags via the quick-tag button UI (WikiPageAction/updateTagsByButton)
+
+        Distinct from commit_tags(): that saves the current `tags`
+        property in full via WikiPageAction/saveTags. This instead mirrors
+        clicking one of Wikidot's own quick-tag buttons
+        (WikiPageAction/updateTagsByButton), which sends whatever tag
+        string the button computed client-side rather than the page's
+        current tag list.
+
+        Parameters
+        ----------
+        tags : str
+            Space-separated tag string to apply
+
+        Returns
+        -------
+        Page
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            When not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "WikiPageAction",
+                    "event": "updateTagsByButton",
+                    "moduleName": "Empty",
+                    "pageId": self.id,
+                    "tags": tags,
+                }
+            ]
+        )
+        return self
+
+    def get_parent_form(self) -> str:
+        """
+        Get the rendered parent-page selection form (parent/ParentPageModule)
+
+        Returns
+        -------
+        str
+            Rendered HTML body
+        """
+        response = self.site.amc_request([{"moduleName": "parent/ParentPageModule", "page_id": self.id}])[0]
+        return require_body(response, "parent/ParentPageModule")
 
     def set_parent(self, parent_fullname: str | None) -> "Page":
         """
@@ -1637,7 +1811,38 @@ class Page:
         self.parent_fullname = parent_fullname
         return self
 
-    def rename(self, new_fullname: str) -> "Page":
+    def get_rename_backlinks(self) -> str:
+        """
+        Get pages linking to this page, for building rename()'s fixdeps (rename/RenameBacklinksModule)
+
+        Returns the rendered HTML listing backlink pages with checkboxes;
+        the IDs of the ones a caller wants fixed up are what `rename()`'s
+        `fixdeps` expects. The exact list markup was not captured during
+        wire-format research (only the request/response shape is
+        documented: `{page_id}` in, checked IDs comma-joined into
+        `fixdeps` on rename), so this returns the raw body rather than a
+        parsed ID list; parse the HTML yourself until the markup is
+        confirmed.
+
+        Returns
+        -------
+        str
+            Rendered HTML body listing backlink pages
+
+        Raises
+        ------
+        ResponseDataException
+            When the response has no "body" field
+        """
+        response = self.site.amc_request([{"moduleName": "rename/RenameBacklinksModule", "page_id": self.id}])[0]
+        return require_body(response, "rename/RenameBacklinksModule")
+
+    def rename(
+        self,
+        new_fullname: str,
+        fixdeps: list[int] | None = None,
+        force: bool = False,
+    ) -> "Page":
         """
         Rename the page
 
@@ -1648,6 +1853,12 @@ class Page:
         ----------
         new_fullname : str
             New fullname (e.g., "component:new-name")
+        fixdeps : list[int] | None, default None
+            Backlink page IDs (see get_rename_backlinks()) whose links
+            should be updated to the new name along with the rename
+        force : bool, default False
+            Whether to force the rename despite an active edit lock held
+            by someone else
 
         Returns
         -------
@@ -1659,20 +1870,36 @@ class Page:
         LoginRequiredException
             When not logged in
         WikidotStatusCodeException
-            When renaming the page fails (e.g., when a page with the same name exists)
+            When renaming the page fails (e.g., page_exists/not_allowed/no_new_name)
+        TargetErrorException
+            When the rename did not complete because the page is locked
+            (`locks` in the response) or because backlink dependencies are
+            left unresolved (`leftDeps` in the response, alongside the
+            server-computed `newName`)
         """
         self.site.client.login_check()
-        self.site.amc_request(
-            [
-                {
-                    "action": "WikiPageAction",
-                    "event": "renamePage",
-                    "moduleName": "Empty",
-                    "page_id": self.id,
-                    "new_name": new_fullname,
-                }
-            ]
-        )
+        body = {
+            "action": "WikiPageAction",
+            "event": "renamePage",
+            "moduleName": "Empty",
+            "page_id": self.id,
+            "new_name": new_fullname,
+            **omit_falsy(
+                fixdeps=",".join(str(dep_id) for dep_id in fixdeps) if fixdeps else False,
+                force="yes" if force else False,
+            ),
+        }
+        response = self.site.amc_request([body])[0]
+        data = response.json()
+
+        if data.get("locks"):
+            raise exceptions.TargetErrorException(f"Cannot rename page {self.fullname}: page is locked")
+        if data.get("leftDeps"):
+            raise exceptions.TargetErrorException(
+                f"Cannot rename page {self.fullname}: unresolved backlink dependencies remain "
+                f"(newName={data.get('newName')})"
+            )
+
         self.fullname = new_fullname
         if ":" in new_fullname:
             self.category, self.name = new_fullname.split(":", 1)
