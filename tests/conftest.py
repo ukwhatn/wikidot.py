@@ -640,6 +640,30 @@ def site_applications() -> dict[str, Any]:
 
 
 @pytest.fixture
+def site_categories_single() -> dict[str, Any]:
+    """カテゴリ1件（_default）のManage Siteレスポンス"""
+    return _load_json("site", "categories_single.json")
+
+
+@pytest.fixture
+def site_general_form() -> dict[str, Any]:
+    """General設定フォームのManage Siteレスポンス"""
+    return _load_json("site", "general_form.json")
+
+
+@pytest.fixture
+def site_domain_module() -> dict[str, Any]:
+    """Domain設定モジュールのManage Siteレスポンス"""
+    return _load_json("site", "domain_module.json")
+
+
+@pytest.fixture
+def site_access_policy_form() -> dict[str, Any]:
+    """Access policy設定フォームのManage Siteレスポンス"""
+    return _load_json("site", "access_policy_form.json")
+
+
+@pytest.fixture
 def site_applications_empty() -> dict[str, Any]:
     """サイト参加申請（空）レスポンス"""
     return _load_json("site", "applications_empty.json")

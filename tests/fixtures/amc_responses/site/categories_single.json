@@ -1,0 +1,32 @@
+{
+  "status": "ok",
+  "body": "<div>permissions form</div>",
+  "categories": [
+    {
+      "category_id": 30228632,
+      "site_id": 3632981,
+      "name": "_default",
+      "theme_default": false,
+      "theme_id": 0,
+      "layout_default": true,
+      "layout_id": 1,
+      "theme_external_url": "",
+      "permissions_default": false,
+      "permissions": "v:armo;c:m;e:m;m:m;d:m;a:m;r:m;z:m;o:rm",
+      "license_default": true,
+      "license_id": 12,
+      "license_other": "",
+      "nav_default": true,
+      "top_bar_page_name": "nav:global",
+      "side_bar_page_name": "nav:side",
+      "template_id": null,
+      "per_page_discussion": true,
+      "per_page_discussion_default": true,
+      "rating": "drvM",
+      "autonumerate": false,
+      "page_title_template": null,
+      "enable_pingback_out": false,
+      "enable_pingback_in": false
+    }
+  ]
+}

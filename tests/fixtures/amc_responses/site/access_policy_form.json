@@ -1,0 +1,4 @@
+{
+  "status": "ok",
+  "body": "<form id=\"sm-private-form\"><input type=\"radio\" name=\"privacy\" value=\"open\"><input type=\"radio\" name=\"privacy\" value=\"closed\" checked=\"checked\"><input type=\"radio\" name=\"privacy\" value=\"private\"><input type=\"checkbox\" name=\"by_apply\" checked=\"checked\"><input type=\"text\" name=\"by_domain\" value=\"example.com\"><input type=\"checkbox\" name=\"by_password\"><input type=\"text\" name=\"password\" value=\"\"><input type=\"checkbox\" name=\"allowHotlink\" checked=\"checked\"><input type=\"text\" name=\"landingPage\" value=\"start\"><input type=\"checkbox\" name=\"hideNav\"></form>"
+}
