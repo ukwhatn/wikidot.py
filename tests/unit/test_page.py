@@ -808,3 +808,225 @@ class TestPageEdit:
         call_args_list = mock_page_with_id.site.amc_request.call_args_list
         lock_call = call_args_list[0]  # 1回目がロック取得
         assert lock_call[0][0][0].get("force_lock") == "yes"
+
+
+class TestPageOpenEditor:
+    """Page.open_editorのテスト"""
+
+    def test_open_editor_returns_unopened_session(self, mock_page_with_id: Page) -> None:
+        """未オープンのPageEditSessionを返す"""
+        from wikidot.module.page_edit_session import PageEditSession
+
+        session = mock_page_with_id.open_editor()
+        assert isinstance(session, PageEditSession)
+        assert session._locked is False
+        assert session.fullname == mock_page_with_id.fullname
+        assert session.page_id == mock_page_with_id._id
+
+
+class TestPageTemplateSource:
+    """Page.get_template_sourceのテスト"""
+
+    def test_get_template_source(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "template source"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+
+        result = mock_page_with_id.get_template_source()
+        assert result == "template source"
+
+
+class TestPageMetaMethods:
+    """Page.set_meta / delete_metaのテスト"""
+
+    def test_set_meta(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.set_meta("og:title", "Title")
+
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["metaName"] == "og:title"
+        assert body["metaContent"] == "Title"
+        assert body["event"] == "saveMetaTag"
+        assert "allPages" not in body
+
+    def test_set_meta_all_pages(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.set_meta("og:title", "Title", all_pages=True)
+
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["allPages"] == "true"
+
+    def test_delete_meta(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.delete_meta("og:title")
+
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["event"] == "deleteMetaTag"
+        assert "allPages" not in body
+
+
+class TestPageBlock:
+    """Page.get_block_form / set_blockのテスト"""
+
+    def test_get_block_form(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<form></form>"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+
+        assert mock_page_with_id.get_block_form() == "<form></form>"
+
+    def test_set_block_true(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.set_block(True)
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["block"] == "true"
+
+    def test_set_block_false_omits_key(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.set_block(False)
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert "block" not in body
+
+
+class TestPageBacklinksAndWatch:
+    """Page.get_backlinks / watch / get_watchersのテスト"""
+
+    def test_get_backlinks(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<div>backlinks</div>"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+
+        assert mock_page_with_id.get_backlinks() == "<div>backlinks</div>"
+
+    def test_watch(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.watch()
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "WatchAction"
+        assert body["event"] == "watchPage"
+
+    def test_get_watchers(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<div>watchers</div>"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+
+        assert mock_page_with_id.get_watchers() == "<div>watchers</div>"
+
+
+class TestPageTagsAndParentForms:
+    """Page.get_tags_form / update_tags_by_button / get_parent_formのテスト"""
+
+    def test_get_tags_form(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<form></form>"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+
+        assert mock_page_with_id.get_tags_form() == "<form></form>"
+
+    def test_update_tags_by_button(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.update_tags_by_button("scp euclid")
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["event"] == "updateTagsByButton"
+        assert body["tags"] == "scp euclid"
+
+    def test_get_parent_form(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<form></form>"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+
+        assert mock_page_with_id.get_parent_form() == "<form></form>"
+
+
+class TestPageRenameExtended:
+    """Page.rename (fixdeps/force/locks/leftDeps) と get_rename_backlinksのテスト"""
+
+    def test_get_rename_backlinks(self, mock_page_with_id: Page) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "body": "<div>backlinks</div>"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+
+        assert mock_page_with_id.get_rename_backlinks() == "<div>backlinks</div>"
+
+    def test_rename_with_fixdeps(self, mock_page_with_id: Page, page_rename_success: dict[str, Any]) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = page_rename_success
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.rename("new-name", fixdeps=[1, 2, 3])
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["fixdeps"] == "1,2,3"
+
+    def test_rename_with_force(self, mock_page_with_id: Page, page_rename_success: dict[str, Any]) -> None:
+        mock_response = MagicMock()
+        mock_response.json.return_value = page_rename_success
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        mock_page_with_id.rename("new-name", force=True)
+        body = mock_page_with_id.site.amc_request.call_args[0][0][0]
+        assert body["force"] == "yes"
+
+    def test_rename_locks_raises(self, mock_page_with_id: Page) -> None:
+        """locksが含まれる場合、握りつぶさずTargetErrorExceptionを送出"""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"status": "ok", "locks": True, "body": "<div>locked</div>"}
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        with pytest.raises(exceptions.TargetErrorException):
+            mock_page_with_id.rename("new-name")
+
+    def test_rename_left_deps_raises(self, mock_page_with_id: Page) -> None:
+        """leftDepsが含まれる場合、握りつぶさずTargetErrorExceptionを送出"""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "status": "ok",
+            "leftDeps": True,
+            "newName": "new-name",
+        }
+        mock_page_with_id.site.amc_request = MagicMock(return_value=[mock_response])
+        mock_page_with_id.site.client.is_logged_in = True
+        mock_page_with_id.site.client.login_check = MagicMock()
+
+        with pytest.raises(exceptions.TargetErrorException):
+            mock_page_with_id.rename("new-name")

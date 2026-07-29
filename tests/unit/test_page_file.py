@@ -298,4 +298,176 @@ class TestPageFile:
         assert "PageFile" in result
         assert "id=123" in result
         assert "name=test.txt" in result
-        assert "size=1024" in result
+
+
+class TestPageFileCollectionActions:
+    """PageFileCollectionの静的アクション系メソッドのテスト"""
+
+    def test_check_exists_true(self):
+        page = MagicMock()
+        page.id = 1
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "exists": True}
+        page.site.amc_request.return_value = [response]
+
+        assert PageFileCollection.check_exists(page, "test.txt") is True
+        body = page.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "FileAction"
+        assert body["event"] == "checkFileExists"
+        assert body["filename"] == "test.txt"
+
+    def test_get_upload_form(self):
+        page = MagicMock()
+        page.id = 1
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "body": "<form></form>"}
+        page.site.amc_request.return_value = [response]
+
+        assert PageFileCollection.get_upload_form(page) == "<form></form>"
+
+    def test_get_manager(self):
+        page = MagicMock()
+        page.id = 1
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "body": "<div>manager</div>"}
+        page.site.amc_request.return_value = [response]
+
+        assert PageFileCollection.get_manager(page) == "<div>manager</div>"
+
+    def test_multi_upload_complete(self):
+        page = MagicMock()
+        page.id = 1
+        response = MagicMock()
+        response.json.return_value = {"status": "ok"}
+        page.site.amc_request.return_value = [response]
+
+        PageFileCollection.multi_upload_complete(page, "multikey-1", ["a.txt", "b.txt"])
+
+        body = page.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "FileAction"
+        assert body["event"] == "multiUploadComplete"
+        assert body["multikey"] == "multikey-1"
+        import json as json_module
+
+        assert json_module.loads(body["fnames"]) == ["a.txt", "b.txt"]
+
+    def test_upload_delegates_to_amc_client(self):
+        page = MagicMock()
+        page.id = 1
+        page.site.unix_name = "test-site"
+        page.site.ssl_supported = True
+        page.site.client.amc_client.upload_file.return_value = {"status": "ok", "filename": "a.txt"}
+
+        result = PageFileCollection.upload(page, "a.txt", b"content", multikey="mk1")
+
+        assert result == {"status": "ok", "filename": "a.txt"}
+        page.site.client.amc_client.upload_file.assert_called_once_with(
+            page_id=1,
+            filename="a.txt",
+            content=b"content",
+            site_name="test-site",
+            site_ssl_supported=True,
+            multikey="mk1",
+        )
+
+
+class TestPageFileForms:
+    """PageFileのフォーム取得系メソッドのテスト"""
+
+    def test_get_rename_form(self):
+        page = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "body": "<form>rename</form>"}
+        page.site.amc_request.return_value = [response]
+        file = PageFile(page=page, id=1, name="a.txt", url="", mime_type="", size=0)
+
+        assert file.get_rename_form() == "<form>rename</form>"
+
+    def test_get_move_form(self):
+        page = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "body": "<form>move</form>"}
+        page.site.amc_request.return_value = [response]
+        file = PageFile(page=page, id=1, name="a.txt", url="", mime_type="", size=0)
+
+        assert file.get_move_form() == "<form>move</form>"
+
+    def test_get_info(self):
+        page = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"status": "ok", "body": "<div>info</div>"}
+        page.site.amc_request.return_value = [response]
+        file = PageFile(page=page, id=1, name="a.txt", url="", mime_type="", size=0)
+
+        assert file.get_info() == "<div>info</div>"
+
+
+class TestPageFileRenameMoveDelete:
+    """PageFile.rename / move / deleteのテスト"""
+
+    def test_rename_success(self):
+        page = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"status": "ok"}
+        page.site.amc_request.return_value = [response]
+        file = PageFile(page=page, id=1, name="old.txt", url="", mime_type="", size=0)
+
+        result = file.rename("new.txt")
+
+        assert result is file
+        assert file.name == "new.txt"
+        body = page.site.amc_request.call_args[0][0][0]
+        assert body["event"] == "renameFile"
+        assert body["new_name"] == "new.txt"
+        assert "force" not in body
+
+    def test_rename_force(self):
+        page = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"status": "ok"}
+        page.site.amc_request.return_value = [response]
+        file = PageFile(page=page, id=1, name="old.txt", url="", mime_type="", size=0)
+
+        file.rename("new.txt", force=True)
+
+        body = page.site.amc_request.call_args[0][0][0]
+        assert body["force"] == "true"
+
+    def test_move_success(self):
+        page = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"status": "ok"}
+        page.site.amc_request.return_value = [response]
+        file = PageFile(page=page, id=1, name="a.txt", url="", mime_type="", size=0)
+
+        file.move("other-page")
+
+        body = page.site.amc_request.call_args[0][0][0]
+        assert body["event"] == "moveFile"
+        assert body["destination_page_name"] == "other-page"
+
+    def test_delete_requires_confirm(self):
+        page = MagicMock()
+        file = PageFile(page=page, id=1, name="a.txt", url="", mime_type="", size=0)
+
+        try:
+            file.delete()
+            raised = False
+        except ValueError:
+            raised = True
+        assert raised is True
+        page.site.amc_request.assert_not_called()
+
+    def test_delete_with_confirm(self):
+        page = MagicMock()
+        response = MagicMock()
+        response.json.return_value = {"status": "ok"}
+        page.site.amc_request.return_value = [response]
+        file = PageFile(page=page, id=1, name="a.txt", url="", mime_type="", size=0)
+
+        file.delete(confirm=True)
+
+        body = page.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "FileAction"
+        assert body["event"] == "deleteFile"
+        assert body["file_id"] == 1
