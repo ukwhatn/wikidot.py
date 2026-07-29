@@ -2,7 +2,7 @@
 
 > A Python library for interacting with Wikidot sites (SCP Foundation, etc.)
 
-- Version: 4.0.x
+- Version: 4.5.0
 - Python: 3.10+
 - Dependencies: httpx, beautifulsoup4, lxml
 - License: MIT
@@ -81,6 +81,7 @@ client = wikidot.Client(
 | `site` | `ClientSiteAccessor` | Site operations accessor |
 | `user` | `ClientUserAccessor` | User operations accessor |
 | `private_message` | `ClientPrivateMessageAccessor` | Private message accessor |
+| `account` | `ClientAccountAccessor` | Account-level (Dashboard) settings/profile accessor |
 | `is_logged_in` | `bool` | Login status |
 | `username` | `str \| None` | Logged-in username |
 | `me` | `User \| None` | Logged-in user object |
@@ -140,6 +141,9 @@ site = client.site.get("scp-jp")
 | `page` | `SitePageAccessor` | Single page operations |
 | `pages` | `SitePagesAccessor` | Page list operations |
 | `forum` | `SiteForumAccessor` | Forum operations |
+| `settings` | `SiteSettingsAccessor` | Manage Site (`_admin`) settings — see "Site Settings" |
+| `member` | `MemberAccessor` | Site member administration — see "Site Member Administration" |
+| `tools` | `SiteToolsAccessor` | Site Tools / Wanted / Orphaned / Drafts / filtered recent changes — see "Site Tools" |
 | `members` | `list[SiteMember]` | Member list (cached) |
 | `moderators` | `list[SiteMember]` | Moderator list (cached) |
 | `admins` | `list[SiteMember]` | Admin list (cached) |
@@ -154,6 +158,8 @@ site = client.site.get("scp-jp")
 | `member_lookup(user_name, user_id=None)` | `bool` | Check if user is a member |
 | `invite_user(user, text)` | `None` | Invite user to site (login required) |
 | `get_recent_changes(limit=None)` | `list[SiteChange]` | Get recent change history |
+| `amc_request(bodies, return_exceptions=False)` | `tuple[Response, ...]` | Low-level AMC request (raise or return exceptions per-item) |
+| `amc_request_with_retry(bodies, *, batch_size=None, max_retries=None)` | `tuple[Response \| None, ...]` | AMC request with batch splitting and partial-failure retry; still-failed items are `None` |
 
 ### SiteChange Properties
 
@@ -185,6 +191,55 @@ for change in changes:
     flags_str = "".join(change.flags)
     print(f"[{flags_str}] {change.page_fullname} (rev.{change.revision_no})")
     print(f"    by {change.changed_by.name} at {change.changed_at}")
+```
+
+---
+
+## AMC Transport
+
+Low-level details of how requests reach Wikidot's Ajax Module Connector
+(`ajax-module-connector.php`). Most callers never need this section — it
+matters when a `save_*`/`set_*` call raises `FormErrorsException`, or when
+building a raw AMC body for a method that takes `**fields`/`raw_fields`.
+
+### FormErrorsException
+
+Raised when Wikidot's response status is `"form_errors"` / `"form_error"`
+(a validation failure, not a transport error). The payload key holding
+per-field messages differs by module (`formErrors` for most, `errors` for
+`WikiPageAction/savePage`, a plain `message` string for others); the
+`errors` property absorbs this and always returns `dict[str, str]`.
+
+```python
+from wikidot.common.exceptions import FormErrorsException
+
+try:
+    site.settings.save_general(name="")  # empty title is invalid
+except FormErrorsException as e:
+    for field, message in e.errors.items():
+        print(f"{field}: {message}")
+```
+
+### Request Body Helpers
+
+`wikidot.util.amc_body` — used internally by every typed `site.settings.*` /
+`site.member.*` / `client.account.*` method, and useful when passing raw
+fields to a `**fields`/`raw_fields` escape hatch yourself.
+
+| Function | Description |
+|----------|-------------|
+| `checkbox(value)` | Encode a checkbox-style bool: `"on"` if truthy, else `False` (formToArray semantics — unchecked means the key is omitted, not `"false"`) |
+| `flag(value)` | Encode a JS-boolean-style flag: `"true"` if truthy, else `False` (for modules that build the body by hand in JS) |
+| `json_param(obj)` | JSON-encode a value (e.g. `categories`/`options`/`addresses`), passing `None` through |
+| `omit_falsy(**kwargs)` | Drop `None`/`False` values from a dict (identity comparison, so `0` is kept). The single place enforcing that an unchecked checkbox must be *absent*, not `"false"` |
+
+```python
+from wikidot.util.amc_body import checkbox, flag, omit_falsy
+
+body = omit_falsy(
+    toolbarTop=checkbox(True),
+    toolbarBottom=checkbox(False),  # dropped entirely, not sent as "false"
+)
 ```
 
 ---
@@ -255,7 +310,7 @@ page = site.page.create(
 | `votes` | `PageVoteCollection` | Vote information (lazy loaded) |
 | `discussion` | `ForumThread \| None` | Discussion thread (lazy loaded) |
 | `files` | `PageFileCollection` | Attached files (lazy loaded) |
-| `metas` | `dict[str, str]` | Meta tags (lazy loaded, settable) |
+| `metas` | `dict[str, str]` | Meta tags (lazy loaded, settable — diffs the whole dict against current state) |
 
 ### Page Methods
 
@@ -263,11 +318,24 @@ page = site.page.create(
 |--------|-------------|-------------|
 | `get_url()` | `str` | Get page URL |
 | `is_id_acquired()` | `bool` | Check if page ID is cached |
+| `get_template_source()` | `str` | Get the page's template source |
 | `edit(**kwargs)` | `Page` | Edit page (login required) |
+| `open_editor(mode="page", section=None, force_lock=False)` | `PageEditSession` | Get an unopened manual edit session — see "PageEditSession" |
 | `destroy()` | `None` | Delete page (login required) |
-| `rename(new_fullname)` | `Page` | Rename page (login required) |
+| `rename(new_fullname, fixdeps=None, force=False)` | `Page` | Rename page (login required). `fixdeps`: backlink page IDs to update (see `get_rename_backlinks()`) |
+| `get_rename_backlinks()` | `str` | Rendered HTML of pages linking to this page, for building `fixdeps` |
 | `set_parent(parent_fullname)` | `Page` | Set parent page (login required) |
+| `get_parent_form()` | `str` | Rendered parent-page selection form (raw HTML) |
 | `commit_tags()` | `Page` | Save tag changes (login required) |
+| `get_tags_form()` | `str` | Rendered tags editing form (raw HTML) |
+| `update_tags_by_button(tags)` | `Page` | Update tags via the quick-tag button UI (space-separated tag string, distinct from `commit_tags()`) |
+| `set_meta(name, content, all_pages=False)` | `Page` | Set one meta tag directly; `all_pages=True` applies it to every page sharing the template |
+| `delete_meta(name, all_pages=False)` | `Page` | Delete one meta tag |
+| `get_block_form()` | `str` | Rendered page-block form (raw HTML) |
+| `set_block(block=True)` | `Page` | Set/clear the edit-block flag (blocked pages are non-moderator-uneditable, login required) |
+| `get_backlinks()` | `str` | Rendered HTML of pages linking to this page |
+| `watch()` | `None` | Watch the page for changes (login required) |
+| `get_watchers()` | `str` | Rendered HTML of users watching the page |
 | `vote(value)` | `int` | Vote (+1/-1), returns new rating (login required) |
 | `cancel_vote()` | `int` | Cancel vote, returns new rating (login required) |
 
@@ -319,6 +387,62 @@ page = page.rename("new-fullname")
 
 # Delete page
 page.destroy()
+```
+
+---
+
+## PageEditSession
+
+A context manager wrapping the lock lifecycle of Wikidot's page editor
+(`edit/PageEditModule`): acquire on open, keep alive via `synchronize()`,
+release via `release()` (automatic on `__exit__` unless `save()` already
+succeeded). Wikidot holds the lock for up to 15 minutes; any code path that
+acquires it but doesn't reach a successful save should release it
+explicitly. Get one via `page.open_editor(...)`.
+
+### Constructor Parameters
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `site` | `Site` | Yes | - | Site the page belongs to |
+| `fullname` | `str` | Yes | - | Fullname of the page being edited |
+| `page_id` | `int \| None` | No | `None` | Page ID for an existing page; must be `None` when creating a new page |
+| `mode` | `Literal["page", "section", "append"]` | No | `"page"` | Edit mode |
+| `section` | `int \| None` | No | `None` | Section number; required when `mode="section"` |
+| `force_lock` | `bool` | No | `False` | Forcibly take over a lock held by another user when opening |
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `lock_id` / `lock_secret` | `str \| None` | Lock identifiers, set once open |
+| `revision_id` | `str` | Revision ID submitted with save/synchronize |
+| `time_left` | `int \| None` | Remaining lock time in seconds |
+| `is_existing_page` | `bool` | Whether the page already existed when the lock was acquired |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `open()` | `PageEditSession` | Acquire the edit lock. Raises `TargetErrorException` if locked by another user |
+| `save(title="", source="", comment="", and_continue=False, range_start=None, range_end=None, tags=None, parent_page=None, dont_notify_watchers=False)` | `dict[str, Any]` | Save the page (`WikiPageAction/savePage`). Raises `FormErrorsException`, `TargetErrorException` (lock lost) |
+| `synchronize(since_last_input=0)` | `dict[str, Any]` | Keep the lock alive; call periodically while the editor stays open |
+| `preview(title="", source="", page_unix_name=None, range_start=None, range_end=None)` | `dict[str, str]` | Render a preview: `{"body": ..., "title": ...}` |
+| `diff(title="", source="", range_start=None, range_end=None)` | `str` | Render a diff of in-progress content against the base revision |
+| `check_draft_exists(title="", source="", comment="")` | `bool` | Check whether a draft already exists for this lock |
+| `force_lock_intercept()` | `dict[str, Any]` | Forcibly take over a newer lock taken by someone else |
+| `recreate_expired_lock()` | `dict[str, Any]` | Recreate an expired lock |
+| `release(leave_draft=False)` | `None` | Release the lock. Safe to call multiple times; failures are logged, not raised |
+
+### Usage
+
+```python
+with page.open_editor() as ed:
+    preview = ed.preview(source="new content")
+    print(preview["body"])
+    diff_html = ed.diff(source="new content")
+    ed.save(source="new content", comment="edit")
+# Lock auto-released on exit if save() was never called successfully
 ```
 
 ---
@@ -464,6 +588,12 @@ Page revision information.
 | `source` | `PageSource` | Revision source (lazy loaded) |
 | `html` | `str` | Revision HTML (lazy loaded) |
 
+### Revision Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `revert(force=False)` | `dict[str, Any]` | Revert the page to this revision (login required). `force=True` overrides another user's active edit lock. On a lock conflict the response carries `locks`/`body` with status "ok" — inspect the returned dict rather than relying on an exception |
+
 ### PageRevisionCollection Methods
 
 | Method | Return Type | Description |
@@ -471,6 +601,13 @@ Page revision information.
 | `find(id)` | `PageRevision \| None` | Find revision by ID |
 | `get_sources()` | `PageRevisionCollection` | Bulk fetch sources |
 | `get_htmls()` | `PageRevisionCollection` | Bulk fetch HTML |
+
+### Static Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `PageRevisionCollection.get_diff(page, from_revision_id, to_revision_id, show_type="inline")` | `str` | Rendered HTML diff between two revisions |
+| `PageRevisionCollection.acquire(page, options=None, perpage=20, page_no=1)` | `PageRevisionCollection` | Fetch one page of history with server-side change-type filtering. `options` keys: `"all"`/`"source"`/`"title"`/`"move"`/`"tags"`/`"files"`/`"meta"` (no `"new"`, unlike `SiteChange`'s options) |
 
 ### Usage
 
@@ -488,6 +625,15 @@ print(latest.source.wiki_text)
 page.revisions.get_sources()
 for rev in page.revisions:
     print(len(rev.source.wiki_text))
+
+# Revert to an older revision
+old_revision = page.revisions.find(12345)
+if old_revision:
+    old_revision.revert()
+
+# Server-side filtered/paginated history
+from wikidot.module.page_revision import PageRevisionCollection
+filtered = PageRevisionCollection.acquire(page, options={"source": True}, perpage=50)
 ```
 
 ---
@@ -561,12 +707,33 @@ Attached file information.
 | `mime_type` | `str` | MIME type |
 | `size` | `int` | File size in bytes |
 
+### File Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_rename_form()` | `str` | Rendered rename form (raw HTML) |
+| `get_move_form()` | `str` | Rendered move form (raw HTML) |
+| `get_info()` | `str` | Rendered file detail view (raw HTML) |
+| `rename(new_name, force=False)` | `PageFile` | Rename this file (login required). Raises `WikidotStatusCodeException` (`"file_exists"` / `"name_error"`) |
+| `move(destination_page_name, force=False)` | `None` | Move this file to another page (login required). This object's `page` still points at the source — re-fetch from the destination if needed |
+| `delete(confirm=False)` | `None` | Delete this file. Destructive; raises `ValueError` unless `confirm=True` |
+
 ### PageFileCollection Methods
 
 | Method | Return Type | Description |
 |--------|-------------|-------------|
 | `find(id)` | `PageFile \| None` | Find file by ID |
 | `find_by_name(name)` | `PageFile \| None` | Find file by name |
+
+### Static Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `PageFileCollection.check_exists(page, filename)` | `bool` | Check whether a file with that name exists on the page |
+| `PageFileCollection.get_upload_form(page)` | `str` | Rendered file upload form (raw HTML; the actual upload is a separate multipart endpoint) |
+| `PageFileCollection.get_manager(page)` | `str` | Rendered site-wide file manager view scoped to a page (raw HTML) |
+| `PageFileCollection.upload(page, filename, content, *, multikey=None)` | `dict[str, str]` | Upload a file (multipart). **Unverified against a live Wikidot instance.** `multikey` groups multiple uploads for `multi_upload_complete()` |
+| `PageFileCollection.multi_upload_complete(page, multikey, filenames)` | `None` | Notify Wikidot that a batch of multipart uploads has finished (login required) |
 
 ### Usage
 
@@ -580,6 +747,86 @@ for file in page.files:
 image = page.files.find_by_name("image.png")
 if image:
     print(f"Image URL: {image.url}")
+
+# Upload and manage files
+from wikidot.module.page_file import PageFileCollection
+PageFileCollection.upload(page, "notes.txt", b"content")
+image.rename("renamed.png")
+image.delete(confirm=True)
+```
+
+---
+
+## Forum Administration
+
+Forum-wide admin operations (Manage Site's Forum panel), accessed through
+`site.forum` alongside the existing category/thread accessors.
+
+### SiteForumAccessor Methods (new)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `activate()` | `None` | Enable the forum for a site that doesn't have one yet |
+| `set_default_nesting(max_nest_level)` | `None` | Set the site-wide default reply nesting depth (0-10, 0=flat) |
+| `get_layout()` | `ForumLayout` | Fetch the current group/category layout for editing |
+| `update_permissions(mutator, default_permissions=None)` | `None` | Fetch → mutate → save forum category permissions (read-modify-write) |
+| `create_page_discussion_thread(page_id)` | `ForumThread \| None` | Create a page's discussion thread if it doesn't already have one |
+
+### ForumLayout
+
+The full forum group/category layout (`saveForumLayout`'s read-modify-write
+cycle). Never cached — call `ForumLayout.fetch()` again before each edit.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `ForumLayout.fetch(site)` | `ForumLayout` | Fetch the current layout |
+| `add_group(name, description="", visible=True)` | `ForumLayoutGroup` | Add a new empty group |
+| `add_category(group, name, description="", max_nest_level=None)` | `ForumLayoutCategory` | Add a category to a group in this layout |
+| `remove_group(group, *, confirm)` | `None` | Remove a group and all its categories. Destructive; requires `confirm=True` |
+| `remove_category(group, category, *, confirm)` | `None` | Remove a single category. Destructive; requires `confirm=True` |
+| `save()` | `None` | Send the layout back to Wikidot |
+
+`ForumLayoutGroup` (`name`, `description`, `visible`) and
+`ForumLayoutCategory` (`name`, `description`, `max_nest_level`,
+`category_id`, `number_threads`) are the group/category elements the above
+methods operate on.
+
+### ForumCategoryPermissionsCollection
+
+The full forum-category `permissions` array from a *different* module than
+`ForumLayout` (13 fields vs. layout's smaller shape) — always fetch from the
+matching module rather than mixing the two. Never cached.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `ForumCategoryPermissionsCollection.fetch(site)` | `ForumCategoryPermissionsCollection` | Fetch current forum category permissions |
+| `collection[category_id]` | `ForumCategoryPermissions` | Look up a category by ID (raises `KeyError` if missing) |
+| `save(default_permissions=None)` | `None` | Send the array back. `default_permissions` (site-wide) is only sent when explicitly provided — it cannot be fetched and preserved automatically |
+
+`ForumCategoryPermissions.set_permissions(permissions)` updates a single
+category's `ForumPermissions` (`None` = inherit the site default).
+
+### Usage
+
+```python
+# Enable and configure a forum
+site.forum.activate()
+site.forum.set_default_nesting(5)
+
+# Edit the group/category layout
+layout = site.forum.get_layout()
+group = layout.add_group("Announcements", "Site news")
+layout.add_category(group, "General", max_nest_level=3)
+layout.save()
+
+# Read-modify-write forum category permissions
+from wikidot.module.site_permissions import ForumPermissions
+
+site.forum.update_permissions(
+    lambda cats: cats[7001].set_permissions(
+        ForumPermissions.decode("t:m;p:arm;e:m")
+    ),
+)
 ```
 
 ---
@@ -661,6 +908,11 @@ Forum thread operations.
 | Method | Return Type | Description |
 |--------|-------------|-------------|
 | `reply(source, title="", parent_post_id=None)` | `ForumThread` | Reply to thread (login required) |
+| `save_meta(title=None, description=None)` | `ForumThread` | Update title/description (login required). Both are always resent — `None` keeps the current locally-known value rather than blanking it |
+| `set_sticky(sticky)` | `ForumThread` | Pin/unpin the thread within its category (login required) |
+| `set_block(block)` | `ForumThread` | Lock/unlock the thread; locked threads reject new posts (login required) |
+| `move(category)` | `ForumThread` | Move the thread to a different `ForumCategory` (login required) |
+| `watch()` | `ForumThread` | Start watching the thread for new-post notifications (login required) |
 
 ### Static Methods
 
@@ -707,12 +959,16 @@ Forum post operations.
 | `edited_by` | `AbstractUser \| None` | Last editor |
 | `edited_at` | `datetime \| None` | Last edit date |
 | `parent_id` | `int \| None` | Parent post ID |
+| `has_revisions` | `bool` | Whether the post has been edited (`edited_by is not None`) |
+| `revisions` | `ForumPostRevisionCollection` | Edit history (lazy loaded) — see "ForumPostRevision" |
+| `source` | `str` | Post source in Wikidot syntax (lazy loaded). Raises `NoElementException` if unavailable |
 
 ### Methods
 
 | Method | Return Type | Description |
 |--------|-------------|-------------|
 | `edit(source, title=None)` | `ForumPost` | Edit post (login required) |
+| `delete(*, confirm)` | `None` | Delete the post. Destructive and irreversible; raises `ValueError` unless `confirm=True` |
 
 ### ForumPostCollection Methods
 
@@ -729,6 +985,52 @@ for post in thread.posts:
 
 # Edit post (login required)
 post = post.edit(source="Updated content", title="Updated title")
+```
+
+---
+
+## ForumPostRevision
+
+Forum post edit history. Access via `post.revisions`.
+
+### Properties
+
+| Property | Type | Description |
+|----------|------|-------------|
+| `post` | `ForumPost` | Parent post |
+| `id` | `int` | Revision ID |
+| `rev_no` | `int` | Revision number (0 = initial version) |
+| `created_by` | `AbstractUser` | Editor |
+| `created_at` | `datetime` | Edit date |
+| `html` | `str \| None` | Revision HTML (lazy loaded) |
+
+### Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `is_html_acquired()` | `bool` | Check if HTML is cached |
+
+### ForumPostRevisionCollection Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `find(id)` | `ForumPostRevision \| None` | Find revision by ID |
+| `find_by_rev_no(rev_no)` | `ForumPostRevision \| None` | Find revision by revision number |
+| `get_htmls()` | `ForumPostRevisionCollection` | Bulk fetch HTML |
+
+### Static Methods
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `ForumPostRevisionCollection.acquire_all(post)` | `ForumPostRevisionCollection` | Fetch all revisions for one post |
+| `ForumPostRevisionCollection.acquire_all_for_posts(posts)` | `dict[int, ForumPostRevisionCollection]` | Bulk fetch revisions for multiple posts, keyed by post ID |
+
+### Usage
+
+```python
+for revision in post.revisions:
+    print(f"Rev {revision.rev_no} by {revision.created_by.name}")
+    print(revision.html)
 ```
 
 ---
@@ -850,6 +1152,233 @@ member.remove_admin()
 
 ---
 
+## Site Settings
+
+Manage Site (`_admin`) settings. Access through `site.settings`
+(`SiteSettingsAccessor`). Covers General/Domain/Access policy
+(get/save pairs), the seven `categories`-backed areas (permissions,
+license, navigation, templates, page rate, per-page discussion,
+appearance), and single-shot settings (footer, toolbars, Google
+Analytics, autonumeration, pingbacks, API, OpenID, backup, icons,
+newsletter).
+
+`save_general`/`save_domain`/`save_access_policy` resubmit the whole form
+(Wikidot's own save events aren't diffs): each fetches the current
+settings first, and every parameter defaults to `None` meaning "keep the
+current value" — pass `""` explicitly to clear a text field.
+
+### General / Domain / Access Policy
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_general()` | `GeneralSettings` | Fetch title/subtitle/language/description/default_page/welcome_page |
+| `save_general(name=None, subtitle=None, language=None, description=None, default_page=None, welcome_page=None)` | `str \| None` | Save; returns new unix name if it changed. Raises `FormErrorsException` (e.g. empty title) |
+| `get_domain()` | `DomainSettings` | Fetch domain/domain_default/redirects |
+| `save_domain(domain=None, redirects=None, domain_default=None)` | `str \| None` | Save; returns new domain if changed. `redirects` supports at most 10 entries |
+| `get_access_policy()` | `AccessPolicySettings` | Fetch privacy/by_apply/by_domain/by_password/password/allow_hotlink/landing_page/hide_nav (excludes `viewers`, which cannot be read back) |
+| `save_access_policy(privacy=None, by_apply=None, by_domain=None, by_password=None, password=None, allow_hotlink=None, landing_page=None, hide_nav=None, viewers=None)` | `None` | Save. Raises `ValueError` if `privacy` is `None` and cannot be determined. `viewers` (extra allowed users for a private site) is only sent when explicitly provided |
+
+### Categories-backed Settings (thin wrappers over `update_categories`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `update_categories(module_name, action, event, mutator)` | `None` | The read-modify-write primitive: fetch `categories`, mutate, save back. Every method below wraps this |
+| `set_page_permissions(category_name, permissions)` / `use_default_page_permissions(category_name)` | `None` | Explicit `PagePermissions`, or inherit the site default |
+| `set_license(category_name, license, other="")` | `None` | `other` required when `license` is `SiteLicense.OTHER` |
+| `use_default_license(category_name)` | `None` | Inherit the site default license |
+| `set_navigation(category_name, top_bar_page_name, side_bar_page_name)` / `use_default_navigation(category_name)` | `None` | Top/side nav pages, or inherit default |
+| `set_template(category_name, template_id)` | `None` | `template_id=None` unsets it |
+| `set_page_rate_settings(category_name, rating)` | `None` | Set a `RatingSettings` |
+| `set_per_page_discussion(category_name, enabled)` | `None` | `True`/`False` to force, `None` for site default |
+| `set_appearance_theme(category_name, theme_id)` / `set_appearance_external_theme(category_name, theme_external_url)` / `use_default_appearance(category_name)` | `None` | Built-in theme, external theme URL, or inherit default |
+
+### Single-shot Settings
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `save_custom_footer(source, use=False)` | `None` | Custom footer Wikidot markup |
+| `save_toolbars_preference(toolbar_top=False, toolbar_bottom=False, promote=False)` | `None` | Edit-toolbar visibility |
+| `save_google_analytics(key, use=False)` | `None` | GA tracking key |
+| `add_autonumeration(category_name, override=False)` / `remove_autonumeration(category_name)` / `set_autonumerate_title_format(category_name, title_format)` | `None` | Page auto-numbering. `override=True` confirms past a `"non_numeric"` `WikidotStatusCodeException` |
+| `add_pingbacks(category_name, override=False)` / `remove_pingbacks(category_name)` / `set_global_pingback(enabled=False)` | `None` | Outgoing pingbacks per-category / site-wide |
+| `save_api_settings(enabled=False, read_1=False, read_2=False, write_1=False, write_2=False)` | `None` | Public API access levels |
+| `save_openid(enabled, identity_url="", server_url="")` | `None` | Site-wide OpenID login config |
+| `request_backup(backup_sources=False, backup_files=False, backup_type="zip")` | `None` | Request a site backup |
+| `delete_backup(*, confirm, backup_sources=False, backup_files=False, backup_type="zip")` | `None` | Destructive; raises `ValueError` unless `confirm=True` |
+| `delete_favicon()` / `set_favicon_from_uri(uri)` | `None` | Favicon |
+| `delete_ios_icon()` / `set_ios_icon_from_uri(uri)` | `None` | iOS home screen icon |
+| `delete_windows_icon()` / `set_windows_icon_from_uri(uri)` / `set_windows_icon_background_color(color)` | `None` | Windows tile icon |
+| `preview_newsletter(title, content)` | `tuple[str, str]` | Rendered `(title, content)` preview |
+| `send_newsletter(title, content, admins=False, moderators=False, members=False, others=None)` | `None` | Send a newsletter; `others` is a list of extra `AbstractUser \| int` recipients |
+
+### Usage
+
+```python
+# Read-modify-write a single field
+current = site.settings.get_general()
+site.settings.save_general(subtitle="New subtitle")  # other fields kept
+
+# Categories-backed: explicit page permissions for a category
+from wikidot.module.site_permissions import PagePermissions
+
+site.settings.set_page_permissions(
+    "_default",
+    PagePermissions(view={"anonymous", "registered", "member"}, edit={"member"}),
+)
+
+# Access policy — privacy is required if it can't be read back
+site.settings.save_access_policy(privacy="closed", by_apply=True)
+```
+
+---
+
+## Site Categories & Permissions
+
+Types behind the `categories` read-modify-write cycle shared by seven
+Manage Site areas. See `wikidot.module.site_category` /
+`wikidot.module.site_permissions`.
+
+### SiteCategory / SiteCategoryCollection
+
+`SiteCategoryCollection` is the full `categories` array for a site, keyed by
+name; never cached (a new one is fetched on every
+`update_categories` call). `collection[name]` looks up a `SiteCategory` by
+name (raises `KeyError` if missing); `collection.names()` lists all names.
+
+`SiteCategory` holds the 24-field per-category schema (`permissions`,
+`license_id`/`license_other`, `top_bar_page_name`/`side_bar_page_name`,
+`template_id`, `per_page_discussion`, `rating`, `autonumerate`,
+`enable_pingback_out`/`enable_pingback_in`, theme fields, and each area's
+`*_default` inherit flag). `category.set_permissions(*, view=None,
+create=None, edit=None, ...)` updates only the specified fields and clears
+`permissions_default`.
+
+### PagePermissions / ForumPermissions
+
+Decoded form of Wikidot's compact `permissions` strings (e.g.
+`"v:armo;c:m;..."`). Frozen dataclasses of `frozenset[Actor]` per
+permission, where `Actor = Literal["anonymous", "registered", "member",
+"author"]`.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `PagePermissions.decode(s)` / `.encode()` | `PagePermissions` / `str` | Round-trip the category `permissions` string (9 fields: view/create/edit/move/delete/upload_files/rename_files/replace_files/show_options) |
+| `.validate()` | `list[str]` | Check the anonymous⊂registered⊂member containment convention (not auto-enforced) |
+| `ForumPermissions.decode(s)` / `.encode()` | `ForumPermissions` / `str` | Round-trip a forum category's `permissions` string (create_threads/add_posts/edit_posts) — a distinct encoding from `PagePermissions` |
+| `replace_actors(permissions, **updates)` | `PagePermissions` | Copy of `permissions` with only the given fields replaced |
+
+Unrecognized segments round-trip verbatim through an internal `_unknown`
+field rather than being dropped.
+
+### RatingSettings / SiteLicense
+
+`RatingSettings` decodes a category's 4-character `rating` code (e.g.
+`"drvM"`): `enabled: bool`, `voters: Literal["registered", "member"]`,
+`anonymous: bool`, `kind: Literal["plus_only", "plus_minus", "stars"]`.
+`RatingSettings.decode(s)` raises `ValueError` on an unrecognized code
+(unlike Page/ForumPermissions, no unknown-but-real variant exists here).
+
+`SiteLicense` is an `Enum` of the 15 known `license_id` values (e.g.
+`SiteLicense.CC_ATTRIBUTION_SHAREALIKE_3_0`, `SiteLicense.OTHER`).
+
+---
+
+## Site Member Administration
+
+Site-admin operations distinct from the public-facing `site.members` /
+`site.moderators` / `site.admins` properties. Access through `site.member`
+(singular, `MemberAccessor`).
+
+### Admin-view Listings
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_members()` / `get_moderators()` / `get_admins()` | `list[SiteMember]` | Admin-panel view (distinct module from the public `site.members` etc.) |
+
+### Membership / Ownership
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `remove(user, *, ban=False)` | `None` | Remove a member. `ban=True` removes **and** blocks in one call — Wikidot's "remove and ban" combined flow |
+| `change_master(user)` | `None` | Transfer master-admin ownership. Destructive from the caller's side — the caller loses master status |
+| `get_moderator_permissions_form(moderator_id)` | `dict[str, Any]` | `{"body": <raw HTML>}` — **未実測** field names, inspect and pass to `save_moderator_permissions` |
+| `save_moderator_permissions(**fields)` | `None` | Save raw fields verbatim (unvalidated, unlike the typed `site.settings.*` methods) |
+
+### Invitations
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `search_users(query)` | `list[UserSearchResult]` | Search users to invite |
+| `send_email_invitations(addresses, message="")` | `None` | `addresses`: list of `(email, name, is_contact)` tuples |
+| `delete_email_invitation(invitation_id)` / `resend_email_invitation(invitation_id, message="")` | `None` | Manage a pending email invitation |
+| `set_let_users_invite(enabled)` | `None` | Allow/disallow regular members to invite others via email |
+| `invite_admin(user)` | `int \| None` | Invite a user to become a site admin |
+
+### User / IP Blocks
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_blocked_users()` | `list[UserBlock]` | Blocked users |
+| `get_blocked_ips()` | `list[IpBlock]` | Blocked IP addresses/ranges |
+| `block_user(user, reason="")` / `unblock_user(user)` | `None` | `unblock_user` takes a user ID (`userId`), not a block ID |
+| `block_ip(ips, reason="")` / `unblock_ip(block_id)` | `None` | `unblock_ip` takes a block ID (`blockId`, from `get_blocked_ips()`), not an IP — asymmetric with `unblock_user` |
+
+### Abuse Flags / Misc
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `clear_user_flags(user)` / `clear_page_flags(path)` / `clear_anonymous_flags(address, proxy=False)` | `None` | Clear reported abuse flags |
+| `set_members_watching(watch_all=False, selected_categories=None)` | `None` | Configure members' automatic watching of new pages |
+| `set_block_link(karma_level, block_link=False)` | `None` | Configure automatic link-blocking by karma level (0-5) |
+
+`UserSearchResult` (`id`, `name`), `UserBlock` (`site`, `user`, `reason`),
+`IpBlock` (`site`, `block_id`, `ip`, `reason`) are the row types above.
+Both block user/ID and `AbstractUser | int` arguments are accepted
+throughout this accessor.
+
+### Usage
+
+```python
+# Remove and ban a member
+member = site.members[0]
+site.member.remove(member.user, ban=True)
+
+# Invite an admin, block an abusive IP
+site.member.invite_admin(some_user)
+site.member.block_ip("203.0.113.0/24", reason="spam")
+
+for blocked in site.member.get_blocked_users():
+    print(blocked.user.name, blocked.reason)
+```
+
+---
+
+## Site Tools
+
+Site-wide tooling views. Access through `site.tools`
+(`SiteToolsAccessor`). Most methods return raw rendered HTML (markup was
+not captured during wire-format research) rather than a parsed structure.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_overview()` | `str` | Site Tools overview page |
+| `get_wanted_pages(page=None, embed=False)` | `str` | Wanted Pages list |
+| `get_orphaned_pages()` | `str` | Orphaned Pages list |
+| `get_drafts()` | `str` | Drafts list, scoped to Site Tools |
+| `get_categories()` | `str` | Category list for `manage:listpages` |
+| `expand_category(category_id, include_hidden=False)` | `str` | Page list for a single category |
+| `get_recent_changes(category_id=None, page_id=None, options=None, perpage=20, page_no=1)` | `list[SiteChange]` | Server-side filtered recent changes. `options` keys (8): `"all"`/`"source"`/`"title"`/`"tags"`/`"move"`/`"files"`/`"new"`/`"meta"` — differs from page-history's 7 (no `"new"` there) |
+
+### Usage
+
+```python
+changes = site.tools.get_recent_changes(options={"new": True, "move": True}, perpage=100)
+for change in changes:
+    print(change.page_fullname, change.flags)
+```
+
+---
+
 ## SiteApplication
 
 Membership application operations (login required).
@@ -909,6 +1438,30 @@ Private message operations (login required).
 | `client.private_message.get_message(id)` | `PrivateMessage` | Get message by ID |
 | `client.private_message.get_messages(ids)` | `PrivateMessageCollection` | Get multiple messages |
 | `client.private_message.send(recipient, subject, body)` | `None` | Send message |
+| `client.private_message.save_draft(subject, body, recipient=None)` | `None` | Save a message draft |
+| `client.private_message.check_can_send(user)` | `None` | Raises `ForbiddenException` if sending to `user` is not allowed |
+| `client.private_message.preview(subject, body, recipient=None)` | `str` | Render a preview without sending |
+| `client.private_message.fetch_reply_form_html(reply_message_id)` | `str` | Pre-filled "new message" form HTML for a reply |
+| `client.private_message.get_invitations_html(page=1)` / `get_invitation_detail_html(item)` | `str` | Pending site invitations (raw HTML) |
+| `client.private_message.get_applications()` | `list[SiteJoinApplication]` | The account's own pending outgoing site-join applications |
+| `client.private_message.get_application_detail_html(item)` | `str` | Detail HTML of a single application |
+| `client.private_message.get_contacts()` | `list[Contact]` | Contact list |
+| `client.private_message.get_contacts_list_html()` | `str` | Contact picker HTML used when composing a message |
+| `client.private_message.add_contact(user)` / `remove_contact(user)` | `None` | Manage the contact list (`ContactsAction`) |
+| `client.private_message.add_contact_via_profile(user)` | `str` | Add a contact from the user's profile page (a second, module-render-as-action path); returns raw HTML |
+
+### SiteJoinApplication / Contact
+
+`SiteJoinApplication` (`item_id`, `from_site`, `subject`, `preview`,
+`submitted_at`) is the account's own outgoing application to a site;
+distinct from `SiteApplication` (a site admin's view of *incoming*
+applications). It has no `site_id`, so withdrawing one goes through
+`client.site.remove_application(site_id)` with a `site_id` obtained
+elsewhere, not through this object. `fetch_detail_html()` fetches its own
+detail HTML.
+
+`Contact` (`user`) wraps one contact-list entry; `contact.remove()` removes
+it.
 
 ### Usage
 
@@ -939,6 +1492,120 @@ print(message.body)
 
 ---
 
+## Account
+
+The logged-in user's Wikidot account (`www.wikidot.com/account/settings`,
+`/account/recent`), distinct from any single site. Access through
+`client.account` (`ClientAccountAccessor`), which exposes `.settings`
+(`AccountSettings`), `.profile` (`AccountProfile`), and `.recent`
+(`AccountRecentActivity`). All requests go to `www.wikidot.com`, never a
+site's own host.
+
+### AccountSettings (`client.account.settings`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `set_receive_messages(from_)` | `None` | `from_`: `"a"` (all registered), `"mf"` (co-members+contacts), `"f"` (contacts only), `"n"` (nobody) |
+| `block_user(user)` / `unblock_user(user)` | `None` | Private-message block list (lives here, not on `ClientPrivateMessageAccessor` — Wikidot groups all `DashboardSettingsAction` together) |
+| `start_email_change(email)` / `confirm_email_change(evercode)` | `None` | Two-step email change flow |
+| `change_password(old_password, new_password)` | `None` | Change account password |
+| `set_language(language)` | `None` | Account UI language |
+| `set_receive_digest(receive)` / `set_receive_newsletter(receive)` / `set_receive_invitations(receive)` | `None` | Subscription toggles |
+| `set_toolbars(top=False, bottom=False)` | `None` | Account-wide editor toolbar preference (distinct from `site.settings.save_toolbars_preference`, a per-site same-named event) |
+| `generate_api_key(read_only=False)` | `str` | Regenerate the account's API key |
+| `connect_facebook(fb_user)` / `disconnect_facebook()` | `dict[str, Any]` / `None` | Link/unlink Facebook |
+| `get_account_html()` / `get_about_html()` / `get_forum_signature_html()` / `get_toolbars_html()` / `get_newsletter_html()` / `get_messages_html()` / `get_invitations_html()` / `get_facebook_html()` / `get_visibility_html()` / `get_api_html()` | `str` | Raw HTML of each `/account/settings` dashboard tab |
+
+All methods raise `LoginRequiredException` if not logged in; the save/change
+methods raise `FormErrorsException` on validation failure.
+
+### AccountProfile (`client.account.profile`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `change_screen_name(screen_name)` | `None` | Change the display name |
+| `save_about(real_name="", gender=None, birthday_day="", birthday_month="", birthday_year="", about="", website="", im_aim="", im_gadu_gadu="", im_google_talk="", im_icq="", im_jabber="", im_msn="", im_yahoo="", location="")` | `None` | Save the "about" bio section. `about` is capped at 200 chars server-side |
+| `save_forum_signature(source)` | `None` | Save forum post signature (capped at 400 chars server-side) |
+| `preview_forum_signature(source)` | `str` | Render a signature preview without saving |
+| `save_profile_visibility(raw_fields)` | `None` | **Unmeasured** field names (observed "no_permission" on non-Pro accounts) — pass exact form fields |
+| `delete_avatar()` / `upload_avatar_from_uri(uri)` | `None` / `dict[str, Any]` | Manage avatar |
+
+### AccountRecentActivity (`client.account.recent`)
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_changes(options=None, limit=None)` | `list[UserChange]` | The account's own recent page edits, across every site it belongs to. `options` keys: `"all"`/`"source"`/`"title"`/`"move"`/`"files"`/`"new"`/`"meta"` (no `"tags"`, unlike page-history options) — raises `ValueError` on an unknown key |
+| `get_posts(limit=None)` | `list[RecentPost]` | The account's own recent forum posts, across every site |
+
+`UserChange` (`site_title`, `site_url`, `page_fullname`, `page_title`,
+`revision_no`, `changed_at`, `flags`) mirrors `SiteChange` with an added
+site column. `RecentPost` (`title`, `url`, `created_at`, `content`) is one
+recent post.
+
+### Usage
+
+```python
+# Account settings
+client.account.settings.set_language("ja")
+client.account.settings.change_password("old-pw", "new-pw")
+new_key = client.account.settings.generate_api_key()
+
+# Profile
+client.account.profile.change_screen_name("New Name")
+client.account.profile.save_about(about="Bio text", website="https://example.com")
+
+# Cross-site recent activity
+for change in client.account.recent.get_changes(limit=50):
+    print(f"[{change.site_title}] {change.page_fullname} rev.{change.revision_no}")
+for post in client.account.recent.get_posts(limit=20):
+    print(post.title, post.created_at)
+```
+
+---
+
+## Dashboard Sites
+
+The account's relationship to sites — creating a site, listing sites it
+belongs to, invitations, resigning a role — as distinct from `Site`, which
+represents a site's own state independent of any account. Access through
+`client.site` alongside the existing `get()` method (`ClientSiteAccessor`).
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `client.site.create(name, unixname, subtitle="", language="en", template="standard-template", privacy="open", tos=True)` | `str` | Create a new site; returns its unix name. Raises `FormErrorsException` (e.g. unixname taken) |
+| `client.site.my_sites` | `list[DashboardSite]` | Every site the account belongs to (all roles), plus deleted sites |
+| `client.site.accept_invitation(invitation_id)` / `throw_away_invitation(invitation_id)` | `None` | Accept or discard a pending site invitation |
+| `client.site.remove_application(site_id)` | `None` | Withdraw a pending membership application the account submitted |
+| `client.site.restore_site(site_id, confirm_site_name)` | `None` | Restore a deleted site the account administers (typed-name confirmation) |
+| `client.site.resign_as_admin(site_id)` / `resign_as_moderator(site_id)` / `sign_off_as_member(site_id)` | `None` | Give up a role on a site |
+| `client.site.set_site_storage_limit(site_id, raw_fields)` | `None` | **Unmeasured** field names — pass exact form fields |
+
+`DashboardSite` (one row of the account's site listing: `site_id`, `title`,
+`url`, `unix_name`, `tagline`, `activity`, `role`, `deleted`) also exposes
+the per-site operations above as instance methods (`site.restore(...)`,
+`site.resign_as_admin()`, `site.resign_as_moderator()`,
+`site.sign_off_as_member()`, `site.set_storage_limit(...)`) — equivalent
+convenience wrappers over the `client.site.*` functions.
+
+`NewSiteTemplate` = `"standard-template" | "blog-template" |
+"blank-template" | "default-template" | "notebooks"`.
+`NewSitePrivacy` = `"open" | "closed" | "private"`.
+
+### Usage
+
+```python
+# Create a new site
+unixname = client.site.create("My Site", "my-new-site", template="blank-template")
+
+# List and manage account's sites
+for dash_site in client.site.my_sites:
+    print(f"{dash_site.title} ({dash_site.role}){' [deleted]' if dash_site.deleted else ''}")
+    if dash_site.deleted:
+        dash_site.restore(confirm_site_name=dash_site.title)
+```
+
+---
+
 ## Exception Handling
 
 ### Exception Hierarchy
@@ -951,6 +1618,7 @@ WikidotException (base)
 ├── AjaxModuleConnectorException  # AMC base exception
 │   ├── AMCHttpStatusCodeException  # HTTP status error (e.g., 404, 500)
 │   ├── WikidotStatusCodeException  # Wikidot API status error
+│   │   └── FormErrorsException     # Validation failure (status "form_errors"/"form_error")
 │   └── ResponseDataException       # Response parsing failed
 ├── NotFoundException             # Resource not found
 ├── TargetExistsException         # Resource already exists
@@ -964,7 +1632,8 @@ WikidotException (base)
 | Exception | Properties | Description |
 |-----------|------------|-------------|
 | `AMCHttpStatusCodeException` | `status_code: int` | HTTP status code |
-| `WikidotStatusCodeException` | `status_code: str` | Wikidot status |
+| `WikidotStatusCodeException` | `status_code: str`, `response: dict \| None` | Wikidot status, raw AMC response body |
+| `FormErrorsException` | `errors: dict[str, str]` (property) | Field name → error message, absorbing the `formErrors`/`errors`/`message` key variance across modules (see "AMC Transport") |
 
 ### Usage
 
@@ -1003,14 +1672,21 @@ src/wikidot/
 ├── __init__.py                   # Package entry point
 ├── common/
 │   ├── decorators.py             # @login_required decorator
-│   └── exceptions.py             # Exception definitions
+│   └── exceptions.py             # Exception definitions (incl. FormErrorsException)
 ├── connector/
-│   ├── amc.py                    # AjaxModuleConnector
-│   └── amc_config.py             # Configuration
+│   └── ajax.py                   # AjaxModuleConnectorClient/Config
 ├── module/
 │   ├── client.py                 # Client class and accessors
 │   ├── site.py                   # Site class and accessors
+│   ├── site_settings.py          # SiteSettingsAccessor, General/Domain/AccessPolicySettings
+│   ├── site_category.py          # SiteCategory, SiteCategoryCollection, SiteLicense
+│   ├── site_permissions.py       # PagePermissions, ForumPermissions, RatingSettings
+│   ├── site_member_admin.py      # MemberAccessor
+│   ├── site_block.py             # UserBlock, IpBlock
+│   ├── site_tools.py             # SiteToolsAccessor
+│   ├── forum_admin.py            # ForumLayout, ForumCategoryPermissionsCollection
 │   ├── page.py                   # Page, PageCollection, SearchPagesQuery
+│   ├── page_edit_session.py      # PageEditSession
 │   ├── page_source.py            # PageSource
 │   ├── page_revision.py          # PageRevision, PageRevisionCollection
 │   ├── page_votes.py             # PageVote, PageVoteCollection
@@ -1018,11 +1694,16 @@ src/wikidot/
 │   ├── forum_category.py         # ForumCategory, ForumCategoryCollection
 │   ├── forum_thread.py           # ForumThread, ForumThreadCollection
 │   ├── forum_post.py             # ForumPost, ForumPostCollection
+│   ├── forum_post_revision.py    # ForumPostRevision, ForumPostRevisionCollection
 │   ├── user.py                   # User hierarchy
-│   ├── private_message.py        # PrivateMessage classes
+│   ├── private_message.py        # PrivateMessage, SiteJoinApplication, Contact
 │   ├── site_member.py            # SiteMember
+│   ├── site_application.py       # SiteApplication
+│   ├── account.py                # AccountSettings, AccountProfile, AccountRecentActivity
+│   ├── dashboard_site.py         # DashboardSite, DashboardSites
 │   └── auth.py                   # Authentication handling
 └── util/
+    ├── amc_body.py                # checkbox/flag/json_param/omit_falsy request-body helpers
     ├── parser/                   # HTML parsers
     ├── quick_module.py           # QuickModule API
     └── string.py                 # String utilities
@@ -1182,6 +1863,43 @@ with wikidot.Client() as client:
         print(f"[{flags}] {change.page_fullname}")
         print(f"  Rev {change.revision_no} by {change.changed_by.name}")
         print(f"  {change.changed_at}: {change.comment or '(no comment)'}")
+```
+
+### Manual Edit Session with Preview
+
+```python
+with wikidot.Client(username="user", password="pass") as client:
+    site = client.site.get("scp-jp")
+    page = site.page.get("scp-173")
+
+    with page.open_editor() as ed:
+        preview = ed.preview(source="[[=]]\n++ New content\n[[/=]]")
+        print(preview["body"])
+
+        diff_html = ed.diff(source="[[=]]\n++ New content\n[[/=]]")
+        print(diff_html)
+
+        ed.save(source="[[=]]\n++ New content\n[[/=]]", comment="Rewrite intro")
+```
+
+### Configure Site Permissions and Invite an Admin
+
+```python
+with wikidot.Client(username="admin", password="pass") as client:
+    site = client.site.get("my-site")
+
+    # Grant registered users edit access on the default category
+    from wikidot.module.site_permissions import PagePermissions
+
+    site.settings.set_page_permissions(
+        "_default",
+        PagePermissions(view={"anonymous", "registered", "member"}, edit={"registered", "member"}),
+    )
+
+    # Search for and invite a new admin
+    candidates = site.member.search_users("some-user")
+    if candidates:
+        site.member.invite_admin(candidates[0].id)
 ```
 
 ---
