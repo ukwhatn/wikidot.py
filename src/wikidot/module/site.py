@@ -20,6 +20,13 @@ from ..util.http import sync_get_with_retry
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 from ..util.quick_module import QMCUser, QuickModule
+from .forum_admin import (
+    ForumCategoryPermissionsCollection,
+    ForumLayout,
+    activate_forum,
+    set_forum_default_nesting,
+    update_forum_permissions,
+)
 from .forum_category import ForumCategoryCollection
 from .forum_thread import ForumThread, ForumThreadCollection
 from .page import Page, PageCollection, SearchPagesQuery, SearchPagesQueryParams
@@ -29,7 +36,10 @@ from .site_member_admin import MemberAccessor
 from .site_settings import SiteSettingsAccessor
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from .client import Client
+    from .site_permissions import ForumPermissions
     from .user import AbstractUser, User
 
 
@@ -195,6 +205,82 @@ class SiteForumAccessor:
             Collection of forum categories
         """
         return ForumCategoryCollection.acquire_all(self.site)
+
+    def activate(self) -> None:
+        """Enable the forum for this site (`ManageSiteForumAction/activateForum`)"""
+        activate_forum(self.site)
+
+    def set_default_nesting(self, max_nest_level: int) -> None:
+        """
+        Set the forum's site-wide default reply nesting depth
+
+        Parameters
+        ----------
+        max_nest_level : int
+            0-10 (0 = flat)
+        """
+        set_forum_default_nesting(self.site, max_nest_level)
+
+    def get_layout(self) -> "ForumLayout":
+        """
+        Fetch the current forum group/category layout for editing
+
+        Returns
+        -------
+        ForumLayout
+        """
+        return ForumLayout.fetch(self.site)
+
+    def update_permissions(
+        self,
+        mutator: "Callable[[ForumCategoryPermissionsCollection], None]",
+        default_permissions: "ForumPermissions | None" = None,
+    ) -> None:
+        """
+        Fetch the current forum category permissions, mutate them, and
+        save them back
+
+        See `forum_admin.update_forum_permissions` for why this must be a
+        fetch-mutate-save cycle rather than accepting a hand-built
+        override list (`ManageSiteForumAction/saveForumPermissions` sends
+        the module's entire fetched `categories` array).
+
+        Parameters
+        ----------
+        mutator : Callable[[ForumCategoryPermissionsCollection], None]
+            Called with the freshly fetched collection; mutate categories
+            in place (e.g. `collection[category_id].set_permissions(...)`)
+        default_permissions : ForumPermissions | None, default None
+            Site-wide default forum permissions to also set. Only sent
+            when explicitly provided — see
+            `ForumCategoryPermissionsCollection.save`'s docstring for why
+            this can't be fetched and preserved automatically
+
+        Examples
+        --------
+        >>> site.forum.update_permissions(
+        ...     lambda cats: cats[7001].set_permissions(
+        ...         ForumPermissions.decode("t:m;p:arm;e:m")
+        ...     ),
+        ... )
+        """
+        update_forum_permissions(self.site, mutator, default_permissions)
+
+    def create_page_discussion_thread(self, page_id: int) -> Optional["ForumThread"]:
+        """
+        Create a page's discussion (comment) thread if it does not already have one
+
+        Parameters
+        ----------
+        page_id : int
+            Numeric page ID (not the page's unix name)
+
+        Returns
+        -------
+        ForumThread | None
+            See `ForumThread.create_for_page` for why this can be None
+        """
+        return ForumThread.create_for_page(self.site, page_id)
 
 
 @dataclass

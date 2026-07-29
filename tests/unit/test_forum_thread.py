@@ -262,6 +262,206 @@ class TestForumThreadReply:
         assert call_args["parentId"] == "5001"
 
 
+class TestForumThreadSaveMeta:
+    """ForumThread.save_metaのテスト"""
+
+    def _prepare(self, thread: ForumThread, amc_ok_response: dict[str, Any]) -> MagicMock:
+        thread.site.client.is_logged_in = True
+        thread.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        thread.site.amc_request = MagicMock(return_value=[mock_response])
+        return thread.site.amc_request
+
+    def test_not_logged_in(self, mock_forum_thread_no_http: ForumThread) -> None:
+        mock_forum_thread_no_http.site.client.login_check = MagicMock(
+            side_effect=exceptions.LoginRequiredException("Login required")
+        )
+        with pytest.raises(exceptions.LoginRequiredException):
+            mock_forum_thread_no_http.save_meta(title="New title")
+
+    def test_unspecified_fields_keep_current_value(
+        self, mock_forum_thread_no_http: ForumThread, amc_ok_response: dict[str, Any]
+    ) -> None:
+        """title/descriptionを指定しない場合、現在値のまま送られる（空欄で上書きされない）"""
+        amc_request = self._prepare(mock_forum_thread_no_http, amc_ok_response)
+        original_title = mock_forum_thread_no_http.title
+        original_description = mock_forum_thread_no_http.description
+
+        mock_forum_thread_no_http.save_meta()
+
+        body = amc_request.call_args[0][0][0]
+        assert body["title"] == original_title
+        assert body["description"] == original_description
+
+    def test_explicit_values_are_sent_and_cached(
+        self, mock_forum_thread_no_http: ForumThread, amc_ok_response: dict[str, Any]
+    ) -> None:
+        amc_request = self._prepare(mock_forum_thread_no_http, amc_ok_response)
+
+        result = mock_forum_thread_no_http.save_meta(title="New title", description="New description")
+
+        body = amc_request.call_args[0][0][0]
+        assert body["action"] == "ForumAction"
+        assert body["event"] == "saveThreadMeta"
+        assert body["threadId"] == mock_forum_thread_no_http.id
+        assert body["title"] == "New title"
+        assert body["description"] == "New description"
+        assert result is mock_forum_thread_no_http
+        assert mock_forum_thread_no_http.title == "New title"
+        assert mock_forum_thread_no_http.description == "New description"
+
+
+class TestForumThreadSetSticky:
+    """ForumThread.set_stickyのテスト"""
+
+    def test_sticky_true_sends_flag(
+        self, mock_forum_thread_no_http: ForumThread, amc_ok_response: dict[str, Any]
+    ) -> None:
+        mock_forum_thread_no_http.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        mock_forum_thread_no_http.set_sticky(True)
+
+        body = mock_forum_thread_no_http.site.amc_request.call_args[0][0][0]
+        assert body["event"] == "saveSticky"
+        assert body["sticky"] == "true"
+
+    def test_sticky_false_omits_key(
+        self, mock_forum_thread_no_http: ForumThread, amc_ok_response: dict[str, Any]
+    ) -> None:
+        mock_forum_thread_no_http.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        mock_forum_thread_no_http.set_sticky(False)
+
+        body = mock_forum_thread_no_http.site.amc_request.call_args[0][0][0]
+        assert "sticky" not in body
+
+
+class TestForumThreadSetBlock:
+    """ForumThread.set_blockのテスト"""
+
+    def test_block_true_sends_flag(
+        self, mock_forum_thread_no_http: ForumThread, amc_ok_response: dict[str, Any]
+    ) -> None:
+        mock_forum_thread_no_http.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        mock_forum_thread_no_http.set_block(True)
+
+        body = mock_forum_thread_no_http.site.amc_request.call_args[0][0][0]
+        assert body["event"] == "saveBlock"
+        assert body["block"] == "true"
+
+    def test_block_false_omits_key(
+        self, mock_forum_thread_no_http: ForumThread, amc_ok_response: dict[str, Any]
+    ) -> None:
+        mock_forum_thread_no_http.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        mock_forum_thread_no_http.set_block(False)
+
+        body = mock_forum_thread_no_http.site.amc_request.call_args[0][0][0]
+        assert "block" not in body
+
+
+class TestForumThreadMove:
+    """ForumThread.moveのテスト"""
+
+    def test_move_sends_category_id_and_updates_local_state(
+        self,
+        mock_forum_thread_no_http: ForumThread,
+        mock_forum_category_no_http: Any,
+        amc_ok_response: dict[str, Any],
+    ) -> None:
+        mock_forum_thread_no_http.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        destination = mock_forum_category_no_http
+        destination.id = 2002
+        result = mock_forum_thread_no_http.move(destination)
+
+        body = mock_forum_thread_no_http.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "ForumAction"
+        assert body["event"] == "moveThread"
+        assert body["threadId"] == mock_forum_thread_no_http.id
+        assert body["categoryId"] == 2002
+        assert result is mock_forum_thread_no_http
+        assert mock_forum_thread_no_http.category is destination
+
+
+class TestForumThreadWatch:
+    """ForumThread.watchのテスト"""
+
+    def test_watch_sends_watch_action(
+        self, mock_forum_thread_no_http: ForumThread, amc_ok_response: dict[str, Any]
+    ) -> None:
+        mock_forum_thread_no_http.site.client.login_check = MagicMock()
+        mock_response = MagicMock()
+        mock_response.json.return_value = amc_ok_response
+        mock_forum_thread_no_http.site.amc_request = MagicMock(return_value=[mock_response])
+
+        result = mock_forum_thread_no_http.watch()
+
+        body = mock_forum_thread_no_http.site.amc_request.call_args[0][0][0]
+        assert body["action"] == "WatchAction"
+        assert body["event"] == "watchThread"
+        assert body["threadId"] == mock_forum_thread_no_http.id
+        assert result is mock_forum_thread_no_http
+
+
+class TestForumThreadCreateForPage:
+    """ForumThread.create_for_pageのテスト"""
+
+    def test_not_logged_in(self, mock_site_no_http: Site) -> None:
+        mock_site_no_http.client.login_check = MagicMock(
+            side_effect=exceptions.LoginRequiredException("Login required")
+        )
+        with pytest.raises(exceptions.LoginRequiredException):
+            ForumThread.create_for_page(mock_site_no_http, 999)
+
+    def test_returns_thread_when_thread_id_present(
+        self, mock_site_no_http: Site, forum_thread_detail: dict[str, Any]
+    ) -> None:
+        mock_site_no_http.client.login_check = MagicMock()
+        create_response = MagicMock()
+        create_response.json.return_value = {"status": "ok", "threadId": 3001}
+        fetch_response = MagicMock()
+        fetch_response.json.return_value = forum_thread_detail
+        mock_site_no_http.amc_request = MagicMock(side_effect=[[create_response], [fetch_response]])
+
+        thread = ForumThread.create_for_page(mock_site_no_http, 999)
+
+        assert thread is not None
+        assert thread.id == 3001
+        create_call_body = mock_site_no_http.amc_request.call_args_list[0][0][0][0]
+        assert create_call_body["action"] == "ForumAction"
+        assert create_call_body["event"] == "createPageDiscussionThread"
+        assert create_call_body["page_id"] == 999
+
+    def test_returns_none_when_thread_id_missing(self, mock_site_no_http: Site) -> None:
+        """レスポンススキーマが未確認のため、threadIdが無ければNoneを返す（推測しない）"""
+        mock_site_no_http.client.login_check = MagicMock()
+        create_response = MagicMock()
+        create_response.json.return_value = {"status": "ok"}
+        mock_site_no_http.amc_request = MagicMock(return_value=[create_response])
+
+        thread = ForumThread.create_for_page(mock_site_no_http, 999)
+
+        assert thread is None
+
+
 class TestForumThreadGetFromId:
     """ForumThread.get_from_idのテスト"""
 

@@ -15,6 +15,7 @@ from bs4 import BeautifulSoup, NavigableString
 
 from ..common.exceptions import NoElementException
 from ..connector.ajax import require_body
+from ..util.amc_body import flag, omit_falsy
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -507,6 +508,225 @@ class ForumThread:
         self._posts = None
         self.post_count += 1
         return self
+
+    def save_meta(self, title: str | None = None, description: str | None = None) -> "ForumThread":
+        """
+        Update the thread's title and/or description
+
+        Sends both fields on every call (`ForumAction/saveThreadMeta`
+        resubmits the whole `thread-meta-form`, it does not patch a single
+        field), so unspecified arguments default to the thread's current
+        locally-known title/description instead of blanking them.
+
+        Parameters
+        ----------
+        title : str | None, default None
+            New title. Keeps the current title if None
+        description : str | None, default None
+            New description (1000 character limit per 35_form-fields.md).
+            Keeps the current description if None
+
+        Returns
+        -------
+        ForumThread
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        FormErrorsException
+            If validation fails (e.g. description too long)
+        """
+        self.site.client.login_check()
+        new_title = title if title is not None else self.title
+        new_description = description if description is not None else self.description
+        self.site.amc_request(
+            [
+                {
+                    "action": "ForumAction",
+                    "event": "saveThreadMeta",
+                    "moduleName": "Empty",
+                    "threadId": self.id,
+                    "title": new_title,
+                    "description": new_description,
+                }
+            ]
+        )
+        self.title = new_title
+        self.description = new_description
+        return self
+
+    def set_sticky(self, sticky: bool) -> "ForumThread":
+        """
+        Pin or unpin the thread within its category
+
+        Parameters
+        ----------
+        sticky : bool
+            True to pin, False to unpin
+
+        Returns
+        -------
+        ForumThread
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "ForumAction",
+                    "event": "saveSticky",
+                    "moduleName": "Empty",
+                    "threadId": self.id,
+                    **omit_falsy(sticky=flag(sticky)),
+                }
+            ]
+        )
+        return self
+
+    def set_block(self, block: bool) -> "ForumThread":
+        """
+        Lock or unlock the thread (locked threads reject new posts)
+
+        Parameters
+        ----------
+        block : bool
+            True to lock, False to unlock
+
+        Returns
+        -------
+        ForumThread
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "ForumAction",
+                    "event": "saveBlock",
+                    "moduleName": "Empty",
+                    "threadId": self.id,
+                    **omit_falsy(block=flag(block)),
+                }
+            ]
+        )
+        return self
+
+    def move(self, category: "ForumCategory") -> "ForumThread":
+        """
+        Move the thread to a different forum category
+
+        Parameters
+        ----------
+        category : ForumCategory
+            Destination category
+
+        Returns
+        -------
+        ForumThread
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "ForumAction",
+                    "event": "moveThread",
+                    "moduleName": "Empty",
+                    "threadId": self.id,
+                    "categoryId": category.id,
+                }
+            ]
+        )
+        self.category = category
+        return self
+
+    def watch(self) -> "ForumThread":
+        """
+        Start watching the thread (email notification on new posts)
+
+        Returns
+        -------
+        ForumThread
+            Self (for method chaining)
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        self.site.client.login_check()
+        self.site.amc_request(
+            [
+                {
+                    "action": "WatchAction",
+                    "event": "watchThread",
+                    "moduleName": "Empty",
+                    "threadId": self.id,
+                }
+            ]
+        )
+        return self
+
+    @staticmethod
+    def create_for_page(site: "Site", page_id: int) -> Optional["ForumThread"]:
+        """
+        Create a page's discussion (comment) thread if it does not already have one
+
+        Parameters
+        ----------
+        site : Site
+            Site the page belongs to
+        page_id : int
+            Numeric page ID (not the page's unix name)
+
+        Returns
+        -------
+        ForumThread | None
+            The created thread, or None if the response did not include a
+            recognizable thread ID. `60_forum.md`'s survey of
+            `ForumAction/createPageDiscussionThread` only confirmed the
+            request parameter (`page_id`); the response schema was not
+            captured, so this does not assume a `threadId` field is
+            present and guess-parse it — callers that get None back can
+            still locate the thread via the page's `/comments/show` view
+
+        Raises
+        ------
+        LoginRequiredException
+            If not logged in
+        """
+        site.client.login_check()
+        response = site.amc_request(
+            [
+                {
+                    "action": "ForumAction",
+                    "event": "createPageDiscussionThread",
+                    "moduleName": "Empty",
+                    "page_id": page_id,
+                }
+            ]
+        )[0].json()
+        thread_id = response.get("threadId")
+        if not isinstance(thread_id, int):
+            return None
+        return ForumThread.get_from_id(site, thread_id)
 
     @staticmethod
     def get_from_id(site: "Site", thread_id: int, category: Optional["ForumCategory"] = None) -> "ForumThread":
