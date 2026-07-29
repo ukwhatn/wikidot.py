@@ -25,6 +25,7 @@ from .forum_thread import ForumThread, ForumThreadCollection
 from .page import Page, PageCollection, SearchPagesQuery, SearchPagesQueryParams
 from .site_application import SiteApplication
 from .site_member import SiteMember
+from .site_member_admin import MemberAccessor
 from .site_settings import SiteSettingsAccessor
 
 if TYPE_CHECKING:
@@ -285,6 +286,7 @@ class Site:
     page: "SitePageAccessor" = field(init=False, repr=False)
     forum: "SiteForumAccessor" = field(init=False, repr=False)
     settings: "SiteSettingsAccessor" = field(init=False, repr=False)
+    member: "MemberAccessor" = field(init=False, repr=False)
 
     # キャッシュ属性
     _members: list["SiteMember"] | None = field(init=False, default=None, repr=False)
@@ -301,6 +303,7 @@ class Site:
         self.page = SitePageAccessor(self)
         self.forum = SiteForumAccessor(self)
         self.settings = SiteSettingsAccessor(self)
+        self.member = MemberAccessor(self)
 
     def __str__(self) -> str:
         """

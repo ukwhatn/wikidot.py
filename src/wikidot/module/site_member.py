@@ -50,6 +50,14 @@ class SiteMember:
         """
         Internal method to extract member information from member list page HTML
 
+        Also reused (via MemberAccessor in site_member_admin.py) for the
+        admin-panel `managesite/members/*` listings, which render a 3rd
+        options-dropdown `td` alongside name/join-date (confirmed
+        2026-07-29, see 40_admin-managesite.md). Rows are skipped (not
+        indexed) when they have no `td` at all -- Wikidot's admin-panel
+        table has a leading `th`-only header row that would otherwise raise
+        IndexError here.
+
         Parameters
         ----------
         site : Site
@@ -66,6 +74,11 @@ class SiteMember:
 
         for row in html.select("table tr"):
             tds = row.select("td")
+            if not tds:
+                # Header row (th only, e.g. the admin panel's "Name" / "Member
+                # since" row) -- nothing to parse
+                continue
+
             user_elem = tds[0].select_one(".printuser")
 
             if user_elem is None:
@@ -73,8 +86,9 @@ class SiteMember:
 
             user = user_parser(site.client, user_elem)
 
-            # tdsが2つあったら加入日時がある
-            if len(tds) == 2:
+            # 2列目があれば加入日時 (admin panel rows have a 3rd options-dropdown
+            # td after it, so this checks >= 2 rather than == 2)
+            if len(tds) >= 2:
                 joined_at_elem = tds[1].select_one(".odate")
                 if joined_at_elem is None:
                     joined_at = None
