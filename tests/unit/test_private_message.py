@@ -12,10 +12,21 @@ import pytest
 from wikidot.common.exceptions import ForbiddenException, LoginRequiredException
 from wikidot.module.client import Client
 from wikidot.module.private_message import (
+    Contact,
     PrivateMessage,
     PrivateMessageCollection,
     PrivateMessageInbox,
     PrivateMessageSentBox,
+    SiteJoinApplication,
+    add_contact,
+    add_contact_via_profile,
+    get_application_detail_html,
+    get_applications,
+    get_contacts,
+    get_contacts_list_html,
+    get_invitation_detail_html,
+    get_invitations_html,
+    remove_contact,
 )
 
 
@@ -217,3 +228,305 @@ class TestPrivateMessage:
         assert call_args["subject"] == "Test Subject"
         assert call_args["to_user_id"] == mock_user.id
         assert call_args["event"] == "send"
+
+    def test_save_draft_without_recipient_omits_to_user_id(self, mock_client):
+        """recipient未指定時はto_user_idキーが送られない"""
+        PrivateMessage.save_draft(mock_client, "subj", "body")
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["event"] == "saveDraft"
+        assert "to_user_id" not in call_args
+
+    def test_save_draft_with_recipient(self, mock_client, mock_user):
+        PrivateMessage.save_draft(mock_client, "subj", "body", mock_user)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["to_user_id"] == mock_user.id
+
+    def test_check_can_send(self, mock_client, mock_user):
+        PrivateMessage.check_can_send(mock_client, mock_user)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["action"] == "DashboardMessageAction"
+        assert call_args["event"] == "checkCan"
+        assert call_args["userId"] == mock_user.id
+
+    def test_preview(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<p>preview</p>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = PrivateMessage.preview(mock_client, "subj", "body")
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMPreviewModule"
+        assert result == "<p>preview</p>"
+
+    def test_fetch_reply_form_html(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<form></form>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = PrivateMessage.fetch_reply_form_html(mock_client, 555)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMNewMessageModule"
+        assert call_args["replyMessageId"] == 555
+        assert result == "<form></form>"
+
+    def test_mark_as_read_instance_method(self, sample_message, mock_client):
+        sample_message.client = mock_client
+        sample_message.mark_as_read()
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["event"] == "setAsReaded"
+        assert call_args["selected"] == [sample_message.id]
+
+    def test_mark_as_unread_instance_method(self, sample_message, mock_client):
+        sample_message.client = mock_client
+        sample_message.mark_as_unread()
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["event"] == "setAsUnreaded"
+
+    def test_delete_instance_method(self, sample_message, mock_client):
+        sample_message.client = mock_client
+        sample_message.delete()
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["event"] == "removeMessages"
+        assert call_args["messages"] == [sample_message.id]
+
+
+class TestPrivateMessageCollectionBulkOperations:
+    """PrivateMessageCollectionのメッセージ一括操作のテスト"""
+
+    def test_mark_as_read_uses_selected_key(self, mock_client):
+        """setAsReadedはselected[]で送られる（messages[]ではない）"""
+        PrivateMessageCollection.mark_as_read(mock_client, [1, 2, 3])
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["action"] == "DashboardMessageAction"
+        assert call_args["event"] == "setAsReaded"
+        assert call_args["selected"] == [1, 2, 3]
+
+    def test_mark_as_unread_uses_selected_key(self, mock_client):
+        PrivateMessageCollection.mark_as_unread(mock_client, [1, 2])
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["event"] == "setAsUnreaded"
+        assert call_args["selected"] == [1, 2]
+
+    def test_remove_messages_uses_messages_key(self, mock_client):
+        """removeMessagesはmessages[]で送られる（selected[]ではない）"""
+        PrivateMessageCollection.remove_messages(mock_client, [4, 5])
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["event"] == "removeMessages"
+        assert call_args["messages"] == [4, 5]
+
+    def test_remove_messages_requires_login(self, mock_client):
+        mock_client.is_logged_in = False
+        mock_client.login_check.side_effect = LoginRequiredException("Not logged in")
+
+        with pytest.raises(LoginRequiredException):
+            PrivateMessageCollection.remove_messages(mock_client, [1])
+
+
+class TestInvitationsApplicationsContacts:
+    """招待・申請・連絡先系のモジュール関数のテスト"""
+
+    def test_get_invitations_html(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<div>invitations</div>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = get_invitations_html(mock_client)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMInvitationsModule"
+        assert result == "<div>invitations</div>"
+
+    def test_get_invitation_detail_html(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<div>detail</div>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        get_invitation_detail_html(mock_client, 9)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMViewInvitationModule"
+        assert call_args["item"] == 9
+
+    def test_get_applications_parses_rows(self, mock_client):
+        """DMApplicationsModuleの行マークアップ（2026-07-29実測）に基づくfixture"""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "body": """
+            <table>
+            <tr class="message" data-href="#/applications/463303">
+                <td>
+                    <span class="from">Foo Site</span>
+                    <span class="subject">Membership application</span>
+                    <span class="preview">Please let me join!</span>
+                    <span class="date"><span class="odate time_1700000000">01 Jan 2024</span></span>
+                </td>
+            </tr>
+            </table>
+            """
+        }
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = get_applications(mock_client)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMApplicationsModule"
+        assert len(result) == 1
+        application = result[0]
+        assert isinstance(application, SiteJoinApplication)
+        assert application.item_id == 463303
+        assert application.from_site == "Foo Site"
+        assert application.subject == "Membership application"
+        assert application.preview == "Please let me join!"
+        assert application.submitted_at == datetime.fromtimestamp(1700000000)
+
+    def test_get_applications_skips_rows_without_from(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "body": '<table><tr class="message" data-href="#/applications/1"><td>no from span here</td></tr></table>'
+        }
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = get_applications(mock_client)
+
+        assert result == []
+
+    def test_get_applications_skips_rows_without_data_href(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "body": '<table><tr class="message"><td><span class="from">Foo</span></td></tr></table>'
+        }
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = get_applications(mock_client)
+
+        assert result == []
+
+    def test_site_join_application_fetch_detail_html(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<div>detail</div>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+        application = SiteJoinApplication(
+            client=mock_client,
+            item_id=463303,
+            from_site="Foo Site",
+            subject="Membership application",
+            preview="Please let me join!",
+            submitted_at=datetime.fromtimestamp(1700000000),
+        )
+
+        result = application.fetch_detail_html()
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMViewApplicationModule"
+        assert call_args["item"] == 463303
+        assert result == "<div>detail</div>"
+
+    def test_get_application_detail_html(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<div>detail</div>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        get_application_detail_html(mock_client, 3)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMViewApplicationModule"
+        assert call_args["item"] == 3
+
+    def test_get_contacts_parses_rows(self, mock_client):
+        """DMContactsModuleの行マークアップ（2026-07-29実測）に基づくfixture"""
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "body": """
+            <table>
+            <tr>
+                <td>
+                    <span class="printuser avatarhover">
+                        <a href="http://www.wikidot.com/user:info/contact-user"
+                           onclick="WIKIDOT.page.listeners.userInfo(54321); return false;">contact-user</a>
+                    </span>
+                </td>
+                <td><a class="awesome red small" href="#">x</a></td>
+            </tr>
+            </table>
+            """
+        }
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = get_contacts(mock_client)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMContactsModule"
+        assert len(result) == 1
+        contact = result[0]
+        assert isinstance(contact, Contact)
+        assert contact.user.id == 54321
+        assert contact.user.name == "contact-user"
+
+    def test_contact_remove_delegates_to_remove_contact(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "body": """
+            <span class="printuser avatarhover">
+                <a href="http://www.wikidot.com/user:info/contact-user"
+                   onclick="WIKIDOT.page.listeners.userInfo(54321); return false;">contact-user</a>
+            </span>
+            """
+        }
+        mock_client.amc_client.request.return_value = [mock_response]
+        user = MagicMock(id=54321)
+        contact = Contact(client=mock_client, user=user)
+
+        contact.remove()
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["action"] == "ContactsAction"
+        assert call_args["event"] == "removeContact"
+        assert call_args["userId"] == 54321
+
+    def test_get_contacts_list_html(self, mock_client):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<div>picker</div>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        get_contacts_list_html(mock_client)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "dashboard/messages/DMContactsListModule"
+
+    def test_add_contact(self, mock_client, mock_user):
+        add_contact(mock_client, mock_user)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["action"] == "ContactsAction"
+        assert call_args["event"] == "addContact"
+        assert call_args["userId"] == mock_user.id
+
+    def test_remove_contact(self, mock_client, mock_user):
+        remove_contact(mock_client, mock_user)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["action"] == "ContactsAction"
+        assert call_args["event"] == "removeContact"
+
+    def test_add_contact_via_profile(self, mock_client, mock_user):
+        mock_response = MagicMock()
+        mock_response.json.return_value = {"body": "<div>added</div>"}
+        mock_client.amc_client.request.return_value = [mock_response]
+
+        result = add_contact_via_profile(mock_client, mock_user)
+
+        call_args = mock_client.amc_client.request.call_args[0][0][0]
+        assert call_args["moduleName"] == "userinfo/UserAddToContactsModule"
+        assert call_args["userId"] == mock_user.id
+        assert result == "<div>added</div>"
