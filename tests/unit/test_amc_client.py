@@ -1,11 +1,14 @@
 """AMCクライアントのユニットテスト"""
 
+from unittest.mock import AsyncMock, patch
+
 import pytest
 from pytest_httpx import HTTPXMock
 
 from wikidot.common.exceptions import (
     AMCHttpStatusCodeException,
     ForbiddenException,
+    FormErrorsException,
     NotFoundException,
     ResponseDataException,
     WikidotStatusCodeException,
@@ -373,3 +376,188 @@ class TestAjaxModuleConnectorClientRequest:
         responses = client.request([{"moduleName": "Test"}])
 
         assert len(responses) == 1
+
+    def test_try_again_respects_time_to_wait(self, httpx_mock: HTTPXMock) -> None:
+        """try_againにtime_to_wait（秒）があればその秒数だけ待つ"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "try_again", "time_to_wait": 3},
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with patch("wikidot.connector.ajax.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            client.request([{"moduleName": "Test"}])
+
+        mock_sleep.assert_called_once_with(3.0)
+
+    def test_try_again_time_to_wait_capped_by_max_backoff(self, httpx_mock: HTTPXMock) -> None:
+        """time_to_waitがmax_backoffを超える場合は上限で切る（サーバ値を無制限に信用しない）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "try_again", "time_to_wait": 999},
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0, max_backoff=5.0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with patch("wikidot.connector.ajax.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            client.request([{"moduleName": "Test"}])
+
+        mock_sleep.assert_called_once_with(5.0)
+
+    def test_try_again_without_time_to_wait_uses_backoff(self, httpx_mock: HTTPXMock) -> None:
+        """time_to_waitが無い場合は従来の指数バックオフのまま（挙動が変わらないこと）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "try_again"},
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=1.0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with patch("wikidot.connector.ajax.asyncio.sleep", new_callable=AsyncMock) as mock_sleep:
+            client.request([{"moduleName": "Test"}])
+
+        # backoff_factor^(1-1) * 1.0 = 1.0 + jitter(0~10%)
+        called_backoff = mock_sleep.call_args[0][0]
+        assert 1.0 <= called_backoff <= 1.1
+
+    def test_unknown_action_event_fails_immediately(self, httpx_mock: HTTPXMock) -> None:
+        """actionを伴うHTTP 500 + 空ボディはリトライせず即座に失敗する（未対応event検出）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            status_code=500,
+        )
+
+        config = AjaxModuleConnectorConfig(attempt_limit=5, retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        with pytest.raises(AMCHttpStatusCodeException):
+            client.request([{"moduleName": "Empty", "action": "ManageSiteAction", "event": "noSuchEvent"}])
+
+        # リトライせず1回のみリクエストされていること
+        assert len(httpx_mock.get_requests()) == 1
+
+    def test_action_500_with_body_still_retries(self, httpx_mock: HTTPXMock) -> None:
+        """actionを伴っていてもボディが空でなければ通常どおりリトライする"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            status_code=500,
+            text="Internal Server Error",
+        )
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        config = AjaxModuleConnectorConfig(retry_interval=0)
+        client = AjaxModuleConnectorClient(site_name="www", config=config)
+
+        client.request([{"moduleName": "Empty", "action": "ManageSiteAction", "event": "saveGeneral"}])
+
+        assert len(httpx_mock.get_requests()) == 2
+
+    def test_list_value_sent_with_bracket_notation(self, httpx_mock: HTTPXMock) -> None:
+        """list値を含むbodyはkey[]=v1&key[]=v2形式で送信される（jQuery.param互換）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+        client.request([{"moduleName": "DashboardMessageAction", "selected": [1, 2]}])
+
+        sent_body = httpx_mock.get_requests()[0].content.decode()
+        assert "selected%5B%5D=1" in sent_body
+        assert "selected%5B%5D=2" in sent_body
+        assert "selected=1" not in sent_body
+
+    def test_scalar_body_unaffected_by_bracket_encoding(self, httpx_mock: HTTPXMock) -> None:
+        """list値を含まないbodyのエンコード結果は変わらない"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "ok", "body": ""},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+        client.request([{"moduleName": "Test", "page_id": 123}])
+
+        sent_body = httpx_mock.get_requests()[0].content.decode()
+        assert "page_id=123" in sent_body
+        assert "moduleName=Test" in sent_body
+
+
+class TestAjaxModuleConnectorClientFormErrors:
+    """form_errors / form_error ステータスのハンドリングのテスト"""
+
+    def test_form_errors_key_variant(self, httpx_mock: HTTPXMock) -> None:
+        """formErrorsキー（多数派: Forum系, Clone, saveGeneral等）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={
+                "status": "form_errors",
+                "formErrors": {"name": "Please provide the site title"},
+                "message": "Form errors",
+            },
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(FormErrorsException) as exc_info:
+            client.request([{"moduleName": "Empty", "action": "ManageSiteAction", "event": "saveGeneral"}])
+
+        assert exc_info.value.errors == {"name": "Please provide the site title"}
+
+    def test_errors_key_variant(self, httpx_mock: HTTPXMock) -> None:
+        """errorsキー（WikiPageAction/savePage専用）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "form_errors", "errors": {"title": "Title is required"}},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(FormErrorsException) as exc_info:
+            client.request([{"moduleName": "Empty", "action": "WikiPageAction", "event": "savePage"}])
+
+        assert exc_info.value.errors == {"title": "Title is required"}
+
+    def test_message_only_variant(self, httpx_mock: HTTPXMock) -> None:
+        """messageのみ（文字列。saveTags・form_error単数形系）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "form_error", "message": "Invalid tag name"},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(FormErrorsException) as exc_info:
+            client.request([{"moduleName": "Empty", "action": "WikiPageAction", "event": "saveTags"}])
+
+        assert exc_info.value.errors == {"_message": "Invalid tag name"}
+
+    def test_is_also_a_wikidot_status_code_exception(self, httpx_mock: HTTPXMock) -> None:
+        """既存のexcept WikidotStatusCodeExceptionでも捕捉できる（継承関係）"""
+        httpx_mock.add_response(
+            url="https://www.wikidot.com/ajax-module-connector.php",
+            json={"status": "form_errors", "formErrors": {"name": "required"}},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="www")
+
+        with pytest.raises(WikidotStatusCodeException):
+            client.request([{"moduleName": "Test"}])

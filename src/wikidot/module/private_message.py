@@ -15,6 +15,7 @@ from typing_extensions import Self
 
 from ..common import exceptions
 from ..common.decorators import login_required
+from ..connector.ajax import require_body
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -122,7 +123,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
             if isinstance(response, Exception):
                 raise response
 
-            html = BeautifulSoup(response.json()["body"], "lxml")
+            html = BeautifulSoup(require_body(response, "dashboard/messages/DMViewMessageModule"), "lxml")
 
             sender, recipient = html.select("div.pmessage div.header span.printuser")
 
@@ -173,7 +174,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         # pager取得
         response = client.amc_client.request([{"moduleName": module_name}])[0]
 
-        html = BeautifulSoup(response.json()["body"], "lxml")
+        html = BeautifulSoup(require_body(response, module_name), "lxml")
         # pagerの最後から2番目の要素を取得
         # pageが存在しない場合は1ページのみ
         pager: ResultSet[Tag] = html.select("div.pager span.target")
@@ -189,7 +190,7 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 
         message_ids = []
         for response in responses:
-            html = BeautifulSoup(response.json()["body"], "lxml")
+            html = BeautifulSoup(require_body(response, module_name), "lxml")
             # tr.messageのdata-href末尾の数字を取得
             message_ids.extend([int(str(tr["data-href"]).split("/")[-1]) for tr in html.select("tr.message")])
 

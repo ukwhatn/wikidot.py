@@ -12,6 +12,7 @@ from bs4 import BeautifulSoup
 
 from ..common import exceptions
 from ..common.decorators import login_required
+from ..connector.ajax import require_body
 from ..util.parser import user as user_parser
 
 if TYPE_CHECKING:
@@ -79,12 +80,12 @@ class SiteApplication:
         """
         response = site.amc_request([{"moduleName": "managesite/ManageSiteMembersApplicationsModule"}])[0]
 
-        body = response.json()["body"]
+        body = require_body(response, "managesite/ManageSiteMembersApplicationsModule")
 
         if "WIKIDOT.page.listeners.loginClick(event)" in body:
             raise exceptions.ForbiddenException("You are not allowed to access this page")
 
-        html = BeautifulSoup(response.json()["body"], "lxml")
+        html = BeautifulSoup(body, "lxml")
 
         applications = []
 

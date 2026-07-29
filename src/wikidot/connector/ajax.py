@@ -18,12 +18,17 @@ from ..common import wd_logger
 from ..common.exceptions import (
     AMCHttpStatusCodeException,
     ForbiddenException,
+    FormErrorsException,
     NotFoundException,
     ResponseDataException,
     WikidotStatusCodeException,
 )
 from ..util.async_helper import run_coroutine
 from ..util.http import sync_get_with_retry
+
+#: status values that carry form validation errors as part of the normal
+#: control flow (not a transport-level error). See FormErrorsException.
+_FORM_ERROR_STATUSES = frozenset({"form_errors", "form_error"})
 
 
 class AjaxRequestHeader:
@@ -199,6 +204,71 @@ def _calculate_backoff(
     return min(backoff + jitter, max_backoff)
 
 
+def require_body(response: httpx.Response, module_name: str) -> str:
+    """
+    Get the "body" field from an AMC response, raising if it is missing
+
+    A nonexistent moduleName does not cause an error on Wikidot's side;
+    it responds with HTTP 200 and status "ok" but without a "body" field,
+    so a typo in the module name would otherwise pass through silently.
+    Callers that require rendered HTML should always go through this
+    helper instead of indexing response.json()["body"] directly.
+
+    Parameters
+    ----------
+    response : httpx.Response
+        AMC response expected to carry a "body" field
+    module_name : str
+        Module name that was requested, used only for the error message
+
+    Returns
+    -------
+    str
+        Value of the "body" field
+
+    Raises
+    ------
+    ResponseDataException
+        If the response has no "body" field
+    """
+    data = response.json()
+    if "body" not in data:
+        raise ResponseDataException(f'AMC response for module "{module_name}" is missing "body"')
+    return data["body"]
+
+
+def _encode_amc_body(body: dict[str, Any]) -> dict[str, Any]:
+    """
+    Rewrite list-valued keys to their bracket form for an AMC request body
+
+    Browsers serialize array parameters via jQuery.param as repeated
+    `key[]=v1&key[]=v2`. httpx's `data=` accepts a Mapping whose values may
+    be a list, but it reuses the key as-is for each item, producing
+    `key=v1&key=v2` (no brackets) instead. Some AMC modules
+    (DashboardMessageAction, ManageSiteNewsletterAction/send) expect the
+    bracketed form, so list-valued keys are renamed to "key[]" here; httpx's
+    own list expansion (see httpx._content.encode_urlencoded_data) then
+    produces "key[]=v1&key[]=v2" as desired. The result stays a plain dict
+    (still a Mapping) since httpx's data= only supports raw byte content for
+    non-Mapping values.
+
+    Parameters
+    ----------
+    body : dict[str, Any]
+        Request body to encode
+
+    Returns
+    -------
+    dict[str, Any]
+        body with list-valued keys renamed to "key[]"; scalar-only bodies
+        are returned unchanged
+    """
+    if not any(isinstance(v, list) for v in body.values()):
+        return body
+
+    return {(f"{key}[]" if isinstance(value, list) else key): value for key, value in body.items()}
+
+
 class AjaxModuleConnectorClient:
     """
     Client class for communicating with Wikidot's Ajax Module Connector
@@ -353,11 +423,35 @@ class AjaxModuleConnectorClient:
                         response = await client.post(
                             url,
                             headers=self.header.get_header(),
-                            data=_body,
+                            data=_encode_amc_body(_body),
                             timeout=self.config.request_timeout,
                         )
                         response.raise_for_status()
                 except (httpx.HTTPStatusError, httpx.RequestError) as e:
+                    # An unrecognized action/event responds with HTTP 500 and an empty
+                    # body (PHP-level fatal error), which is indistinguishable from a
+                    # transient server error except for these three conditions together.
+                    # Retrying it would only waste attempt_limit rounds of backoff, so
+                    # fail immediately instead. Requests without "action" (module
+                    # rendering only) keep the normal retry behavior below, since a
+                    # spike-induced 500 there is otherwise indistinguishable
+                    if (
+                        isinstance(e, httpx.HTTPStatusError)
+                        and response is not None
+                        and response.status_code == 500
+                        and len(response.content) == 0
+                        and "action" in _body
+                    ):
+                        wd_logger.error(
+                            f"AMC request failed: HTTP 500 with empty body "
+                            f"(possibly unsupported action/event) -> {_mask_sensitive_data(_body)}"
+                        )
+                        raise AMCHttpStatusCodeException(
+                            "AMC request failed: HTTP 500 with empty body "
+                            "(the action/event may not be supported by Wikidot)",
+                            500,
+                        ) from e
+
                     # Retry on all request errors (HTTP errors, timeouts, network errors, etc.)
                     # Wikidot server has a relatively high error rate, so retry is essential
                     retry_count += 1
@@ -432,15 +526,23 @@ class AjaxModuleConnectorClient:
                         retry_count += 1
                         if retry_count >= self.config.attempt_limit:
                             wd_logger.error(f'AMC is respond status: "try_again" -> {_mask_sensitive_data(_body)}')
-                            raise WikidotStatusCodeException('AMC is respond status: "try_again"', "try_again")
+                            raise WikidotStatusCodeException(
+                                'AMC is respond status: "try_again"', "try_again", _response_body
+                            )
 
-                        # Retry with exponential backoff interval
-                        backoff = _calculate_backoff(
-                            retry_count,
-                            self.config.retry_interval,
-                            self.config.backoff_factor,
-                            self.config.max_backoff,
-                        )
+                        # Honor the server-specified time_to_wait (seconds) when present,
+                        # capped by max_backoff so a server-supplied value can't stall a
+                        # request indefinitely. Otherwise fall back to exponential backoff
+                        time_to_wait = _response_body.get("time_to_wait")
+                        if isinstance(time_to_wait, (int, float)) and not isinstance(time_to_wait, bool):
+                            backoff = min(float(time_to_wait), self.config.max_backoff)
+                        else:
+                            backoff = _calculate_backoff(
+                                retry_count,
+                                self.config.retry_interval,
+                                self.config.backoff_factor,
+                                self.config.max_backoff,
+                            )
                         wd_logger.info(
                             f'AMC is respond status: "try_again" (retry: {retry_count}, backoff: {backoff:.2f}s)'
                         )
@@ -455,6 +557,20 @@ class AjaxModuleConnectorClient:
                             target_str = f"action: {_body['action']}/{_body['event'] if 'event' in _body else ''}"
                         raise ForbiddenException(f"Your account has no permission to perform this action: {target_str}")
 
+                    # form_errors / form_error is part of the normal control flow for many
+                    # save operations (form validation failure), not a transport error.
+                    # Raise the dedicated subclass so callers can read the per-field
+                    # messages via e.errors instead of only getting a generic message
+                    elif _response_body["status"] in _FORM_ERROR_STATUSES:
+                        wd_logger.info(
+                            f'AMC is respond status: "{_response_body["status"]}" -> {_mask_sensitive_data(_body)}'
+                        )
+                        raise FormErrorsException(
+                            f'AMC is respond error status: "{_response_body["status"]}"',
+                            _response_body["status"],
+                            _response_body,
+                        )
+
                     # Treat as error if status is not ok for other cases
                     elif _response_body["status"] != "ok":
                         wd_logger.error(
@@ -464,6 +580,7 @@ class AjaxModuleConnectorClient:
                         raise WikidotStatusCodeException(
                             f'AMC is respond error status: "{_response_body["status"]}"',
                             _response_body["status"],
+                            _response_body,
                         )
 
                 # Return response

@@ -15,6 +15,7 @@ from ..common.exceptions import (
     TargetErrorException,
     WikidotStatusCodeException,
 )
+from ..connector.ajax import require_body
 from ..util.parser import odate as odate_parser
 from ..util.parser import user as user_parser
 
@@ -128,7 +129,7 @@ class SiteMember:
             ]
         )[0]
 
-        first_body = first_response.json()["body"]
+        first_body = require_body(first_response, "membership/MembersListModule")
         first_html = BeautifulSoup(first_body, "lxml")
 
         members.extend(SiteMember._parse(site, first_html))
@@ -153,7 +154,7 @@ class SiteMember:
         )
 
         for response in responses:
-            body = response.json()["body"]
+            body = require_body(response, "membership/MembersListModule")
             html = BeautifulSoup(body, "lxml")
             members.extend(SiteMember._parse(site, html))
 
