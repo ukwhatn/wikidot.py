@@ -5,7 +5,7 @@ This module provides classes and functionality related to Wikidot private messag
 It enables operations such as sending messages, retrieving inbox/sent box, and viewing messages.
 """
 
-from collections.abc import Iterator
+from collections.abc import Iterable, Iterator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Optional
@@ -25,13 +25,46 @@ if TYPE_CHECKING:
     from .user import AbstractUser, User
 
 
+@dataclass
+class PrivateMessageFetchFailure:
+    """
+    A message that could not be fetched, with the ID it was requested by
+
+    Attributes
+    ----------
+    id : int
+        Requested message ID
+    error : Exception
+        The error that made this message unfetchable (transport or parse failure)
+    """
+
+    id: int
+    error: Exception
+
+
 class PrivateMessageCollection(list["PrivateMessage"]):
     """
     Base class representing a collection of private messages
 
     A list extension class for storing multiple private messages and performing batch operations.
     Inherited to represent specific message groups such as inbox or sent box.
+
+    Attributes
+    ----------
+    failures : list[PrivateMessageFetchFailure]
+        Messages that could not be fetched when this collection was built.
+        A single unfetchable message no longer fails the whole fetch: it is
+        skipped and reported here instead, so callers processing the
+        successful messages must check this to know the fetch was partial.
     """
+
+    def __init__(
+        self,
+        messages: "Iterable[PrivateMessage] | None" = None,
+        failures: "list[PrivateMessageFetchFailure] | None" = None,
+    ) -> None:
+        super().__init__(messages if messages is not None else [])
+        self.failures: list[PrivateMessageFetchFailure] = list(failures) if failures is not None else []
 
     def __str__(self) -> str:
         """
@@ -83,6 +116,14 @@ class PrivateMessageCollection(list["PrivateMessage"]):
 
         Batch retrieves messages with the specified IDs and returns them as a collection.
 
+        Partial-success contract: a message that fails to fetch (per-request
+        transport error, missing body, or unparseable markup) is skipped and
+        reported in the returned collection's ``failures``, in request order,
+        so one broken message cannot block the rest. Successful messages keep
+        the input ID order. If every message fails, the return value is still
+        a normal (empty) collection with all IDs in ``failures``. Only
+        systemic failures (login missing) raise.
+
         Parameters
         ----------
         client : Client
@@ -93,14 +134,12 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         Returns
         -------
         PrivateMessageCollection
-            Collection of retrieved messages
+            Collection of retrieved messages (check ``failures`` for skipped IDs)
 
         Raises
         ------
         LoginRequiredException
             If not logged in
-        ForbiddenException
-            If no permission to access the message
         """
         bodies = []
 
@@ -115,36 +154,44 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         responses = client.amc_client.request(bodies, return_exceptions=True)
 
         messages = []
+        failures: list[PrivateMessageFetchFailure] = []
 
         for index, response in enumerate(responses):
-            if isinstance(response, exceptions.WikidotStatusCodeException):
-                if response.status_code == "no_message":
-                    raise exceptions.ForbiddenException(f"Failed to get message: {message_ids[index]}") from response
+            message_id = message_ids[index]
 
-            if isinstance(response, Exception):
-                raise response
+            try:
+                if isinstance(response, exceptions.WikidotStatusCodeException) and response.status_code == "no_message":
+                    raise exceptions.ForbiddenException(f"Failed to get message: {message_id}") from response
 
-            html = BeautifulSoup(require_body(response, "dashboard/messages/DMViewMessageModule"), "lxml")
+                if isinstance(response, Exception):
+                    raise response
 
-            sender, recipient = html.select("div.pmessage div.header span.printuser")
+                html = BeautifulSoup(require_body(response, "dashboard/messages/DMViewMessageModule"), "lxml")
 
-            subject_element = html.select_one("div.pmessage div.header span.subject")
-            body_element = html.select_one("div.pmessage div.body")
-            odate_element = html.select_one("div.header span.odate")
+                printuser_elements = html.select("div.pmessage div.header span.printuser")
+                if len(printuser_elements) < 2:
+                    raise exceptions.ForbiddenException(f"Failed to get message: {message_id}")
+                sender, recipient = printuser_elements[0], printuser_elements[1]
 
-            messages.append(
-                PrivateMessage(
-                    client=client,
-                    id=message_ids[index],
-                    sender=user_parser(client, sender),
-                    recipient=user_parser(client, recipient),
-                    subject=subject_element.get_text() if subject_element else "",
-                    body=body_element.get_text() if body_element else "",
-                    created_at=(odate_parser(odate_element) if odate_element else datetime.fromtimestamp(0)),
+                subject_element = html.select_one("div.pmessage div.header span.subject")
+                body_element = html.select_one("div.pmessage div.body")
+                odate_element = html.select_one("div.header span.odate")
+
+                messages.append(
+                    PrivateMessage(
+                        client=client,
+                        id=message_id,
+                        sender=user_parser(client, sender),
+                        recipient=user_parser(client, recipient),
+                        subject=subject_element.get_text() if subject_element else "",
+                        body=body_element.get_text() if body_element else "",
+                        created_at=(odate_parser(odate_element) if odate_element else datetime.fromtimestamp(0)),
+                    )
                 )
-            )
+            except Exception as error:
+                failures.append(PrivateMessageFetchFailure(id=message_id, error=error))
 
-        return PrivateMessageCollection(messages)
+        return PrivateMessageCollection(messages, failures=failures)
 
     @staticmethod
     @login_required
@@ -214,7 +261,8 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         cls
             Instance of the calling class
         """
-        return cls(PrivateMessageCollection.from_ids(client, message_ids))
+        collection = PrivateMessageCollection.from_ids(client, message_ids)
+        return cls(collection, failures=collection.failures)
 
     @classmethod
     def _factory_acquire(cls, client: "Client", module_name: str) -> Self:
@@ -238,7 +286,8 @@ class PrivateMessageCollection(list["PrivateMessage"]):
         LoginRequiredException
             If not logged in
         """
-        return cls(PrivateMessageCollection._acquire(client, module_name))
+        collection = PrivateMessageCollection._acquire(client, module_name)
+        return cls(collection, failures=collection.failures)
 
     @staticmethod
     @login_required
@@ -504,10 +553,19 @@ class PrivateMessage:
             If not logged in
         ForbiddenException
             If no permission to access the message
-        IndexError
+        NoElementException
             If message not found
         """
-        return PrivateMessageCollection.from_ids(client, [message_id])[0]
+        collection = PrivateMessageCollection.from_ids(client, [message_id])
+        if collection:
+            return collection[0]
+
+        # from_ids is partial-success: a single-message failure comes back
+        # recorded on the collection, not raised, so surface it here
+        for failure in collection.failures:
+            if failure.id == message_id:
+                raise failure.error
+        raise exceptions.NoElementException(f"Message not found: {message_id}")
 
     @staticmethod
     @login_required
