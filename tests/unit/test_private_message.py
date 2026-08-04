@@ -126,8 +126,8 @@ class TestPrivateMessageCollection:
                 assert len(result) == 1
                 assert result[0].id == 1
 
-    def test_from_ids_forbidden_error(self, mock_client):
-        """from_idsでアクセス権限エラー"""
+    def test_from_ids_no_message_is_recorded_as_failure(self, mock_client):
+        """no_message応答は全体を失敗させずfailuresに記録される"""
         from wikidot.common.exceptions import WikidotStatusCodeException
 
         mock_exception = WikidotStatusCodeException("no_message", "No message found")
@@ -135,8 +135,12 @@ class TestPrivateMessageCollection:
 
         mock_client.amc_client.request.return_value = [mock_exception]
 
-        with pytest.raises(ForbiddenException):
-            PrivateMessageCollection.from_ids(mock_client, [1])
+        result = PrivateMessageCollection.from_ids(mock_client, [1])
+
+        assert len(result) == 0
+        assert len(result.failures) == 1
+        assert result.failures[0].id == 1
+        assert isinstance(result.failures[0].error, ForbiddenException)
 
 
 class TestPrivateMessageInbox:
@@ -530,3 +534,119 @@ class TestInvitationsApplicationsContacts:
         assert call_args["moduleName"] == "userinfo/UserAddToContactsModule"
         assert call_args["userId"] == mock_user.id
         assert result == "<div>added</div>"
+
+
+MESSAGE_HTML = """
+<div class="pmessage">
+    <div class="header">
+        <span class="printuser"><a href="http://www.wikidot.com/user:info/sender" onclick="WIKIDOT.page.listeners.userInfo(11111); return false;">sender</a></span>
+        <span class="printuser"><a href="http://www.wikidot.com/user:info/recipient" onclick="WIKIDOT.page.listeners.userInfo(22222); return false;">recipient</a></span>
+        <span class="subject">Test Subject</span>
+        <span class="odate time_1234567890">01 Jan 2023 12:00</span>
+    </div>
+    <div class="body">Test Body</div>
+</div>
+"""
+
+UNPARSEABLE_HTML = '<div class="pmessage"><div class="header"></div></div>'
+
+
+def _ok_response(body: str = MESSAGE_HTML) -> MagicMock:
+    response = MagicMock()
+    response.json.return_value = {"body": body}
+    return response
+
+
+class TestFromIdsPartialSuccess:
+    """from_idsの部分成功契約のテスト（リリース条件テスト）"""
+
+    def test_parser_failure_is_skipped_and_reported(self, mock_client):
+        """解析不能な1件はスキップされfailuresに記録され、残りは返る"""
+        mock_client.amc_client.request.return_value = [
+            _ok_response(),
+            _ok_response(UNPARSEABLE_HTML),
+            _ok_response(),
+        ]
+
+        result = PrivateMessageCollection.from_ids(mock_client, [1, 2, 3])
+
+        assert [message.id for message in result] == [1, 3]
+        assert [failure.id for failure in result.failures] == [2]
+        assert isinstance(result.failures[0].error, ForbiddenException)
+
+    def test_transport_failure_is_skipped_and_reported(self, mock_client):
+        """個別リクエストのtransport失敗はスキップされfailuresに記録される"""
+        from wikidot.common.exceptions import AMCHttpStatusCodeException
+
+        mock_client.amc_client.request.return_value = [
+            _ok_response(),
+            AMCHttpStatusCodeException("AMC request failed", 500),
+            _ok_response(),
+        ]
+
+        result = PrivateMessageCollection.from_ids(mock_client, [10, 20, 30])
+
+        assert [message.id for message in result] == [10, 30]
+        assert [failure.id for failure in result.failures] == [20]
+        assert isinstance(result.failures[0].error, AMCHttpStatusCodeException)
+
+    def test_all_failed_returns_empty_collection_with_failures(self, mock_client):
+        """全件失敗でも例外にならず空collection + 全failuresを返す"""
+        from wikidot.common.exceptions import AMCHttpStatusCodeException
+
+        mock_client.amc_client.request.return_value = [
+            AMCHttpStatusCodeException("AMC request failed", 500),
+            _ok_response(UNPARSEABLE_HTML),
+        ]
+
+        result = PrivateMessageCollection.from_ids(mock_client, [1, 2])
+
+        assert len(result) == 0
+        assert [failure.id for failure in result.failures] == [1, 2]
+
+    def test_input_order_is_preserved(self, mock_client):
+        """成功分は入力ID順を維持する"""
+        mock_client.amc_client.request.return_value = [
+            _ok_response(),
+            _ok_response(),
+            _ok_response(),
+        ]
+
+        result = PrivateMessageCollection.from_ids(mock_client, [30, 10, 20])
+
+        assert [message.id for message in result] == [30, 10, 20]
+        assert result.failures == []
+
+    def test_missing_body_is_recorded_as_failure(self, mock_client):
+        """body欠落応答はResponseDataExceptionとしてfailuresに記録される"""
+        from wikidot.common.exceptions import ResponseDataException
+
+        response = MagicMock()
+        response.json.return_value = {"status": "ok"}
+        mock_client.amc_client.request.return_value = [response]
+
+        result = PrivateMessageCollection.from_ids(mock_client, [1])
+
+        assert len(result) == 0
+        assert isinstance(result.failures[0].error, ResponseDataException)
+
+    def test_from_id_raises_recorded_failure(self, mock_client):
+        """from_id（単一取得）は記録されたfailureを例外として送出する"""
+        mock_client.amc_client.request.return_value = [_ok_response(UNPARSEABLE_HTML)]
+
+        with pytest.raises(ForbiddenException):
+            PrivateMessage.from_id(mock_client, 42)
+
+    def test_inbox_factory_propagates_failures(self, mock_client):
+        """PrivateMessageInbox.from_idsはfailuresを伝播する"""
+        from wikidot.module.private_message import PrivateMessageFetchFailure
+
+        inner = PrivateMessageCollection(
+            [],
+            failures=[PrivateMessageFetchFailure(id=2, error=ForbiddenException("Failed to get message: 2"))],
+        )
+        with patch.object(PrivateMessageCollection, "from_ids", return_value=inner):
+            result = PrivateMessageInbox.from_ids(mock_client, [2])
+
+        assert isinstance(result, PrivateMessageInbox)
+        assert [failure.id for failure in result.failures] == [2]

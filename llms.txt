@@ -1450,6 +1450,25 @@ Private message operations (login required).
 | `client.private_message.add_contact(user)` / `remove_contact(user)` | `None` | Manage the contact list (`ContactsAction`) |
 | `client.private_message.add_contact_via_profile(user)` | `str` | Add a contact from the user's profile page (a second, module-render-as-action path); returns raw HTML |
 
+### Partial success (`failures`)
+
+`get_messages(ids)` / `inbox` / `sentbox` follow a partial-success
+contract: a message that fails to fetch (per-request transport error,
+missing body, unparseable markup) is skipped instead of failing the whole
+call. The returned collection carries the skipped IDs as
+`failures: list[PrivateMessageFetchFailure]` (`id: int`, `error: Exception`),
+in request order; successful messages keep the input ID order. If every
+message fails, the return value is still a normal (empty) collection with
+all IDs in `failures`. Only systemic failures (login missing, listing-page
+fetch) raise. Callers that persist or delete fetched messages must check
+`failures` to know the fetch was partial.
+
+```python
+inbox = client.private_message.inbox
+for failure in inbox.failures:
+    print(f"Message {failure.id} could not be fetched: {failure.error}")
+```
+
 ### SiteJoinApplication / Contact
 
 `SiteJoinApplication` (`item_id`, `from_site`, `subject`, `preview`,
