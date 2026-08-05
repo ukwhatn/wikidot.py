@@ -177,14 +177,20 @@ class PrivateMessageCollection(list["PrivateMessage"]):
                 body_element = html.select_one("div.pmessage div.body")
                 odate_element = html.select_one("div.header span.odate")
 
+                # div.body には本文の前に返信/削除ボタン（div.message-actions）が
+                # 埋め込まれている（markup採取 2026-08-05）ため、除去してから抽出する
+                if body_element is not None:
+                    for actions_element in body_element.select("div.message-actions"):
+                        actions_element.decompose()
+
                 messages.append(
                     PrivateMessage(
                         client=client,
                         id=message_id,
                         sender=user_parser(client, sender),
                         recipient=user_parser(client, recipient),
-                        subject=subject_element.get_text() if subject_element else "",
-                        body=body_element.get_text() if body_element else "",
+                        subject=subject_element.get_text().strip() if subject_element else "",
+                        body=body_element.get_text().strip() if body_element else "",
                         created_at=(odate_parser(odate_element) if odate_element else datetime.fromtimestamp(0)),
                     )
                 )

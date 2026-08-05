@@ -650,3 +650,44 @@ class TestFromIdsPartialSuccess:
 
         assert isinstance(result, PrivateMessageInbox)
         assert [failure.id for failure in result.failures] == [2]
+
+
+# 実機採取markup（2026-08-05）の縮約版: div.bodyの内側に返信/削除ボタン
+# （div.message-actions）が本文より前に入っている
+MESSAGE_HTML_WITH_ACTIONS = """
+<div class="pmessage">
+    <div class="header">
+        <span class="printuser"><a href="http://www.wikidot.com/user:info/sender" onclick="WIKIDOT.page.listeners.userInfo(11111); return false;">sender</a></span>
+        <span class="printuser"><a href="http://www.wikidot.com/user:info/recipient" onclick="WIKIDOT.page.listeners.userInfo(22222); return false;">recipient</a></span>
+        <span class="subject">markup test</span>
+        <span class="odate time_1234567890">01 Jan 2023 12:00</span>
+    </div>
+    <div class="body">
+        <div class="message-actions text-center">
+            <div class="btn-group">
+                <a href="javascript:;" class="awesome btn btn-default btn-xs" onclick="WIKIDOT.modules.DMViewMessageModule.replyMessage(1)"><i class="icon-reply"></i> 返信</a>
+                <a href="javascript:;" class="awesome btn btn-default btn-xs" onclick="WIKIDOT.modules.DMViewMessageModule.removeMessage(1, '#/inbox/p1')"><i class="icon-trash"></i> 削除</a>
+            </div>
+        </div>
+<p>1行目の本文です。<br/>
+2行目の本文です。</p>
+    </div>
+</div>
+"""
+
+
+class TestBodyExtraction:
+    """DMViewMessageModuleの本文抽出のテスト"""
+
+    def test_body_excludes_action_buttons(self, mock_client):
+        """本文に返信/削除ボタンのラベルが混入しない（回帰: bug-triggering input）"""
+        mock_client.amc_client.request.return_value = [_ok_response(MESSAGE_HTML_WITH_ACTIONS)]
+
+        result = PrivateMessageCollection.from_ids(mock_client, [1])
+
+        assert len(result) == 1
+        message = result[0]
+        assert message.body == "1行目の本文です。\n2行目の本文です。"
+        assert "返信" not in message.body
+        assert "削除" not in message.body
+        assert message.subject == "markup test"
