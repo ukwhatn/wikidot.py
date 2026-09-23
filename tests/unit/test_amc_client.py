@@ -139,6 +139,30 @@ class TestAjaxModuleConnectorClientInit:
 
         assert client.ssl_supported is False
 
+    def test_site_with_308_ssl_redirect(self, httpx_mock: HTTPXMock) -> None:
+        """308リダイレクト(https)があるサイトはSSL対応"""
+        httpx_mock.add_response(
+            url="http://test-site.wikidot.com",
+            status_code=308,
+            headers={"Location": "https://test-site.wikidot.com"},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="test-site")
+
+        assert client.ssl_supported is True
+
+    def test_site_with_308_http_redirect(self, httpx_mock: HTTPXMock) -> None:
+        """308リダイレクトでもLocationがhttpsでなければSSL非対応"""
+        httpx_mock.add_response(
+            url="http://test-site.wikidot.com",
+            status_code=308,
+            headers={"Location": "http://test-site.wikidot.com"},
+        )
+
+        client = AjaxModuleConnectorClient(site_name="test-site")
+
+        assert client.ssl_supported is False
+
     def test_site_not_found(self, httpx_mock: HTTPXMock) -> None:
         """存在しないサイトはNotFoundException"""
         httpx_mock.add_response(
