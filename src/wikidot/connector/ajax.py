@@ -31,6 +31,19 @@ from ..util.http import sync_get_with_retry
 #: control flow (not a transport-level error). See FormErrorsException.
 _FORM_ERROR_STATUSES = frozenset({"form_errors", "form_error"})
 
+#: redirect status codes that indicate an SSL-capable site when the
+#: Location header points to https. Wikidot has used both 301 and 308
+#: (since 2026-09) for this redirect.
+_SSL_REDIRECT_STATUSES = frozenset(
+    {
+        httpx.codes.MOVED_PERMANENTLY,  # 301
+        httpx.codes.FOUND,  # 302
+        httpx.codes.SEE_OTHER,  # 303
+        httpx.codes.TEMPORARY_REDIRECT,  # 307
+        httpx.codes.PERMANENT_REDIRECT,  # 308
+    }
+)
+
 
 class AjaxRequestHeader:
     """
@@ -371,7 +384,7 @@ class AjaxModuleConnectorClient:
 
         # Determine by checking if redirected to https
         return (
-            response.status_code == httpx.codes.MOVED_PERMANENTLY
+            response.status_code in _SSL_REDIRECT_STATUSES
             and "Location" in response.headers
             and response.headers["Location"].startswith("https")
         )
