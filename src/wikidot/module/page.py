@@ -17,6 +17,7 @@ from ..common import exceptions
 from ..connector.ajax import require_body
 from ..util.amc_body import flag, omit_falsy
 from ..util.parser import odate as odate_parser
+from ..util.parser import page_source as page_source_parser
 from ..util.parser import user as user_parser
 from ..util.requestutil import RequestUtil
 from .page_edit_session import EditMode, PageEditSession
@@ -631,15 +632,12 @@ class PageCollection(list["Page"]):
 
         for page, response in zip(pages, responses, strict=True):
             body = require_body(response, "viewsource/ViewSourceModule")
-            # nbspをスペースに置換
-            body = body.replace("&nbsp;", " ")
-            html = BeautifulSoup(body, "lxml")
-            source_element = html.select_one("div.page-source")
-            if source_element is None:
+            source_text = page_source_parser(body)
+            if source_text is None:
                 raise exceptions.NoElementException(
                     f"Cannot find source element for page: {page.fullname} (id={page.id})"
                 )
-            source = source_element.get_text().strip().removeprefix("\t")
+            source = source_text.strip().removeprefix("\t")
             page.source = PageSource(page, source)
         return pages
 

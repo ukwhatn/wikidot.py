@@ -18,6 +18,7 @@ from ..common.exceptions import NoElementException
 from ..connector.ajax import require_body
 from ..util.amc_body import omit_falsy
 from ..util.parser import odate as odate_parser
+from ..util.parser import page_source as page_source_parser
 from ..util.parser import user as user_parser
 from .page_source import PageSource
 
@@ -218,15 +219,12 @@ class PageRevisionCollection(list["PageRevision"]):
 
         def process_source_response(revision: "PageRevision", response: httpx.Response, page: "Page") -> None:
             body = require_body(response, "history/PageSourceModule")
-            # Replace nbsp with space
-            body = body.replace("&nbsp;", " ")
-            body_html = BeautifulSoup(body, "lxml")
-            wiki_text_elem = body_html.select_one("div.page-source")
-            if wiki_text_elem is None:
+            wiki_text = page_source_parser(body)
+            if wiki_text is None:
                 raise NoElementException("Wiki text element not found")
             revision.source = PageSource(
                 page=page,
-                wiki_text=wiki_text_elem.get_text().strip(),
+                wiki_text=wiki_text.strip(),
             )
 
         return PageRevisionCollection._generic_acquire(
