@@ -7,6 +7,16 @@ from bs4 import BeautifulSoup
 from ..common.exceptions import NoElementException, NotFoundException
 from ..util.requestutil import RequestUtil
 from ..util.stringutil import StringUtil
+from .user_info import (
+    RecentPost,
+    UserChange,
+    UserProfile,
+    UserSiteEntry,
+    fetch_user_changes,
+    fetch_user_posts,
+    fetch_user_profile,
+    fetch_user_site_entries,
+)
 
 if TYPE_CHECKING:
     from .client import Client
@@ -217,6 +227,144 @@ class User(AbstractUser):
                 return None
 
         return result[0]
+
+    def _require_id(self) -> int:
+        if self.id is None:
+            raise ValueError(f"User ID is not set: {self}")
+        return self.id
+
+    def get_changes(
+        self,
+        options: dict[str, bool] | None = None,
+        limit: int | None = None,
+    ) -> list[UserChange]:
+        """
+        Get the user's recent page edits, across all sites (user:info "Recent contributions" tab)
+
+        Login is not required.
+
+        Parameters
+        ----------
+        options : dict[str, bool] | None, default None
+            Filter flags. Keys must be a subset of RECENT_CHANGES_OPTION_KEYS
+            ("all", "source", "title", "move", "files", "new", "meta")
+        limit : int | None, default None
+            Maximum number of entries to retrieve. If None, retrieves all
+
+        Returns
+        -------
+        list[UserChange]
+            List of change history (in descending order by date)
+
+        Raises
+        ------
+        ValueError
+            If options contains an unknown key, or the user ID is not set
+        NoElementException
+            If HTML element parsing fails
+        """
+        return fetch_user_changes(self.client, self._require_id(), options=options, limit=limit)
+
+    def get_posts(self, limit: int | None = None) -> list[RecentPost]:
+        """
+        Get the user's recent forum posts, across all sites (user:info "Recent posts and comments" tab)
+
+        Login is not required.
+
+        Parameters
+        ----------
+        limit : int | None, default None
+            Maximum number of entries to retrieve. If None, retrieves all
+
+        Returns
+        -------
+        list[RecentPost]
+            List of recent posts (in descending order by date)
+
+        Raises
+        ------
+        ValueError
+            If the user ID is not set
+        NoElementException
+            If HTML element parsing fails
+        """
+        return fetch_user_posts(self.client, self._require_id(), limit=limit)
+
+    def get_profile(self) -> UserProfile:
+        """
+        Get the user's profile (user:info "Profile" tab)
+
+        Login is not required.
+
+        Returns
+        -------
+        UserProfile
+            Parsed profile
+
+        Raises
+        ------
+        ValueError
+            If the user ID is not set
+        NoElementException
+            If the profile box is not found
+        AMCHttpStatusCodeException
+            If the user does not exist (Wikidot responds with HTTP 500)
+        """
+        return fetch_user_profile(self.client, self._require_id())
+
+    def get_member_of(self) -> list[UserSiteEntry]:
+        """
+        Get the sites the user is a member of (user:info "Member of" tab)
+
+        Login is not required.
+
+        Returns
+        -------
+        list[UserSiteEntry]
+            Sites the user is a member of (empty if none)
+
+        Raises
+        ------
+        ValueError
+            If the user ID is not set
+        """
+        return fetch_user_site_entries(self.client, self._require_id(), "userinfo/UserInfoMemberOfModule")
+
+    def get_admin_of(self) -> list[UserSiteEntry]:
+        """
+        Get the sites the user is an administrator of (user:info "Admin of" tab)
+
+        Login is not required.
+
+        Returns
+        -------
+        list[UserSiteEntry]
+            Sites the user administers (empty if none)
+
+        Raises
+        ------
+        ValueError
+            If the user ID is not set
+        """
+        return fetch_user_site_entries(self.client, self._require_id(), "userinfo/UserInfoAdminOfModule")
+
+    def get_moderator_of(self) -> list[UserSiteEntry]:
+        """
+        Get the sites the user is a moderator of (user:info "Moderator of" tab)
+
+        Login is not required.
+
+        Returns
+        -------
+        list[UserSiteEntry]
+            Sites the user moderates (empty if none)
+
+        Raises
+        ------
+        ValueError
+            If the user ID is not set
+        """
+        return fetch_user_site_entries(self.client, self._require_id(), "userinfo/UserInfoModeratorOfModule")
 
 
 @dataclass
