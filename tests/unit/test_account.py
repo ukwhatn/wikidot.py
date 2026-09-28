@@ -310,6 +310,35 @@ class TestAccountRecentActivity:
         assert change.revision_no == 5
         assert change.flags == ["S"]
 
+    def test_get_changes_parses_full_url_href(self, mock_client, load_json_fixture):
+        """実機のtd.title > aは完全URL（2026-09-28実測）。パス部分をpage_fullnameにし、"(new)"行はrev 0"""
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="changes-user-id" value="42">'},
+            load_json_fixture("user", "changes_list_last_of_two.json"),
+        )
+
+        recent = AccountRecentActivity(mock_client)
+        changes = recent.get_changes()
+
+        assert changes[0].page_fullname == "ait-series"
+        assert changes[0].revision_no == 10
+        assert changes[1].page_fullname == "arasame-144"
+        assert changes[1].revision_no == 0
+
+    def test_get_changes_stops_at_last_page_pager(self, mock_client, load_json_fixture):
+        """最終ページのpager（« previous, 1 だけ）で落ちずに終了する"""
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="changes-user-id" value="42">'},
+            load_json_fixture("user", "changes_list_first_of_two.json"),
+            load_json_fixture("user", "changes_list_last_of_two.json"),
+        )
+
+        recent = AccountRecentActivity(mock_client)
+        changes = recent.get_changes()
+
+        assert len(changes) == 4
+        assert mock_client.amc_client.request.call_count == 3
+
     def test_get_changes_user_id_is_cached(self, mock_client):
         """2回目以降の呼び出しでは#changes-user-idを再取得しない"""
         mock_client.amc_client.request.side_effect = _mock_responses(
@@ -377,6 +406,22 @@ class TestAccountRecentActivity:
         assert post.title == "Re: Something"
         assert post.url == "http://foo.wikidot.com/forum/t-123#post-456"
         assert post.content == "Post content here"
+
+    def test_get_posts_stops_at_last_page_pager(self, mock_client, load_json_fixture):
+        """投稿21〜40件のアカウントで、2ページ目のpager（« previous, 1 だけ）で落ちずに終了する"""
+        last_page = load_json_fixture("user", "posts_list_empty.json")
+        last_page["body"] = last_page["body"] + USER_RECENT_POSTS_LIST_BODY
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": '<input type="hidden" id="recent-posts-user-id" value="42">'},
+            load_json_fixture("user", "posts_list_middle.json"),
+            last_page,
+        )
+
+        recent = AccountRecentActivity(mock_client)
+        posts = recent.get_posts()
+
+        assert len(posts) == 3
+        assert mock_client.amc_client.request.call_count == 3
 
 
 class TestClientAccountAccessor:
