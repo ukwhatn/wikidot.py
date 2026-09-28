@@ -1078,6 +1078,30 @@ user = client.user.get("username", raise_when_not_found=False)  # Returns None i
 users = client.user.get_bulk(["user1", "user2", "user3"])
 ```
 
+### User Methods (user:info tabs)
+
+Fetch the tabs of `www.wikidot.com/user:info/<unix>` for any `User`. Login
+is not required. All requests go to `www.wikidot.com`.
+
+| Method | Return Type | Description |
+|--------|-------------|-------------|
+| `get_changes(options=None, limit=None)` | `list[UserChange]` | "Recent contributions": the user's recent page edits, across every site. `options` keys: `"all"`/`"source"`/`"title"`/`"move"`/`"files"`/`"new"`/`"meta"` (no `"tags"`) — raises `ValueError` on an unknown key |
+| `get_posts(limit=None)` | `list[RecentPost]` | "Recent posts and comments": the user's recent forum posts, across every site (20 per page, fetched until `limit`) |
+| `get_profile()` | `UserProfile` | "Profile" tab |
+| `get_member_of()` | `list[UserSiteEntry]` | "Member of" tab |
+| `get_admin_of()` | `list[UserSiteEntry]` | "Admin of" tab |
+| `get_moderator_of()` | `list[UserSiteEntry]` | "Moderator of" tab (empty list if none) |
+
+A nonexistent user ID makes Wikidot respond with HTTP 500, which surfaces as
+`AMCHttpStatusCodeException`. A `User` without `id` raises `ValueError`.
+
+| Type | Fields |
+|------|--------|
+| `UserChange` | `site_title`, `site_url`, `page_fullname` (e.g. `"scp-173"`), `page_title`, `revision_no` (`0` for page creation), `changed_at`, `flags` |
+| `RecentPost` | `title`, `url` (post link), `created_at`, `content`, `post_id`, `site_title`, `site_url`, `thread_title`, `thread_url` (the last five are `None` when absent) |
+| `UserProfile` | `fields` (`dict[str, str]` of every row, label without `:`), `real_name`, `website`, `member_since` (`datetime`), `account_type`, `karma_level` (each `None` when the row is absent) |
+| `UserSiteEntry` | `title`, `url`, `subtitle`, `description` (the last two `None` when absent) |
+
 ### Usage
 
 ```python
@@ -1100,6 +1124,15 @@ users = client.user.get_bulk(["user1", "user2", "user3"])
 for user in users:
     if user:
         print(user.name)
+
+# user:info tabs (no login needed)
+for change in user.get_changes(limit=50):
+    print(f"[{change.site_title}] {change.page_fullname} rev.{change.revision_no}")
+for post in user.get_posts(limit=20):
+    print(post.post_id, post.thread_title, post.site_title)
+profile = user.get_profile()
+print(profile.member_since, profile.karma_level)
+print([site.title for site in user.get_admin_of()])
 ```
 
 ---
@@ -1556,10 +1589,10 @@ methods raise `FormErrorsException` on validation failure.
 | `get_changes(options=None, limit=None)` | `list[UserChange]` | The account's own recent page edits, across every site it belongs to. `options` keys: `"all"`/`"source"`/`"title"`/`"move"`/`"files"`/`"new"`/`"meta"` (no `"tags"`, unlike page-history options) — raises `ValueError` on an unknown key |
 | `get_posts(limit=None)` | `list[RecentPost]` | The account's own recent forum posts, across every site |
 
-`UserChange` (`site_title`, `site_url`, `page_fullname`, `page_title`,
-`revision_no`, `changed_at`, `flags`) mirrors `SiteChange` with an added
-site column. `RecentPost` (`title`, `url`, `created_at`, `content`) is one
-recent post.
+These return the same `UserChange` / `RecentPost` types as `User.get_changes`
+/ `User.get_posts` (see "User Methods (user:info tabs)" under User); the
+only difference is that they target the logged-in account and require login.
+To read another user's activity, call the `User` methods instead.
 
 ### Usage
 
@@ -1715,6 +1748,7 @@ src/wikidot/
 │   ├── forum_post.py             # ForumPost, ForumPostCollection
 │   ├── forum_post_revision.py    # ForumPostRevision, ForumPostRevisionCollection
 │   ├── user.py                   # User hierarchy
+│   ├── user_info.py              # user:info tabs (UserChange, RecentPost, UserProfile, UserSiteEntry)
 │   ├── private_message.py        # PrivateMessage, SiteJoinApplication, Contact
 │   ├── site_member.py            # SiteMember
 │   ├── site_application.py       # SiteApplication
