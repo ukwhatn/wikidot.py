@@ -40,6 +40,33 @@ class TestUserParserRegularUser:
         assert result.id == 99999
         assert result.name == "another-user"
 
+    @pytest.mark.parametrize(
+        "href",
+        [
+            # 2026-09 以降の Wikidot が出す形
+            "https://www.wikidot.com/user:info/test-user",
+            "http://www.wikidot.com/user:info/test-user",
+            "https://wikidot.com/user:info/test-user",
+            "//www.wikidot.com/user:info/test-user",
+            "/user:info/test-user",
+            "https://www.wikidot.com/user:info/test-user/",
+        ],
+    )
+    def test_parse_user_strips_profile_url(self, mock_client_no_http: MagicMock, href: str) -> None:
+        """hrefのスキーム・ホストの形によらずunix_nameだけを取り出す"""
+        html = (
+            f'<span class="printuser"><a href="{href}" '
+            'onclick="WIKIDOT.page.listeners.userInfo(12345); return false;">test-user</a></span>'
+        )
+        soup = BeautifulSoup(html, "lxml")
+        elem = soup.select_one("span.printuser")
+        assert elem is not None
+
+        result = user_parse(mock_client_no_http, elem)
+
+        assert isinstance(result, User)
+        assert result.unix_name == "test-user"
+
 
 class TestUserParserDeletedUser:
     """削除済みユーザーのパーステスト"""
