@@ -1,3 +1,4 @@
+import re
 from typing import TYPE_CHECKING
 
 import bs4
@@ -6,6 +7,9 @@ from ...module import user
 
 if TYPE_CHECKING:
     from wikidot.module.client import Client
+
+# プロフィールURLの `/user:info/` までを剥がす（http/https・www の有無を問わない）
+_USER_INFO_PREFIX = re.compile(r"^.*/user:info/")
 
 
 def user_parse(client: "Client", elem: bs4.Tag) -> user.AbstractUser:
@@ -61,7 +65,7 @@ def user_parse(client: "Client", elem: bs4.Tag) -> user.AbstractUser:
     if not isinstance(_user, bs4.Tag):
         raise ValueError("link element is not found")
     user_name = _user.get_text()
-    user_unix = str(_user.get("href")).replace("http://www.wikidot.com/user:info/", "")
+    user_unix = _USER_INFO_PREFIX.sub("", str(_user.get("href"))).rstrip("/")
     user_id = int(
         str(_user.get("onclick")).replace("WIKIDOT.page.listeners.userInfo(", "").replace("); return false;", "")
     )
