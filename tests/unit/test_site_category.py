@@ -39,6 +39,27 @@ class TestSiteCategoryRoundTrip:
 
         assert category.to_dict()["some_future_field"] == "unmodeled_value"
 
+    def test_rating_default_enabled_roundtrip(self, site_categories_single):
+        raw = dict(site_categories_single["categories"][0])
+        raw["rating"] = "mvM"
+
+        category = SiteCategory.from_dict(raw)
+
+        assert category.rating is not None
+        assert category.rating.enabled is None
+        assert category.to_dict() == raw
+
+    def test_unrecognized_rating_survives_roundtrip(self, site_categories_single):
+        # An unrecognized code must neither fail the whole fetch nor be
+        # dropped from the save request
+        raw = dict(site_categories_single["categories"][0])
+        raw["rating"] = "xyzW"
+
+        category = SiteCategory.from_dict(raw)
+
+        assert category.rating is None
+        assert category.to_dict() == raw
+
     def test_permissions_default_true_means_none(self, site_categories_single):
         raw = dict(site_categories_single["categories"][0])
         raw["permissions_default"] = True

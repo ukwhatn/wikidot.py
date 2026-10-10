@@ -105,7 +105,25 @@ class TestRatingSettings:
         for raw in ("drvM", "eraP", "dmaS"):
             assert RatingSettings.decode(raw).encode() == raw
 
+    def test_decode_default_enabled_3chars(self):
+        # scp-jp の admin カテゴリ等の実データ（有効/無効が「デフォルト」）
+        rating = RatingSettings.decode("mvM")
+        assert rating.enabled is None
+        assert rating.voters == "member"
+        assert rating.anonymous is False
+        assert rating.kind == "plus_minus"
+
+    def test_roundtrip_default_enabled(self):
+        for raw in ("mvM", "raP", "maS"):
+            assert RatingSettings.decode(raw).encode() == raw
+
     def test_decode_invalid_length_raises(self):
+        for raw in ("", "vM", "drvMM"):
+            with pytest.raises(ValueError):
+                RatingSettings.decode(raw)
+
+    def test_decode_3chars_with_enabled_symbol_raises(self):
+        # 3文字は1桁目（e/d）が省かれた形なので、先頭が e/d なら不正
         with pytest.raises(ValueError):
             RatingSettings.decode("drv")
 
