@@ -102,6 +102,8 @@ class SiteCategory:
         None means "use site default"
     per_page_discussion_default : bool
     rating : RatingSettings | None
+        None if the response has no code or an unrecognized one (the raw
+        string is still sent back unchanged by to_dict())
     autonumerate : bool
     page_title_template : str | None
     enable_pingback_out : bool
@@ -152,6 +154,14 @@ class SiteCategory:
         """
         permissions_str = data.get("permissions")
         rating_str = data.get("rating")
+        rating: RatingSettings | None = None
+        if rating_str:
+            try:
+                rating = RatingSettings.decode(rating_str)
+            except ValueError:
+                # Failing here would make the whole categories fetch unusable
+                # for one unknown code; to_dict() resends it from _raw instead
+                rating = None
         return cls(
             category_id=data["category_id"],
             site_id=data["site_id"],
@@ -172,7 +182,7 @@ class SiteCategory:
             template_id=data.get("template_id"),
             per_page_discussion=data.get("per_page_discussion"),
             per_page_discussion_default=bool(data.get("per_page_discussion_default", True)),
-            rating=RatingSettings.decode(rating_str) if rating_str else None,
+            rating=rating,
             autonumerate=bool(data.get("autonumerate", False)),
             page_title_template=data.get("page_title_template"),
             enable_pingback_out=bool(data.get("enable_pingback_out", False)),
@@ -212,7 +222,7 @@ class SiteCategory:
             template_id=self.template_id,
             per_page_discussion=self.per_page_discussion,
             per_page_discussion_default=self.per_page_discussion_default,
-            rating=self.rating.encode() if self.rating is not None else None,
+            rating=self.rating.encode() if self.rating is not None else self._raw.get("rating"),
             autonumerate=self.autonumerate,
             page_title_template=self.page_title_template,
             enable_pingback_out=self.enable_pingback_out,

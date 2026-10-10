@@ -3,8 +3,8 @@ Encoders/decoders for Wikidot's compact permission and rating strings
 
 Manage Site's category objects hold permissions as a single semicolon-
 separated string (e.g. ``v:armo;c:m;...``), forum permissions in a similar
-but distinct format, and rating configuration as a fixed 4-character code
-(e.g. ``drvM``). These are typed here instead of being passed around as raw
+but distinct format, and rating configuration as a 3- or 4-character code
+(e.g. ``drvM``, or ``mvM`` when enabled/disabled follows the site default). These are typed here instead of being passed around as raw
 strings so callers get validation and IDE support; see 30_plan.md D4 for the
 design rationale (in particular: unknown symbols are preserved through a
 decode/encode round trip rather than dropped, since at least one forum
@@ -254,12 +254,19 @@ _SYMBOL_TO_KIND: dict[str, Literal["plus_only", "plus_minus", "stars"]] = {
 @dataclass(frozen=True)
 class RatingSettings:
     """
-    Decoded form of a category's 4-character `rating` code (e.g. "drvM")
+    Decoded form of a category's `rating` code (e.g. "drvM" or "mvM")
+
+    The code is built by Manage Site's ManageSitePageRateSettingsModule JS
+    (`updateFromForm`), which concatenates one symbol per select box. The
+    enabled/disabled box of a non-`_default` category also has a "default"
+    option, for which the JS appends nothing, so that case is a 3-character
+    code.
 
     Attributes
     ----------
-    enabled : bool
-        Whether rating is enabled for the category
+    enabled : bool | None
+        Whether rating is enabled for the category. None means "use site
+        default" (inherit from the `_default` category)
     voters : Literal["registered", "member"]
         Who can vote
     anonymous : bool
@@ -268,23 +275,23 @@ class RatingSettings:
         Rating widget type
     """
 
-    enabled: bool
+    enabled: bool | None
     voters: Literal["registered", "member"]
     anonymous: bool
     kind: Literal["plus_only", "plus_minus", "stars"]
 
     def encode(self) -> str:
         """
-        Encode back into Wikidot's 4-character `rating` code
+        Encode back into Wikidot's `rating` code
 
         Returns
         -------
         str
-            e.g. "drvM"
+            e.g. "drvM", or "mvM" when `enabled` is None
         """
         return "".join(
             [
-                "e" if self.enabled else "d",
+                "" if self.enabled is None else "e" if self.enabled else "d",
                 _VOTER_TO_SYMBOL[self.voters],
                 "a" if self.anonymous else "v",
                 _KIND_TO_SYMBOL[self.kind],
@@ -299,7 +306,8 @@ class RatingSettings:
         Parameters
         ----------
         s : str
-            4-character code, e.g. "drvM"
+            4-character code (e.g. "drvM"), or 3-character code without the
+            enabled/disabled symbol (e.g. "mvM")
 
         Returns
         -------
@@ -308,25 +316,27 @@ class RatingSettings:
         Raises
         ------
         ValueError
-            If `s` is not a recognized 4-character code. Unlike
-            PagePermissions/ForumPermissions, no unrecognized-but-real
-            variant of this code was found during the survey (each of the
-            4 positions has exactly 2 documented values), so this raises
-            instead of silently guessing at an unknown format
+            If `s` is not a recognized code. A fixed-position code has no
+            per-segment slot to keep an unknown symbol in, so instead of
+            guessing, this raises; SiteCategory.from_dict catches it and
+            keeps the raw string so a save round-trips it unchanged
         """
-        if (
-            len(s) != 4
-            or s[0] not in "ed"
-            or s[1] not in _SYMBOL_TO_VOTER
-            or s[2] not in "av"
-            or s[3] not in _SYMBOL_TO_KIND
-        ):
+        enabled: bool | None
+        if len(s) == 4 and s[0] in "ed":
+            enabled = s[0] == "e"
+            rest = s[1:]
+        elif len(s) == 3:
+            enabled = None
+            rest = s
+        else:
+            raise ValueError(f"Invalid rating code: {s!r}")
+        if rest[0] not in _SYMBOL_TO_VOTER or rest[1] not in "av" or rest[2] not in _SYMBOL_TO_KIND:
             raise ValueError(f"Invalid rating code: {s!r}")
         return cls(
-            enabled=s[0] == "e",
-            voters=_SYMBOL_TO_VOTER[s[1]],
-            anonymous=s[2] == "a",
-            kind=_SYMBOL_TO_KIND[s[3]],
+            enabled=enabled,
+            voters=_SYMBOL_TO_VOTER[rest[0]],
+            anonymous=rest[1] == "a",
+            kind=_SYMBOL_TO_KIND[rest[2]],
         )
 
 

@@ -1305,11 +1305,13 @@ field rather than being dropped.
 
 ### RatingSettings / SiteLicense
 
-`RatingSettings` decodes a category's 4-character `rating` code (e.g.
-`"drvM"`): `enabled: bool`, `voters: Literal["registered", "member"]`,
+`RatingSettings` decodes a category's `rating` code (e.g. `"drvM"`):
+`enabled: bool | None`, `voters: Literal["registered", "member"]`,
 `anonymous: bool`, `kind: Literal["plus_only", "plus_minus", "stars"]`.
-`RatingSettings.decode(s)` raises `ValueError` on an unrecognized code
-(unlike Page/ForumPermissions, no unknown-but-real variant exists here).
+A 3-character code (e.g. `"mvM"`) omits the enabled/disabled symbol and
+decodes to `enabled=None` ("use site default"). `RatingSettings.decode(s)`
+raises `ValueError` on an unrecognized code; `SiteCategory.from_dict` then
+sets `rating=None` and `to_dict()` sends the raw code back unchanged.
 
 `SiteLicense` is an `Enum` of the 15 known `license_id` values (e.g.
 `SiteLicense.CC_ATTRIBUTION_SHAREALIKE_3_0`, `SiteLicense.OTHER`).
