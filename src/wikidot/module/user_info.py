@@ -171,7 +171,7 @@ class UserProfile:
     account_type : str | None
         "Account type" row (e.g. "free")
     karma_level : str | None
-        First word of the "Karma level" row (e.g. "high")
+        Full "Karma level" value without the help text (e.g. "high" or "very high")
     """
 
     client: "Client"
@@ -503,7 +503,7 @@ def fetch_user_profile(client: "Client", user_id: int) -> UserProfile:
         website = str(website_link.get("href", "")) if website_link else fields["Website"]
 
     member_since_elem = dds["Wikidot user since"].select_one("span.odate") if "Wikidot user since" in dds else None
-    karma_words = fields.get("Karma level", "").split()
+    karma_level = fields.get("Karma level", "").partition("(")[0].strip()
 
     return UserProfile(
         client=client,
@@ -512,7 +512,7 @@ def fetch_user_profile(client: "Client", user_id: int) -> UserProfile:
         website=website,
         member_since=odate_parser(member_since_elem) if member_since_elem else None,
         account_type=fields.get("Account type"),
-        karma_level=karma_words[0] if karma_words else None,
+        karma_level=karma_level or None,
     )
 
 
