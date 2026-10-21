@@ -232,6 +232,33 @@ class TestUserGetProfile:
             "Karma level": "high (what is this?)",
         }
 
+    @pytest.mark.parametrize("level", ["very high", "high", "medium", "low", "none"])
+    @pytest.mark.parametrize("help_text", ["", ' (<a href="https://www.wikidot.com/doc:karma">what is this?</a>)'])
+    def test_karma_level_excludes_help_text(self, mock_client, user, level, help_text):
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {
+                "body": '<div class="profile-box"><dl><dt>Karma level:</dt>'
+                f'<dd>\n {level} <img src="//www.wikidot.com/userkarma.php?u=8823243&amp;onlyKarma=true"'
+                f' alt="karma level"/>{help_text}\n </dd></dl></div>'
+            }
+        )
+
+        profile = user.get_profile()
+
+        assert profile.karma_level == level
+        assert profile.fields["Karma level"] == (f"{level} (what is this?)" if help_text else level)
+
+    @pytest.mark.parametrize("value", ["", " \n\t "])
+    def test_empty_karma_level_is_none(self, mock_client, user, value):
+        mock_client.amc_client.request.side_effect = _mock_responses(
+            {"body": f'<div class="profile-box"><dl><dt>Karma level:</dt><dd>{value}</dd></dl></div>'}
+        )
+
+        profile = user.get_profile()
+
+        assert profile.karma_level is None
+        assert profile.fields["Karma level"] == ""
+
     def test_missing_rows_are_none(self, mock_client, user):
         mock_client.amc_client.request.side_effect = _mock_responses(
             {
